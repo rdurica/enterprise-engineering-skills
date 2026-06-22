@@ -21,6 +21,8 @@ Preset: {{PRESET}}
 
 Priority: PRD `## Delivery` overrides > this file > setup preset.
 
+{{MONOREPO_SECTION}}
+
 ## Tracker
 
 - active: {{TRACKER_ACTIVE}}       <!-- github | local -->

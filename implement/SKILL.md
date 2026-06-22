@@ -16,6 +16,13 @@ Do not implement slice issues directly — always enter via the parent PRD (or s
 
 Read `docs/agents/issue-tracker.md`, `docs/agents/workflow.md`, and `docs/agents/domain.md` if present — run `/setup` if missing.
 
+If `docs/agents/workflow.md` has a `## Monorepo` section, read it before branching, pushing, or opening PRs. It distinguishes:
+
+- **container root** — monorepo wrapper; stays on `main`; no branch, commit, push, or PR during `/implement`
+- **delivery roots** — nested git repos where branch/commit/push/PR happen
+
+Without `## Monorepo`, treat the cwd repo as the only delivery root. If nested `.git` dirs exist but the section is missing, ask the user or infer from `workflow.md` before proceeding.
+
 All tracker operations follow `docs/agents/issue-tracker.md` (GitHub `gh` commands or local `.scratch/` files — do not hardcode one backend).
 
 ## Workflow
@@ -46,14 +53,17 @@ If all slices are already done → go to **Finalize**.
 
 Read **branch-owner** from PRD `## Delivery`, else `docs/agents/workflow.md`, else session override.
 
-Run `git status` first.
+Run `git status` in each delivery root that this slice will touch (and in container root if monorepo).
 
 **branch-owner: agent**
 
 - Branch name from PRD `## Delivery`.
-- If branch missing locally/remotely: `git checkout -b <branch>` from default branch.
-- If branch exists: checkout, `git pull --rebase origin <branch>` when remote exists.
-- **Stop** if working tree has unrelated uncommitted changes — ask user to stash or commit first.
+- In each **delivery root** that will receive commits for this slice:
+  - If branch missing locally/remotely: `git checkout -b <branch>` from default branch.
+  - If branch exists: checkout, `git pull --rebase origin <branch>` when remote exists.
+- In a monorepo **container root**: stay on `main` — do **not** checkout or create the delivery branch.
+- **Stop** if a delivery root has unrelated uncommitted changes — ask user to stash or commit first.
+- Submodule pointer diffs in the container root are expected and **not** a blocker — do not commit them (user bumps pointers on `main` after sub-repo PRs merge).
 
 **branch-owner: human**
 
@@ -81,7 +91,7 @@ Do not commit until every gate passes. **Loop:** fix → re-run failed gate → 
 | **Tests** | Full relevant suite green (single file per TDD cycle during 4a; full suite here) |
 | **Tooling** | Commands from target repo `AGENTS.md` — e.g. PHP: style fix/check, static analysis; frontend: typecheck |
 | **Linter** | No new diagnostics in touched files |
-| **Git** | `git status` / `git diff` show only intentional changes — no debug or temp files |
+| **Git** | In each delivery root: `git status` / `git diff` show only intentional changes — no debug or temp files. Ignore dirty submodule pointers in container root. |
 
 If any gate fails → fix → re-run from the failed gate. Do **not** proceed to commit, close slice, push, or handoff until all gates pass.
 
@@ -89,14 +99,14 @@ Only after all gates pass → proceed to **4c. Ship**.
 
 ### 4c. Ship (only after Verify passes)
 
-1. Commit: `feat(scope): <slice title> (#<sliceNum or slug>)`
+1. Commit in each affected **delivery root**: `feat(scope): <slice title> (#<sliceNum or slug>)` — `cd` into the root directory, stage only that root's files. **Never** commit in the monorepo container root (including submodule pointer bumps).
 2. Close slice per issue-tracker conventions (or mark PRD AC done in single-slice mode).
-3. **Push** per push policy from Delivery / `workflow.md`:
-   - `each-slice`: `git push -u origin <branch>` (skip if no remote or branch-owner human with no remote tracking)
+3. **Push** per push policy from Delivery / `workflow.md` — delivery roots only:
+   - `each-slice`: `git push -u origin <branch>` in **each affected delivery root** (skip if no remote or branch-owner human with no remote tracking)
    - `finalize`: skip push here
    - `never`: skip push; note in handoff comment
 
-Current branch for handoff: `git branch --show-current`.
+Current branch for handoff: `git branch --show-current` in each affected delivery root (container root stays on `main`).
 
 ### 5. Hand off or finalize
 
@@ -113,11 +123,30 @@ Stop. Do not implement further slices.
 **Last slice done → Finalize:**
 
 1. Run **`/to-review`** against merge-base when the branch was first created (or first commit on branch vs default branch).
-2. Push if policy is `finalize` and not yet pushed: `git push -u origin <branch>`
-3. Open PR when branch-owner is agent or user expects it (`gh pr create` for GitHub repos).
-4. Update PRD to `ready-to-review`; comment with PR URL if created.
+2. Push if policy is `finalize` and not yet pushed: `git push -u origin <branch>` in **each affected delivery root**.
+3. Open PR when branch-owner is agent or user expects it — **delivery roots only**:
+   - Determine affected delivery roots from commits on the delivery branch vs default branch.
+   - In each delivery root with commits: `cd <path>` → `gh pr create` (title/body reference PRD `#N`).
+   - **Never** open a PR on the monorepo container root — it stays on `main`.
+   - Collect all PR URLs.
+4. Update PRD to `ready-to-review`; post final comment with **all** PR URLs:
 
-When branch-owner is `human` and push is `never`, skip PR creation unless user asked — note in comment that user should push and open PR.
+```markdown
+All slices implemented.
+
+## Pull requests
+
+- **{repo}** ({path}): {url}
+- ...
+
+## Monorepo (if applicable)
+
+Submodule pointer bumps on the container root are for the user after sub-repo PRs merge.
+```
+
+The chat handoff must include the same PR list and monorepo note when applicable.
+
+When branch-owner is `human` and push is `never`, skip PR creation unless user asked — note in comment that user should push and open PR in each affected delivery root.
 
 ### 6. Failure mid-slice
 
@@ -136,6 +165,7 @@ If the session ends before the slice is closed:
 - Do not close the parent PRD — only transition to `ready-to-review` after finalize
 - Slice issues never get `ready-for-implementation` — trigger stays on PRD only
 - **Verify before ship** — all DoD gates (4b) must pass before commit, close, push, or handoff
+- **Monorepo container root** — always on `main`; no delivery branch, commit, push, or PR
 
 ## Forbidden
 
@@ -144,3 +174,5 @@ If the session ends before the slice is closed:
 - Skip the full test suite to save time
 - Re-add `ready-for-implementation` on the PRD before Verify (4b) passes
 - Checkout or create branches when branch-owner is `human`
+- Checkout delivery branch, commit, push, or open PR on the monorepo container root
+- Commit submodule pointer bumps during `/implement` — user handles that on `main` after sub-repo PRs merge

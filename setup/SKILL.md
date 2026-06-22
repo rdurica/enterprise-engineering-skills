@@ -23,6 +23,7 @@ Read what already exists — do not assume:
 - `CLAUDE.md` or `AGENTS.md` — existing `## Agent skills` block?
 - `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`
 - `docs/agents/` — prior setup output?
+- **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
 If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push handoff → **full-agentic**.
 
@@ -49,6 +50,7 @@ If tracker is **Both**: write active backend to `issue-tracker.md` and reference
 
 - **Domain layout:** `single-context` unless `CONTEXT-MAP.md` exists → `multi-context`
 - **Agent trigger:** `ready-for-implementation` on PRD only (documented in issue-tracker templates)
+- **Monorepo:** if nested git repos were found in Explore, include `## Monorepo` in the workflow draft (see below). Otherwise omit the section.
 
 ### 4. Confirm and write
 
@@ -63,7 +65,22 @@ Let the user edit, then write.
 
 #### workflow.md
 
-Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`.
+Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{MONOREPO_SECTION}}`.
+
+**`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
+
+```markdown
+## Monorepo
+
+- container-root: .          <!-- stays on main — no branch, commit, push, or PR during /implement -->
+- delivery-roots:
+  - path: backend
+    remote: org/backend
+  - path: frontend
+    remote: org/frontend
+```
+
+Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, `git remote -v` in each path). Let the user confirm or edit before writing. Submodule pointer bumps on the container root are **not** part of the agent pipeline — document only, no automation.
 
 #### Agent skills block
 

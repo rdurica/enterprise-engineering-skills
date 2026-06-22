@@ -13,7 +13,7 @@ Composable agent skills for structured feature delivery. Based on [mattpocock/sk
 | 5 | `/implement #PRD` | **One slice**, TDD + mandatory DoD verify, handoff or finalize |
 | 6 | `/to-review` | Parallel Standards + Spec report; PR opened during implement finalize when applicable |
 
-**Outside the pipeline:** `git-release`, `integration-tests` (Symfony HTTP integration tests), `tdd` (model-invoked during implement).
+**Outside the pipeline:** `git-release`, `monorepo-update`, `integration-tests` (Symfony HTTP integration tests), `tdd` (model-invoked during implement).
 
 ## PRD lifecycle
 
@@ -34,7 +34,7 @@ stateDiagram-v2
 
 - Slice issues grouped by `epic-<N>` (GitHub) or `.scratch/<slug>/issues/` (local)
 - Handoff cycle: `ready-for-implementation` → agent starts → `in-progress` → slice done → `ready-for-implementation` again (or `ready-to-review` when finished)
-- Finalize (last slice): run `/to-review`, push per policy, open PR, PRD → `ready-to-review`
+- Finalize (last slice): run `/to-review`, push per policy, open PR in each affected delivery root, PRD → `ready-to-review`. In a monorepo, PRs only in sub-repos; the container root stays on `main` (no PR during `/implement`) — run `/monorepo-update` after sub-repo PRs merge to bump submodule pointers.
 
 ## Setup presets
 
@@ -103,11 +103,13 @@ to-review/          — Standards + Spec parallel sub-agent review
 tdd/                — (model-invoked) red-green-refactor discipline
 integration-tests/  — (model-invoked) Symfony HTTP integration test playbook
 git-release/        — semver tag + GitHub release; user must confirm version
+monorepo-update/    — sync delivery roots to main; bump + push submodule pointers on container root
 ```
 
 ### Outside the pipeline
 
 - **`git-release`** — any repo with `gh`; mandatory version confirmation before tagging; English release notes
+- **`monorepo-update`** — after sub-repo PRs merge; pulls each delivery root on `main`, commits pointer bump on container root
 - **`integration-tests`** — invoked during implement for PHP backend HTTP APIs; project paths and run commands in target repo `AGENTS.md`
 - **`tdd`** — invoked by implement at pre-agreed test seams
 
