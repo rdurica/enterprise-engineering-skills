@@ -1,8 +1,8 @@
 ---
 name: monorepo-update
 description: >-
-  Syncs a monorepo after sub-repo PRs merge — checks out main and pulls each
-  delivery root, then commits and pushes submodule pointer bumps on the
+  Syncs a monorepo after sub-repo PRs merge — enters each delivery root, runs
+  git checkout main and git pull, then commits and pushes submodule pointer bumps on the
   container root. Use when the user runs /monorepo-update or asks to bump
   submodules / sync monorepo to latest main.
 disable-model-invocation: true
@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # Monorepo update
 
-Sync delivery roots to latest `main`, then bump and push submodule pointers on the container root. Complements `/implement` — agents never commit pointer bumps during implementation.
+Enter every delivery root, run `git checkout main` and `git pull`, then bump and push submodule pointers on the container root. Complements `/implement` — agents never commit pointer bumps during implementation.
 
 Run from the **container root** of the target project (not `~/.cursor/skills`).
 
@@ -21,17 +21,19 @@ Run from the **container root** of the target project (not `~/.cursor/skills`).
 
 ## Prerequisites
 
-- `docs/agents/workflow.md` contains `## Monorepo` with `delivery-roots` — if missing, stop and suggest `/setup`
+- Prefer `docs/agents/workflow.md` with `## Monorepo` and `delivery-roots`
+- If `## Monorepo` or `delivery-roots` is missing, fall back to `git submodule status` for delivery-root paths
+- Stop only if neither `workflow.md` nor `git submodule status` can identify delivery roots; then suggest `/setup`
 - `git` and network access; `origin` remote must exist on the container root for push
 
 ## Step 1: Load config
 
-Read `## Monorepo` from `docs/agents/workflow.md` (same terms as `/implement`):
+Read `## Monorepo` from `docs/agents/workflow.md` when available (same terms as `/implement`):
 
 - **container-root** — monorepo wrapper (usually `.`)
 - **delivery-roots** — list of `{ path, remote }` entries
 
-If paths are missing but the section exists, fall back to `git submodule status` for paths.
+If the file, section, or paths are missing, fall back to `git submodule status` for paths.
 
 Record each delivery-root HEAD before sync (`git -C <path> rev-parse HEAD`) for the final report.
 
@@ -45,15 +47,28 @@ git status -sb
 git branch --show-current
 ```
 
-**STOP** if any root has:
+For the container root, also inspect porcelain status:
+
+```bash
+git status --porcelain --untracked-files=all
+```
+
+**STOP** if any delivery root has:
 
 - Uncommitted changes (tracked or untracked outside `.gitignore`)
 - Merge or rebase in progress
-- A delivery root not on `main`/`master` **and** local commits or changes vs remote
+
+A delivery root being on a feature branch, ahead of `origin/main`, or behind `origin/main` is not a blocker by itself. If the delivery root is clean, continue and switch it to `main` in Step 3.
+
+**STOP** if the container root has:
+
+- Merge or rebase in progress
+- Uncommitted changes outside the delivery-root submodule paths
+- Untracked files outside the delivery-root submodule paths
+
+Submodule pointer changes for delivery-root paths are allowed in the container root. They are the refs this skill is expected to stage, commit, and push.
 
 On STOP, report a per-repo table: `path`, branch, problem, suggested fix. Do not stash, discard, or force anything.
-
-Resolve default branch per root when not `main`: `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'` or `main` then `master`.
 
 ## Step 3: Sync delivery roots
 
@@ -61,22 +76,18 @@ In `workflow.md` order, for each delivery root:
 
 ```bash
 cd <path>
-git checkout <default-branch>
-git fetch origin
-git pull --ff-only origin <default-branch>
+git checkout main
+git pull
 ```
 
-Use `--ff-only` deliberately — no merge commits on default branch.
-
-On failure (diverged branch, conflict, network error) → **STOP**. Do not commit on the container root.
+On failure (dirty tree, missing `main`, diverged branch, conflict, network error) → **STOP**. Do not commit on the container root.
 
 ## Step 4: Bump container root
 
 ```bash
 cd <container-root>
-git checkout <default-branch>
-git fetch origin
-git pull --ff-only origin <default-branch>
+git checkout main
+git pull
 git add <submodule-paths>   # paths from delivery-roots
 git status
 ```
@@ -91,7 +102,7 @@ chore: bump submodules to latest main
 
 EOF
 )"
-git push origin <default-branch>
+git push origin main
 ```
 
 ## Step 5: Report
@@ -106,7 +117,7 @@ Respond in the user's language. Include:
 
 - Edit code in delivery roots — checkout and pull only
 - Commit or push in delivery roots
-- Use `git pull --rebase` on default branch (only `--ff-only`)
+- Use `git pull --rebase`
 - Force-push
 - Auto-stash — user fixes dirty trees manually
 - Commit anything on the container root except submodule pointer updates
@@ -114,9 +125,10 @@ Respond in the user's language. Include:
 ## Checklist
 
 ```
-- [ ] ## Monorepo loaded from workflow.md
-- [ ] Preflight clean in container + all delivery roots
-- [ ] Each delivery root on default branch, pulled --ff-only
+- [ ] Delivery-root config loaded from workflow.md or fallback
+- [ ] Delivery-root paths loaded from workflow.md or git submodule status
+- [ ] Delivery roots clean; container has no changes except allowed submodule refs
+- [ ] Each delivery root checked out to main and pulled
 - [ ] Container pulled; submodule paths staged
 - [ ] Commit + push (or noop if already up to date)
 - [ ] Per-repo SHA report delivered
