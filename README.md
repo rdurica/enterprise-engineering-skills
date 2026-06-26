@@ -11,7 +11,7 @@ Composable agent skills for structured feature delivery. Based on [mattpocock/sk
 | 3 | `/to-prd` | PRD published with `needs-slicing` + `## Delivery` (branch, epic, branch-owner, push) |
 | 4 | `/to-issues` | Vertical slice issues + PRD → `ready-for-implementation` |
 | 5 | `/implement #PRD` | **One slice**, TDD + mandatory DoD verify, handoff or finalize |
-| 6 | `/to-review` | Parallel Standards + Spec report; PR opened during implement finalize when applicable |
+| 6 | `/to-review` | Sync delivery-root branches in monorepos (checkout + pull), then parallel Standards + Spec report |
 
 **Outside the pipeline:** `git-release`, `monorepo-update`, `integration-tests` (Symfony HTTP integration tests), `tdd` (model-invoked during implement).
 
@@ -64,7 +64,7 @@ Per-repo config lives in `docs/agents/workflow.md`. This skills repo is shared a
 1. Run **align → to-prd → to-issues** in one context window
 2. After **to-issues**, start a **new session** on the PRD for `/implement` — each agent handles exactly one slice
 3. Agent passes the DoD gate after each slice; push per `workflow.md` (`each-slice` | `finalize` | `never`)
-4. **`/to-review`** runs after the last slice (during implement finalize)
+4. **`/to-review`** runs after the last slice (during implement finalize). In monorepos it checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root.
 
 ## branch-owner
 
@@ -99,7 +99,7 @@ align/              — alignment interview; no PRD here
 to-prd/             — conversation → published PRD (needs-slicing)
 to-issues/          — PRD → tracer-bullet vertical slices
 implement/          — one slice, DoD verify, handoff via PRD label toggle
-to-review/          — Standards + Spec parallel sub-agent review
+to-review/          — Standards + Spec review; monorepo sync of delivery roots before diff
 tdd/                — (model-invoked) red-green-refactor discipline
 integration-tests/  — (model-invoked) Symfony HTTP integration test playbook
 git-release/        — semver tag + GitHub release; user must confirm version
