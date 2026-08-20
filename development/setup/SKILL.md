@@ -23,7 +23,7 @@ Read what already exists — do not assume:
 - `CLAUDE.md` or `AGENTS.md` — existing `## Agent skills` block?
 - `docs/adr/` — existing ADRs?
 - `docs/agents/` — prior setup output?
-- `.cursor/skills/` — project-vendored pipeline skills already present?
+- `.cursor/skills/development/` — project-vendored pipeline skills already present?
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
 If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push after verify → **full-agentic**.
@@ -106,7 +106,7 @@ Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, prd-language, work types).
 Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
-Project skills: `.cursor/skills/` (vendored by `/setup` if missing).
+Project skills: `.cursor/skills/development/` (vendored by `/setup` if missing).
 ```
 
 #### issue-tracker.md
@@ -121,13 +121,13 @@ First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker:
 
 ### 5. Vendor pipeline skills
 
-Copy this skills pack into the **target repo** at `.cursor/skills/` so the pipeline is in git and works for anyone who clones the project (not only machines with `~/.cursor/skills`).
+Copy this skills pack into the **target repo** at `.cursor/skills/development/` so the pipeline is in git and works for anyone who clones the project (not only machines with `~/.cursor/skills`).
 
-**Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` next to `align/`, `implement/`, `verify/`).
+**Skip this step** when the current working directory **is** the skills pack itself (cwd contains `development/setup/SKILL.md`).
 
-**Source:** parent of this skill — the directory that contains `setup/SKILL.md` (typically `~/.cursor/skills`). Never copy from `~/.cursor/skills-cursor/`.
+**Source:** parent of this skill — `development/` (typically `~/.cursor/skills/development`). Never copy from `~/.cursor/skills-cursor/`. Do **not** copy `images/`.
 
-**Destination:** `<target-repo>/.cursor/skills/` at the container root (not inside delivery roots).
+**Destination:** `<target-repo>/.cursor/skills/development/` at the container root (not inside delivery roots).
 
 **Copy only these directories** (pipeline + commit format + helpers implement/verify read):
 
@@ -135,13 +135,11 @@ Copy this skills pack into the **target repo** at `.cursor/skills/` so the pipel
 align  to-prd  implement  verify  tdd  integration-tests  setup  git-release  monorepo-update  commit
 ```
 
-Do **not** copy `img`, `img-upscale`, `.git`, `README.md`, or anything else in the personal pack.
-
-**If missing only:** if `<dest>/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent.
+**If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent.
 
 ```bash
-SOURCE="<skills-pack-root>"   # parent of setup/SKILL.md
-DEST=".cursor/skills"
+SOURCE="<development-dir>"   # parent of setup/SKILL.md
+DEST=".cursor/skills/development"
 mkdir -p "$DEST"
 for name in align to-prd implement verify tdd integration-tests setup git-release monorepo-update commit; do
   if [ -f "$DEST/$name/SKILL.md" ]; then
@@ -166,4 +164,4 @@ Setup complete. Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
 
 Report which skills were copied and which were skipped as already present.
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-run also copies any still-missing skills; it does not overwrite existing `.cursor/skills/*`.
+User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-run also copies any still-missing skills; it does not overwrite existing `.cursor/skills/development/*`.

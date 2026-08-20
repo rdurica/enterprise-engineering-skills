@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 Nothing ships until this gate is green. `/implement` runs this skill after all PRD acceptance criteria. `/verify` may be invoked directly if that session died.
 
-Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` if missing. If the repo has `.cursor/skills/verify/SKILL.md`, read it after this skill.
+Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` if missing. If the repo has a verify overlay, read it after this skill: `.cursor/skills/development/verify/SKILL.md`, else `.cursor/skills/verify/SKILL.md`.
 
 **branch-owner** from PRD `## Delivery`, else `workflow.md`. Read the matching file **now** (agent syncs before the diff):
 

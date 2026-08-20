@@ -6,7 +6,7 @@ Composable agent skills for structured feature delivery. Based on [mattpocock/sk
 
 | Phase | Skill | Output |
 |-------|-------|--------|
-| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block + pipeline skills copied to `.cursor/skills/` if missing |
+| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block + pipeline skills copied to `.cursor/skills/development/` if missing |
 | 1–2 | `/align` | Shared understanding; optional `docs/adr/` updates |
 | 3 | `/to-prd` | PRD published (`prd` on GitHub, or `.scratch/prd/NNN-<slug>.md`) + `## Delivery` (branch, branch-owner, push) |
 | 4 | `/implement #PRD` | Plan increments; parent does small work, sub-agents only for large changes; then `/verify` |
@@ -51,7 +51,7 @@ stateDiagram-v2
 
 **Issue tracker backends:** GitHub (`gh`), Local (`.scratch/`), or **Both** (active backend in `issue-tracker.md` + reference copies).
 
-Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `~/.cursor/skills`. `/setup` vendors the pipeline skills into the target repo at `.cursor/skills/` when they are not already there (does not overwrite existing copies).
+Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `~/.cursor/skills`. `/setup` vendors [development/](development/) skills into the target repo at `.cursor/skills/development/` when they are not already there (does not overwrite existing copies). It does not copy [images/](images/).
 
 ## When to use the pipeline
 
@@ -99,31 +99,16 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 GitHub (`gh`) or local (`.scratch/prd/NNN-<slug>.md`; finished work in `.scratch/prd/done/`). Configured by `/setup`. Skills read `docs/agents/issue-tracker.md`. PRD language (`en` | `cs`) lives in `docs/agents/workflow.md`.
 
-## Skills in this repo
+## Layout
+
+Category folders are organizational only. Cursor walks the pack recursively and loads every `SKILL.md`. The skill name is the folder that contains `SKILL.md` (`images/img` is still `/img`).
 
 ```
-setup/              — per-repo tracker, git workflow, domain doc layout
-align/              — alignment interview; no PRD here
-to-prd/             — conversation → published PRD
-implement/          — plan from PRD; parent for small work, sub-agents for large increments, then verify
-verify/             — Spec + Standards + tests; agent: CI + PR; human: HEAD
-commit/             — Conventional Commits (English); used by implement/verify
-tdd/                — red-green-refactor (parent and implement sub-agents)
-integration-tests/  — Symfony HTTP integration tests (parent and implement sub-agents)
-git-release/        — semver tag + GitHub release; user must confirm version
-monorepo-update/    — sync delivery roots to main; bump + push submodule pointers on container root
+development/   — feature pipeline + helpers; `/setup` vendors these
+images/        — personal image skills; not vendored
 ```
 
-### Helpers (during implement / verify)
-
-- **`tdd`** — invoked at pre-agreed test seams
-- **`integration-tests`** — PHP backend HTTP APIs; project paths and run commands in target repo `AGENTS.md`
-- **`commit`** — English Conventional Commits; no push/PR
-
-### Outside the feature pipeline
-
-- **`git-release`** — any repo with `gh`; mandatory version confirmation before tagging; English release notes
-- **`monorepo-update`** — after sub-repo PRs merge; pulls each delivery root on `main`, commits pointer bump on container root
+Lists: [development/README.md](development/README.md), [images/README.md](images/README.md).
 
 ## Installation
 
@@ -135,4 +120,4 @@ git clone git@github.com:{owner}/{repository}.git ~/.cursor/skills
 
 Replace `{owner}` and `{repository}` with your GitHub user/org and repo name (often `skills`).
 
-Cursor auto-loads each `*/SKILL.md`.
+Cursor auto-loads nested `SKILL.md` files under `~/.cursor/skills/`.
