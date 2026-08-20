@@ -69,7 +69,7 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 1. Run **align → to-prd** in one context window when the feature still needs decisions.
 2. `/implement` on the PRD: one session for the whole PRD. Small increments in the parent; sub-agents only for large ones. Resume from `in-progress` if the session dies.
 3. `/verify` runs automatically at the end of implement. **agent:** push + CI + PR. **human:** stay on HEAD; user pushes.
-4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root.
+4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root. GitHub PRDs/issues always live on the container-root repo (`gh -R`), not in delivery-root repos.
 
 ## branch-owner
 

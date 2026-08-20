@@ -2,19 +2,34 @@
 
 Issues and PRDs live as GitHub issues. Use the `gh` CLI.
 
-Infer repo from `git remote -v` when run inside a clone.
-
 Also read `docs/agents/workflow.md` for branch-owner and push defaults.
+
+## Which GitHub repo
+
+- **Single repo:** infer from `git remote -v` in the clone (cwd).
+- **Monorepo** (`## Monorepo` in `workflow.md`, or nested git repos / submodules): **always** the **container-root** remote — never a delivery-root (`backend`, `frontend`, …).
+
+Resolve container-root `owner/repo` from `git -C <container-root> remote get-url origin` (or `remote:` on `container-root` in `workflow.md` if set). Pass it on every `gh issue` call:
+
+```bash
+gh issue create -R <owner/container-repo> ...
+gh issue view <N> -R <owner/container-repo> ...
+gh issue edit <N> -R <owner/container-repo> ...
+```
+
+Do not invent a delivery-root issue tracker. PRs still open in delivery roots (`/verify`); only issues/PRDs live on the monorepo.
 
 ## Conventions
 
-- **Create:** `gh issue create --title "..." --body "..." --label "..."`
-- **Read:** `gh issue view <number> --comments`
-- **Edit body:** `gh issue edit <number> --body "..."`
-- **List:** `gh issue list --state open --json number,title,body,labels`
-- **Comment:** `gh issue comment <number> --body "..."`
-- **Labels:** `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
-- **Close:** `gh issue close <number> --comment "..."`
+Always add `-R <owner/repo>` in a monorepo (container-root remote — see above).
+
+- **Create:** `gh issue create [-R …] --title "..." --body "..." --label "..."`
+- **Read:** `gh issue view <number> [-R …] --comments`
+- **Edit body:** `gh issue edit <number> [-R …] --body "..."`
+- **List:** `gh issue list [-R …] --state open --json number,title,body,labels`
+- **Comment:** `gh issue comment <number> [-R …] --body "..."`
+- **Labels:** `gh issue edit <number> [-R …] --add-label "..."` / `--remove-label "..."`
+- **Close:** `gh issue close <number> [-R …] --comment "..."`
 
 ## Labels
 
@@ -48,8 +63,9 @@ After `/to-prd`, prepend to issue body:
 ### `/to-prd` — publish PRD
 
 ```bash
-gh issue create --title "PRD: ..." --body "..." --label "prd"
-gh issue edit <number> --body "$(cat <<'EOF'
+# Add -R <owner/container-repo> when ## Monorepo (required — never a delivery-root remote)
+gh issue create -R <owner/repo> --title "PRD: ..." --body "..." --label "prd"
+gh issue edit <number> -R <owner/repo> --body "$(cat <<'EOF'
 ## Delivery
 ...
 <prd body>
@@ -61,12 +77,14 @@ Do not add `ready-for-agent`.
 
 ### `/implement` — fetch, status, comment
 
+Same `-R` rule as `/to-prd` (container-root in monorepo).
+
 | Operation | Command |
 |-----------|---------|
-| Fetch PRD/ticket | `gh issue view <N> --comments` |
-| Set in-progress | `gh issue edit <N> --add-label in-progress` |
-| Update AC checkboxes | `gh issue edit <N> --body "..."` (checked items in `## Acceptance criteria`) |
-| Comment | `gh issue comment <N> --body "..."` |
+| Fetch PRD/ticket | `gh issue view <N> [-R …] --comments` |
+| Set in-progress | `gh issue edit <N> [-R …] --add-label in-progress` |
+| Update AC checkboxes | `gh issue edit <N> [-R …] --body "..."` (checked items in `## Acceptance criteria`) |
+| Comment | `gh issue comment <N> [-R …] --body "..."` |
 
 Do not add `ready-for-agent`.
 
@@ -74,13 +92,13 @@ Do not add `ready-for-agent`.
 
 | Operation | Command |
 |-----------|---------|
-| Finalize PRD | `gh issue edit <N> --remove-label in-progress --add-label ready-to-review` |
-| Comment | `gh issue comment <N> --body "..."` (PR URLs) |
+| Finalize PRD | `gh issue edit <N> [-R …] --remove-label in-progress --add-label ready-to-review` |
+| Comment | `gh issue comment <N> [-R …] --body "..."` (PR URLs) |
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue using the operations above.
+Create a GitHub issue using the operations above (monorepo → container-root `-R`).
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Run `gh issue view <number> [-R …] --comments`.

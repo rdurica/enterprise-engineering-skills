@@ -115,4 +115,6 @@ Bug fast-path (ticket with AC, not a full PRD): same path and ID scan, `Kind: bu
 
 When backend is GitHub, follow issue-tracker-github.md `/to-prd` operations.
 
+**Monorepo:** if `workflow.md` has `## Monorepo` (or nested git repos exist), create the PRD issue on the **container-root** GitHub repo only — use `gh … -R <owner/container-repo>` from that remote. Never publish the PRD into a delivery-root repository.
+
 After publish, tell the user the next step is `/implement` on this PRD.

@@ -78,7 +78,8 @@ Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRA
 ```markdown
 ## Monorepo
 
-- container-root: .          <!-- stays on main — no branch, commit, push, or PR during /implement or /verify -->
+- container-root: .
+  remote: org/monorepo     <!-- GitHub issues/PRDs live here; stays on main — no branch, commit, push, or PR during /implement or /verify -->
 - delivery-roots:
   - path: backend
     remote: org/backend
@@ -86,7 +87,7 @@ Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRA
     remote: org/frontend
 ```
 
-Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, `git remote -v` in each path). Let the user confirm or edit before writing. Submodule pointer bumps on the container root are **not** part of the agent pipeline — document only, no automation.
+Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, `git remote -v` in each path). Include `remote` on `container-root` (from its `origin`) so `/to-prd` and other `gh issue` ops target the monorepo, not delivery roots. Let the user confirm or edit before writing. Submodule pointer bumps on the container root are **not** part of the agent pipeline — document only, no automation.
 
 #### Agent skills block
 
