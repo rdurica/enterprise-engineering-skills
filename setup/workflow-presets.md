@@ -4,14 +4,14 @@ Used by `/setup` when configuring `docs/agents/workflow.md` in a target repo.
 
 ## full-agentic
 
-Agent manages branches and pushes after each slice — for multi-agent handoff and automated PR flow.
+Agent manages branches and pushes after `/verify` is green — then opens the PR.
 
 | Setting | Value |
 |---------|-------|
 | Preset name | `full-agentic` |
 | Tracker | `github` |
 | branch-owner | `agent` |
-| push | `each-slice` |
+| push | `finalize` |
 
 ## human-owned
 
@@ -26,4 +26,4 @@ Human creates branch before `/implement`; agent stays on HEAD and does not push 
 
 ## custom
 
-User answers the three setup questions individually. No preset defaults beyond repo auto-detection.
+User answers the setup questions individually (tracker, branch-owner, push). PRD language is always asked, including when a preset is chosen.

@@ -2,8 +2,8 @@
 name: setup
 description: >-
   Configure a repo for the engineering skills pipeline — issue tracker, git
-  workflow (branch-owner, push), and domain doc layout. Run once per repo before
-  align, to-prd, or to-issues.
+  workflow (branch-owner, push), and docs/adr. Run once per repo before
+  align, to-prd, or implement.
 disable-model-invocation: true
 ---
 
@@ -21,35 +21,41 @@ Read what already exists — do not assume:
 
 - `git remote -v` — GitHub? No remote?
 - `CLAUDE.md` or `AGENTS.md` — existing `## Agent skills` block?
-- `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/adr/`
+- `docs/adr/` — existing ADRs?
 - `docs/agents/` — prior setup output?
+- `.cursor/skills/` — project-vendored pipeline skills already present?
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
-If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push handoff → **full-agentic**.
+If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push after verify → **full-agentic**.
 
 See [workflow-presets.md](./workflow-presets.md) for preset values.
 
-### 2. Interview (preset or three questions)
+### 2. Interview (preset + PRD language)
 
 Offer a preset first; user may confirm or customize.
+
+**Always ask** (presets do not set this):
+
+- **PRD language:** English (`en`) / Czech (`cs`)
+
+Then, unless a preset already answered them:
 
 | # | Question | Options |
 |---|----------|---------|
 | 1 | **Issue tracker** | GitHub / Local / Both |
 | 2 | **Branch owner** | Agent (agent creates/checkouts branch) / Human (user creates branch, agent stays on HEAD) |
-| 3 | **Push policy** | each-slice / finalize / never |
+| 3 | **Push policy** | finalize / never |
 
 **Presets:**
 
-- `full-agentic` — github, agent, each-slice
+- `full-agentic` — github, agent, finalize
 - `human-owned` — github, human, never
 
 If tracker is **Both**: write active backend to `issue-tracker.md` and reference copies as `issue-tracker.github.md` + `issue-tracker.local.md`.
 
 ### 3. Auto-detect
 
-- **Domain layout:** `single-context` unless `CONTEXT-MAP.md` exists → `multi-context`
-- **Agent trigger:** `ready-for-implementation` on PRD only (documented in issue-tracker templates)
+- **Agent trigger:** GitHub `ready-for-agent` (human, after validating the PRD). User-invoked `/implement` does not require it.
 - **Monorepo:** if nested git repos were found in Explore, include `## Monorepo` in the workflow draft (see below). Otherwise omit the section.
 
 ### 4. Confirm and write
@@ -65,14 +71,14 @@ Let the user edit, then write.
 
 #### workflow.md
 
-Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{MONOREPO_SECTION}}`.
+Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{PRD_LANGUAGE}}`, `{{MONOREPO_SECTION}}`.
 
 **`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
 
 ```markdown
 ## Monorepo
 
-- container-root: .          <!-- stays on main — no branch, commit, push, or PR during /implement -->
+- container-root: .          <!-- stays on main — no branch, commit, push, or PR during /implement or /verify -->
 - delivery-roots:
   - path: backend
     remote: org/backend
@@ -97,9 +103,10 @@ Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, 
 ## Agent skills
 
 Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
-Domain docs: [single-context | multi-context]. See `docs/agents/domain.md`.
-Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, work types).
-Pipeline: `/align` → `/to-prd` → `/to-issues` → `/implement` → `/to-review`.
+Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
+Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, prd-language, work types).
+Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
+Project skills: `.cursor/skills/` (vendored by `/setup` if missing).
 ```
 
 #### issue-tracker.md
@@ -112,8 +119,51 @@ Write using templates:
 
 First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker: Local Markdown`.
 
-### 5. Done
+### 5. Vendor pipeline skills
 
-Setup complete. Pipeline: `/align` → `/to-prd` → `/to-issues` → `/implement` → `/to-review`.
+Copy this skills pack into the **target repo** at `.cursor/skills/` so the pipeline is in git and works for anyone who clones the project (not only machines with `~/.cursor/skills`).
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`.
+**Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` next to `align/`, `implement/`, `verify/`).
+
+**Source:** parent of this skill — the directory that contains `setup/SKILL.md` (typically `~/.cursor/skills`). Never copy from `~/.cursor/skills-cursor/`.
+
+**Destination:** `<target-repo>/.cursor/skills/` at the container root (not inside delivery roots).
+
+**Copy only these directories** (pipeline + commit format + helpers implement/verify read):
+
+```
+align  to-prd  implement  verify  tdd  integration-tests  setup  git-release  monorepo-update  commit
+```
+
+Do **not** copy `img`, `img-upscale`, `.git`, `README.md`, or anything else in the personal pack.
+
+**If missing only:** if `<dest>/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent.
+
+```bash
+SOURCE="<skills-pack-root>"   # parent of setup/SKILL.md
+DEST=".cursor/skills"
+mkdir -p "$DEST"
+for name in align to-prd implement verify tdd integration-tests setup git-release monorepo-update commit; do
+  if [ -f "$DEST/$name/SKILL.md" ]; then
+    echo "skip $name (already vendored)"
+    continue
+  fi
+  if [ ! -d "$SOURCE/$name" ]; then
+    echo "warn $name missing in source" >&2
+    continue
+  fi
+  cp -a "$SOURCE/$name" "$DEST/$name"
+done
+```
+
+Do not add `.cursor/skills` to `.gitignore` — these files should be committed with the repo.
+
+In a monorepo, vendor once at the container root. Do not copy into each delivery root.
+
+### 6. Done
+
+Setup complete. Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
+
+Report which skills were copied and which were skipped as already present.
+
+User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-run also copies any still-missing skills; it does not overwrite existing `.cursor/skills/*`.

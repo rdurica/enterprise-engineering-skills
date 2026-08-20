@@ -2,15 +2,15 @@
 name: align
 description: >-
   Structured alignment interview on a plan or design — explore the codebase,
-  resolve decision branches one by one, and update CONTEXT.md/ADRs when
-  working in a repo. Use when starting a feature, stress-testing a design,
+  resolve decision branches one by one, and write docs/adr/ when a decision
+  has real trade-offs. Use when starting a feature, stress-testing a design,
   or before writing a PRD.
 disable-model-invocation: true
 ---
 
 # Align
 
-Reach shared understanding before implementation. Do NOT write a PRD here — that is `/to-prd`.
+Reach shared understanding before implementation. Do NOT write a PRD here — that is `/to-prd`. Do NOT implement here — that is `/implement`.
 
 Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md).
 
@@ -27,7 +27,7 @@ Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fa
 
 ### 1. Explore
 
-If a codebase is available, read relevant code plus `CONTEXT.md`, `CONTEXT-MAP.md`, and ADRs (see `docs/agents/domain.md` if configured).
+If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/domain.md` if configured).
 
 If a question can be answered by exploring the codebase, explore instead of asking.
 
@@ -50,13 +50,9 @@ If a question cannot be settled in conversation, build a **throwaway spike**:
 - Capture the verdict, then continue aligning
 - Delete or fold the decision into real code when done
 
-### 4. Document (in repos with domain docs)
+### 4. Document
 
-As terms and decisions land during the session:
-
-- Update `CONTEXT.md` glossary entries
-- Add ADRs only for decisions with real trade-offs and reversal cost
-- Use project vocabulary consistently
+When a decision has real trade-offs and reversal cost, add `docs/adr/NNNN-slug.md` (next number; Context / Decision / Consequences). Do not write ADRs for obvious or easily reversed choices.
 
 Without a codebase, run steps 2–3 only — do not write local files.
 

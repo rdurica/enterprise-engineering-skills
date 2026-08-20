@@ -6,65 +6,70 @@ Composable agent skills for structured feature delivery. Based on [mattpocock/sk
 
 | Phase | Skill | Output |
 |-------|-------|--------|
-| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block in `CLAUDE.md` or `AGENTS.md` |
-| 1–2 | `/align` | Shared understanding; optional `CONTEXT.md` / ADR updates |
-| 3 | `/to-prd` | PRD published with `needs-slicing` + `## Delivery` (branch, epic, branch-owner, push) |
-| 4 | `/to-issues` | Vertical slice issues + PRD → `ready-for-implementation` |
-| 5 | `/implement #PRD` | **One slice**, TDD + mandatory DoD verify, handoff or finalize |
-| 6 | `/to-review` | Sync delivery-root branches in monorepos (checkout + pull), then parallel Standards + Spec report |
+| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block + pipeline skills copied to `.cursor/skills/` if missing |
+| 1–2 | `/align` | Shared understanding; optional `docs/adr/` updates |
+| 3 | `/to-prd` | PRD published (`prd` on GitHub, or `.scratch/prd/NNN-<slug>.md`) + `## Delivery` (branch, branch-owner, push) |
+| 4 | `/implement #PRD` | Plan increments; parent does small work, sub-agents only for large changes; then `/verify` |
+| 5 | `/verify` | Spec vs PRD, Standards, tests, tooling; then **agent** push + CI + PR, or **human** stay on HEAD |
 
-**Outside the pipeline:** `git-release`, `monorepo-update`, `integration-tests` (Symfony HTTP integration tests), `tdd` (model-invoked during implement).
+**Helpers during implement:** `tdd`, `integration-tests` (Symfony HTTP), `commit`.
+
+**Outside the feature pipeline:** `git-release`, `monorepo-update`.
 
 ## PRD lifecycle
 
-The trigger label `ready-for-implementation` lives on the **PRD only** (or a single-slice bug ticket), never on slice issues.
+The human adds GitHub `ready-for-agent` after validating the PRD so an auto-trigger will not implement an undecided ticket. User-invoked `/implement` does not require that label.
 
 ```mermaid
 stateDiagram-v2
-    needsSlicing: needs_slicing
-    readyForImpl: ready_for_implementation
+    prdPublished: prd
+    readyForAgent: ready_for_agent
     inProgress: in_progress
     readyToReview: ready_to_review
 
-    needsSlicing --> readyForImpl: to_issues
-    readyForImpl --> inProgress: implement_starts
-    inProgress --> readyForImpl: slice_done_more_remain
-    inProgress --> readyToReview: last_slice_finalize
+    prdPublished --> readyForAgent: human_validates
+    prdPublished --> inProgress: user_calls_implement
+    readyForAgent --> inProgress: implement_starts
+    inProgress --> readyToReview: verify_green_agent_github
 ```
 
-- Slice issues grouped by `epic-<N>` (GitHub) or `.scratch/<slug>/issues/` (local)
-- Handoff cycle: `ready-for-implementation` → agent starts → `in-progress` → slice done → `ready-for-implementation` again (or `ready-to-review` when finished)
-- Finalize (last slice): run `/to-review`, push per policy, open PR in each affected delivery root, PRD → `ready-to-review`. In a monorepo, PRs only in sub-repos; the container root stays on `main` (no PR during `/implement`) — run `/monorepo-update` after sub-repo PRs merge to bump submodule pointers.
+`ready-to-review` only after an **agent** verify that opened a PR. **human** GitHub: leave `in-progress`; user opens the PR. Local: no GitHub labels — file in `.scratch/prd/` is ready; after verify, `mv` to `.scratch/prd/done/`.
+
+- `/implement` plans internal increments from PRD AC. Parent does small work; sub-agents only for large changes. The parent commits.
+- When all AC are done, `/implement` runs `/verify` in the same session.
+- `/verify` runs the shared gate (Spec, Standards, tests), then **agent** pushes and opens PRs; **human** stays on HEAD. In a monorepo, PRs only in sub-repos; the container root stays on `main` — run `/monorepo-update` after sub-repo PRs merge to bump submodule pointers.
 
 ## Setup presets
 
 | Preset | Tracker | branch-owner | push | Typical use |
 |--------|---------|--------------|------|-------------|
-| `full-agentic` | github | agent | each-slice | Agent creates branch, pushes after each slice, multi-agent handoff |
+| `full-agentic` | github | agent | finalize | Agent creates branch; push + PR after verify is green |
 | `human-owned` | github | human | never | You create the branch; agent stays on HEAD and does not push |
-| `custom` | user choice | user choice | user choice | Answer the three setup questions individually |
+| `custom` | user choice | user choice | user choice | Tracker, branch-owner, push individually |
+
+`/setup` **always** asks **PRD language** (`en` | `cs`), including with a preset — stored in `docs/agents/workflow.md`. Section headings stay English; PRD prose and ticket comments use that language.
 
 **Issue tracker backends:** GitHub (`gh`), Local (`.scratch/`), or **Both** (active backend in `issue-tracker.md` + reference copies).
 
-Per-repo config lives in `docs/agents/workflow.md`. This skills repo is shared across machines (`~/.cursor/skills`).
+Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `~/.cursor/skills`. `/setup` vendors the pipeline skills into the target repo at `.cursor/skills/` when they are not already there (does not overwrite existing copies).
 
 ## When to use the pipeline
 
-| Work type | `/align` | `/to-prd` | `/to-issues` | `/implement` |
-|-----------|----------|-----------|--------------|--------------|
-| New feature | recommended | PRD | slices | one slice per session |
-| Complex bug | if root cause unclear | PRD (`Kind: bug`) | if multi-step | yes |
-| Simple bug | skip | issue + AC | skip | yes (single-slice mode) |
-| Trivial fix | — | — | — | direct fix, outside pipeline |
+| Work type | `/align` | `/to-prd` | `/implement` |
+|-----------|----------|-----------|--------------|
+| New feature | recommended | PRD | orchestrator + verify |
+| Complex bug | if root cause unclear | PRD (`Kind: bug`) | yes |
+| Simple bug | skip | issue + AC | yes |
+| Trivial fix | — | — | direct fix, outside pipeline |
 
-**Bug fast-path:** create a ticket with acceptance criteria and set `ready-for-implementation` without slicing. `/implement` implements AC directly when no slice issues exist.
+**Bug fast-path:** create a ticket with acceptance criteria. `/implement` implements AC from the ticket body.
 
 ## Context hygiene
 
-1. Run **align → to-prd → to-issues** in one context window
-2. After **to-issues**, start a **new session** on the PRD for `/implement` — each agent handles exactly one slice
-3. Agent passes the DoD gate after each slice; push per `workflow.md` (`each-slice` | `finalize` | `never`)
-4. **`/to-review`** runs after the last slice (during implement finalize). In monorepos it checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root.
+1. Run **align → to-prd** in one context window when the feature still needs decisions.
+2. `/implement` on the PRD: one session for the whole PRD. Small increments in the parent; sub-agents only for large ones. Resume from `in-progress` if the session dies.
+3. `/verify` runs automatically at the end of implement. **agent:** push + CI + PR. **human:** stay on HEAD; user pushes.
+4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root.
 
 ## branch-owner
 
@@ -73,45 +78,52 @@ Per-repo config lives in `docs/agents/workflow.md`. This skills repo is shared a
 
 **Session override:** `/implement #42 human` or `/implement #42 agent` overrides branch-owner for one session.
 
-**Failure recovery:** if a session ends mid-slice, the PRD stays `in-progress`. Manually restore `ready-for-implementation` to resume.
+**Failure recovery:** if a session ends mid-PRD, the PRD stays `in-progress`. Re-run `/implement` to resume.
 
-## Definition of Done (implement)
+## Definition of Done
 
-All gates must pass before commit, push, or handoff:
+**Per increment (implement):** relevant tests green, intentional diff only, then commit.
+
+**Verify gate (before human review):**
 
 | Gate | What to verify |
 |------|----------------|
-| Acceptance criteria | Every item in the slice/PRD `## Acceptance criteria` satisfied |
+| Acceptance criteria | Every item in the PRD `## Acceptance criteria` satisfied |
+| Spec / Standards | Sub-agent review vs PRD and repo conventions; hard findings fixed |
 | Tests | Full relevant suite green |
 | Tooling | Commands from target repo `AGENTS.md` (e.g. `make cs-fix`, `make phpstan`, `npx vue-tsc`) |
-| Linter | No new diagnostics in touched files |
+| CI | **agent** path: `gh run watch` when GitHub Actions exist. **human:** skip |
 | Git | `git status` / `git diff` show only intentional changes |
 
 ## Issue tracker
 
-GitHub (`gh`) or local (`.scratch/`). Configured by `/setup`. Skills read `docs/agents/issue-tracker.md`.
+GitHub (`gh`) or local (`.scratch/prd/NNN-<slug>.md`; finished work in `.scratch/prd/done/`). Configured by `/setup`. Skills read `docs/agents/issue-tracker.md`. PRD language (`en` | `cs`) lives in `docs/agents/workflow.md`.
 
 ## Skills in this repo
 
 ```
 setup/              — per-repo tracker, git workflow, domain doc layout
 align/              — alignment interview; no PRD here
-to-prd/             — conversation → published PRD (needs-slicing)
-to-issues/          — PRD → tracer-bullet vertical slices
-implement/          — one slice, DoD verify, handoff via PRD label toggle
-to-review/          — Standards + Spec review; monorepo sync of delivery roots before diff
-tdd/                — (model-invoked) red-green-refactor discipline
-integration-tests/  — (model-invoked) Symfony HTTP integration test playbook
+to-prd/             — conversation → published PRD
+implement/          — plan from PRD; parent for small work, sub-agents for large increments, then verify
+verify/             — Spec + Standards + tests; agent: CI + PR; human: HEAD
+commit/             — Conventional Commits (English); used by implement/verify
+tdd/                — red-green-refactor (parent and implement sub-agents)
+integration-tests/  — Symfony HTTP integration tests (parent and implement sub-agents)
 git-release/        — semver tag + GitHub release; user must confirm version
 monorepo-update/    — sync delivery roots to main; bump + push submodule pointers on container root
 ```
 
-### Outside the pipeline
+### Helpers (during implement / verify)
+
+- **`tdd`** — invoked at pre-agreed test seams
+- **`integration-tests`** — PHP backend HTTP APIs; project paths and run commands in target repo `AGENTS.md`
+- **`commit`** — English Conventional Commits; no push/PR
+
+### Outside the feature pipeline
 
 - **`git-release`** — any repo with `gh`; mandatory version confirmation before tagging; English release notes
 - **`monorepo-update`** — after sub-repo PRs merge; pulls each delivery root on `main`, commits pointer bump on container root
-- **`integration-tests`** — invoked during implement for PHP backend HTTP APIs; project paths and run commands in target repo `AGENTS.md`
-- **`tdd`** — invoked by implement at pre-agreed test seams
 
 ## Installation
 

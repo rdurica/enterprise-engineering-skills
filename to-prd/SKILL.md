@@ -7,27 +7,28 @@ This skill takes the current conversation context and codebase understanding and
 
 Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` in the target repo if missing.
 
+Read `prd-language` from `workflow.md` (`en` | `cs`). If missing, ask (same as missing `/setup`). Write PRD **prose** (title, problem, stories, AC text, notes) in that language. Keep the template **section headings in English**. Branch slug: ASCII, hyphenated; transliterate if the title is not English.
+
 All publish operations follow `docs/agents/issue-tracker.md` (GitHub or local `.scratch/` — do not hardcode `gh` only).
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the PRD, and respect any ADRs in the area you're touching.
+1. Explore the repo to understand the current state of the codebase, if you haven't already. If `docs/adr/` exists, respect those decisions in the PRD.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can.
 
 Check with the user that these seams match their expectations.
 
-3. Write the PRD using the template below, then publish to the issue tracker with status `needs-slicing` (GitHub: labels `prd`, `needs-slicing`; local: `Status: needs-slicing` in PRD.md). Do **not** add `ready-for-implementation` — that is added by `/to-issues` after slicing (or manually for bug fast-path).
+3. Write the PRD using the template below, then publish (GitHub: label `prd` only; local: `.scratch/prd/NNN-<slug>.md`, no Status). Do not add `ready-for-agent`.
 
-4. After publish, add epic grouping and prepend `## Delivery` (GitHub: edit issue body + `epic-<number>` label; local: update PRD.md front matter):
+4. After publish, prepend `## Delivery` (GitHub: edit issue body; local: update PRD.md):
 
 ```markdown
 ## Delivery
 
-- Branch: `feature/prd-<number-or-slug>-<short-slug>` (slug from title, lowercase, max ~30 chars)
-- Epic label: `epic-<number>` (GitHub) or Epic: `<feature-slug>` (local)
+- Branch: `feature/prd-<number>-<short-slug>` (local: `NNN` from next ID, three digits; GitHub: issue number. Slug from title, lowercase, max ~30 chars)
 - Branch owner: agent | human   # from docs/agents/workflow.md unless user overrides
-- Push: each-slice | finalize | never
+- Push: finalize | never
 ```
 
 For **bugs**, set `Kind: bug` and use the shorter bug template sections where appropriate.
@@ -86,7 +87,7 @@ A list of testing decisions that were made. Include:
 
 ## Acceptance criteria
 
-(Required for bug fast-path / single-slice mode when skipping `/to-issues`)
+Required. `/implement` plans internal increments from this list.
 
 - [ ] Criterion 1
 
@@ -102,11 +103,16 @@ Any further notes about the feature.
 
 ### Local tracker publish
 
-When `docs/agents/issue-tracker.md` is Local Markdown:
+When `docs/agents/issue-tracker.md` is Local Markdown, follow `issue-tracker-local.md`:
 
-1. Choose `<feature-slug>` from the PRD title.
-2. Create `.scratch/<feature-slug>/PRD.md` with Status, Kind, Delivery, and PRD body per issue-tracker-local.md.
+1. Compute next `NNN` per issue-tracker-local.md (scan `.scratch/prd/` and `.scratch/prd/done/`; never reuse).
+2. Choose `<slug>` from the PRD title (lowercase, hyphenated, ASCII; transliterate if needed).
+3. Create `.scratch/prd/NNN-<slug>.md` with Kind, Delivery (`feature/prd-NNN-<short-slug>`), and PRD body. No Status line.
+
+Bug fast-path (ticket with AC, not a full PRD): same path and ID scan, `Kind: bug`.
 
 ### GitHub publish
 
 When backend is GitHub, follow issue-tracker-github.md `/to-prd` operations.
+
+After publish, tell the user the next step is `/implement` on this PRD.

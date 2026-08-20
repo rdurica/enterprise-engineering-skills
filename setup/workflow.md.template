@@ -7,17 +7,15 @@ Preset: {{PRESET}}
 ## Git
 
 - branch-owner: {{BRANCH_OWNER}}   <!-- agent | human -->
-- push: {{PUSH}}                   <!-- each-slice | finalize | never -->
+- push: {{PUSH}}                   <!-- finalize | never -->
 
 **branch-owner: agent** — agent checkout/create branch from PRD `## Delivery`, pull --rebase before work.
 
 **branch-owner: human** — agent stays on current branch; never checkout or create. User creates branch before `/implement`.
 
-**push: each-slice** — push after every slice (multi-agent handoff).
+**push: finalize** — `/verify` with branch-owner agent: push, watch CI, open PR.
 
-**push: finalize** — push only in Finalize step.
-
-**push: never** — skip push; user pushes and opens PR manually.
+**push: never** — branch-owner human: agent does not push; user opens the PR.
 
 Priority: PRD `## Delivery` overrides > this file > setup preset.
 
@@ -27,6 +25,9 @@ Priority: PRD `## Delivery` overrides > this file > setup preset.
 
 - active: {{TRACKER_ACTIVE}}       <!-- github | local -->
 - local-path: `.scratch/`
+- prd-language: {{PRD_LANGUAGE}}   <!-- en | cs -->
+
+`/to-prd` writes PRD prose (title, problem, AC text) in this language. Section headings stay English. `/implement` and `/verify` comments on the ticket use the same language.
 
 When `active: local`, see `docs/agents/issue-tracker.local.md` (if present) for file conventions.
 
@@ -34,16 +35,15 @@ When `active: local`, see `docs/agents/issue-tracker.local.md` (if present) for 
 
 | Type | Pipeline | branch-owner typical |
 |------|----------|----------------------|
-| **feature** | `/align` → `/to-prd` → `/to-issues` → `/implement` | agent (full-agentic) or human (human-owned) |
+| **feature** | `/align` → `/to-prd` → `/implement` → `/verify` | agent (full-agentic) or human (human-owned) |
 | **complex bug** | same as feature; `/align` if root cause unclear | agent or human |
-| **simple bug** | skip `/align` and `/to-issues`; single issue with AC → `/implement` | human |
+| **simple bug** | skip `/align`; ticket with AC → `/implement` | human |
 | **trivial fix** | outside pipeline — direct fix + commit | n/a |
 
 ### Bug fast-path
 
-1. Create bug issue (GitHub or `.scratch/bugs/NN-slug.md`) with acceptance criteria.
-2. Set PRD/ticket status to `ready-for-implementation` without slicing.
-3. `/implement #issue` — if no slice issues exist, implement AC directly from the ticket (single-slice mode).
+1. Create bug issue (GitHub with `prd` omitted, or `.scratch/prd/NNN-slug.md` with `Kind: bug`; next ID shared with `.scratch/prd/done/`) with acceptance criteria.
+2. `/implement #issue` implements AC from the ticket body, then runs `/verify`. User-invoked `/implement` does not need `ready-for-agent`.
 
 ## Session override
 

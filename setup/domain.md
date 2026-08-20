@@ -1,43 +1,20 @@
-# Domain Docs
+# Domain docs
 
-How engineering skills consume domain documentation in this repo.
+Architecture Decision Records (ADRs): short markdown files that record **why** option A was chosen over B when the decision is hard to reverse.
 
-## Before exploring, read these
+## Where
 
-- **`CONTEXT.md`** at the repo root, or
-- **`CONTEXT-MAP.md`** if it exists — then read each relevant per-context `CONTEXT.md`
-- **`docs/adr/`** — ADRs for the area you are touching (in multi-context repos also `src/<context>/docs/adr/`)
-
-If these files do not exist, proceed silently. `/align` creates or updates them when terms and decisions land.
-
-## Layout
-
-**Single-context** (most repos):
+`docs/adr/` at the target repo root (not in the skills pack).
 
 ```
-/
-├── CONTEXT.md
-├── docs/adr/
-└── src/
+docs/adr/
+  0001-use-kernel-browser-for-http-tests.md
 ```
 
-**Multi-context** (`CONTEXT-MAP.md` at root):
+If the folder is missing, proceed silently. `/align` creates files here only for decisions with real trade-offs.
 
-```
-/
-├── CONTEXT-MAP.md
-├── docs/adr/
-└── src/<context>/
-    ├── CONTEXT.md
-    └── docs/adr/
-```
+Each file: **Context**, **Decision**, **Consequences**. Filename `NNNN-slug.md` (next number after existing files).
 
-## Vocabulary
+## Conflicts
 
-Use terms as defined in `CONTEXT.md` in issue titles, test names, and proposals. Do not drift to synonyms the glossary avoids.
-
-## ADR conflicts
-
-If output contradicts an existing ADR, surface it explicitly:
-
-> _Contradicts ADR-0007 — but worth reopening because…_
+If a proposal contradicts a file in `docs/adr/`, say so explicitly before continuing.

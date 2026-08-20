@@ -15,25 +15,21 @@ Also read `docs/agents/workflow.md` for branch-owner and push defaults.
 - **Comment:** `gh issue comment <number> --body "..."`
 - **Labels:** `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close:** `gh issue close <number> --comment "..."`
-- **List slices for PRD:** `gh issue list --label "epic-<N>" --state open --json number,title,body`
 
 ## Labels
 
-| Label | On | Meaning |
-|-------|-----|---------|
-| `prd` | PRD issue | Meta — identifies a PRD |
-| `needs-slicing` | PRD after `/to-prd` | Waiting for `/to-issues` |
-| `sliced` | PRD during implementation | Slice issues exist |
-| `epic-<N>` | PRD + all its slices | Group under parent issue `#N` |
-| `ready-for-implementation` | **PRD only** (or single-slice bug ticket) | Triggers next agent session |
-| `ready-to-review` | PRD after all slices done | PR open, waiting for human review |
-| `in-progress` | PRD while agent works | Prevents double-trigger; removed on handoff |
+| Label | Set by | Meaning |
+|-------|--------|---------|
+| `prd` | `/to-prd` | This issue is a PRD |
+| `ready-for-agent` | human, after validating the PRD | Auto-trigger may start `/implement`. Agent never adds this |
+| `in-progress` | `/implement` | Agent is working |
+| `ready-to-review` | `/verify` (green) | PR open, waiting for human review |
 
-**Slice issues never get `ready-for-implementation`.** Trigger label lives on the PRD.
+User invoked `/implement` → run it (do not require `ready-for-agent`). Stop if `ready-to-review`.
 
-**Handoff cycle:** `ready-for-implementation` → agent starts → `in-progress` → slice done → `ready-for-implementation` again (or `ready-to-review` when finished).
+Auto-start without the user → only if `ready-for-agent` or already `in-progress`.
 
-**Deprecated:** `ready-for-agent` — do not use.
+**Lifecycle:** `prd` → human adds `ready-for-agent` (optional if they call `/implement`) → `in-progress` → `ready-to-review`. Session died → leave `in-progress`; re-run `/implement`.
 
 ## PRD Delivery section
 
@@ -43,9 +39,8 @@ After `/to-prd`, prepend to issue body:
 ## Delivery
 
 - Branch: `feature/prd-<number>-<short-slug>`
-- Epic label: `epic-<number>`
 - Branch owner: agent | human    # default from docs/agents/workflow.md
-- Push: each-slice | finalize | never
+- Push: finalize | never
 ```
 
 ## Skill operations
@@ -53,8 +48,7 @@ After `/to-prd`, prepend to issue body:
 ### `/to-prd` — publish PRD
 
 ```bash
-gh issue create --title "PRD: ..." --body "..." --label "prd,needs-slicing"
-gh issue edit <number> --add-label "epic-<number>"
+gh issue create --title "PRD: ..." --body "..." --label "prd"
 gh issue edit <number> --body "$(cat <<'EOF'
 ## Delivery
 ...
@@ -63,29 +57,25 @@ EOF
 )"
 ```
 
-### `/to-issues` — publish slices + ready PRD
+Do not add `ready-for-agent`.
 
-```bash
-gh issue create --title "..." --body "..." --label "epic-<parent>"
-# repeat per slice
-gh issue edit <parent> --remove-label needs-slicing --add-label sliced,ready-for-implementation
-```
-
-### `/implement` — fetch, status, close, comment
+### `/implement` — fetch, status, comment
 
 | Operation | Command |
 |-----------|---------|
 | Fetch PRD/ticket | `gh issue view <N> --comments` |
-| List slices | `gh issue list --label "epic-<N>" --state open --json number,title,body` |
-| Set in-progress | `gh issue edit <N> --remove-label ready-for-implementation --add-label in-progress` |
-| Handoff (more slices) | `gh issue edit <N> --remove-label in-progress --add-label ready-for-implementation` |
-| Close slice | `gh issue close <sliceNum> --comment "..."` |
+| Set in-progress | `gh issue edit <N> --add-label in-progress` |
+| Update AC checkboxes | `gh issue edit <N> --body "..."` (checked items in `## Acceptance criteria`) |
 | Comment | `gh issue comment <N> --body "..."` |
-| Finalize PRD | `gh issue edit <N> --remove-label in-progress,sliced,ready-for-implementation --add-label ready-to-review` |
 
-### Single-slice mode (bug fast-path)
+Do not add `ready-for-agent`.
 
-When PRD/ticket has `ready-for-implementation` but **no open slice issues** under `epic-<N>`, `/implement` reads acceptance criteria from the PRD/ticket body directly.
+### `/verify` — finalize PRD
+
+| Operation | Command |
+|-----------|---------|
+| Finalize PRD | `gh issue edit <N> --remove-label in-progress --add-label ready-to-review` |
+| Comment | `gh issue comment <N> --body "..."` (PR URLs) |
 
 ## When a skill says "publish to the issue tracker"
 

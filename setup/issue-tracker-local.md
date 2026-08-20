@@ -1,101 +1,97 @@
 # Issue tracker: Local Markdown
 
-Issues and PRDs live as markdown files in `.scratch/`.
+Issues and PRDs live as markdown files in `.scratch/prd/` — one `.md` per ticket, no per-ticket directories.
 
 Also read `docs/agents/workflow.md` for branch-owner and push defaults.
 
 ## Layout
 
 ```
-.scratch/<feature-slug>/
-├── PRD.md
-└── issues/
-    ├── 01-<slug>.md
-    └── 02-<slug>.md
+.scratch/prd/
+├── 001-<slug>.md
+├── 002-<slug>.md
+└── done/
+    └── 001-<slug>.md
 ```
 
-Bug fast-path (optional): `.scratch/bugs/NN-<slug>.md`
+IDs are three digits, unique across **`.scratch/prd/` and `.scratch/prd/done/`**. Never reuse. `001` already in `done/` ⇒ next is `002`.
 
-## File format — PRD.md
+Bugs are the same files with `Kind: bug` — no separate `bugs/` folder.
+
+Existing unnumbered `.scratch/<slug>/PRD.md` remains readable until `/verify` assigns an ID and writes `.scratch/prd/done/NNN-<slug>.md`.
+
+## Next ID
+
+Scan leading `NNN` from files:
+
+- `.scratch/prd/NNN-*.md`
+- `.scratch/prd/done/NNN-*.md`
+
+Also include leftover IDs from older layouts if present (`.scratch/NNNN-*` dirs, `.scratch/bugs/`, `.scratch/done/`) so numbers never collide.
+
+Next ID = `max(found) + 1`, or `001` if none. Pad to three digits.
+
+## File format
 
 ```markdown
 # PRD: <title>
 
-Status: needs-slicing | ready-for-implementation | in-progress | ready-to-review
+Status: in-progress
 Kind: feature | bug | chore
-Epic: <feature-slug>
 
 ## Delivery
 
-- Branch: `feature/prd-<slug>`
+- Branch: `feature/prd-NNN-<short-slug>`
 - Branch owner: agent | human
-- Push: each-slice | finalize | never
+- Push: finalize | never
 
 <prd body sections>
 ```
 
-## File format — slice issue
+A file in `.scratch/prd/` is ready. Write `Status: in-progress` only when `/implement` starts. Do **not** write `ready-to-review`. Terminal state is the path under `.scratch/prd/done/`.
 
-Path: `.scratch/<feature-slug>/issues/<NN>-<slug>.md`
-
-```markdown
-# <slice title>
-
-Status: open | closed
-Parent: .scratch/<feature-slug>/PRD.md
-
-## What to build
-...
-
-## Acceptance criteria
-- [ ] ...
-
-## Blocked by
-None - can start immediately
-```
+No GitHub-style `ready-for-agent` analog.
 
 ## Status transitions
 
-Same handoff cycle as GitHub labels:
+File in `.scratch/prd/` → `in-progress` → move to `.scratch/prd/done/` (after verify is green).
 
-`ready-for-implementation` ↔ `in-progress` (per slice) → `ready-to-review`
+If the session dies, leave `in-progress` in the **active** file. Re-run `/implement` to resume.
 
-Update the `Status:` line in `PRD.md`. Append comments under `## Comments` with timestamp.
+Update `Status:` while the file is active. Append comments under `## Comments` with timestamp.
+
+After the move: leave `Status: in-progress`. Do not add `ready-to-review`.
 
 ## Skill operations
 
 ### `/to-prd` — publish PRD
 
-1. Create `.scratch/<feature-slug>/PRD.md` with `Status: needs-slicing`
-2. Include `## Delivery` with branch-owner and push from `docs/agents/workflow.md`
+1. Compute next ID (scan above)
+2. Choose `<slug>` from the PRD title (lowercase, hyphenated)
+3. Create `.scratch/prd/NNN-<slug>.md` (no Status line yet)
+4. Include `## Delivery` with `feature/prd-NNN-<short-slug>` and branch-owner/push from `docs/agents/workflow.md`
 
-### `/to-issues` — publish slices
-
-1. Create `.scratch/<feature-slug>/issues/<NN>-<slug>.md` per slice (numbered from `01`)
-2. Update PRD: `Status: ready-for-implementation`
-
-### `/implement` — fetch by path or slug
+### `/implement` — fetch by number or slug
 
 | Operation | Action |
 |-----------|--------|
-| Fetch PRD | Read `.scratch/<slug>/PRD.md` (or path user passed) |
-| List slices | Glob `.scratch/<slug>/issues/*.md`; filter `Status: open` |
-| Set in-progress | Edit PRD `Status: in-progress` |
-| Handoff | Edit PRD `Status: ready-for-implementation` |
-| Close slice | Set slice `Status: closed`; check AC boxes |
-| Comment | Append to PRD or slice under `## Comments` |
-| Finalize | PRD `Status: ready-to-review` |
+| Fetch PRD | Active only: `.scratch/prd/NNN-<slug>.md` (or unnumbered `.scratch/<slug>/PRD.md`) |
+| Set in-progress | Write `Status: in-progress` |
+| Update AC checkboxes | Check off items in `## Acceptance criteria` |
+| Comment | Append under `## Comments` |
 
-Reference PRD by directory slug: `/implement <feature-slug>` reads `.scratch/<feature-slug>/PRD.md`.
+`/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `.scratch/prd/done/`, **stop**.
 
-### Single-slice mode
+### `/verify` — finalize
 
-When PRD has `ready-for-implementation` and **no open slice files**, implement acceptance criteria from PRD body directly.
+1. Append PR URLs (or “local verify green — user should push”) under `## Comments`
+2. If the path has no `NNN-` prefix, assign next ID
+3. `mkdir -p .scratch/prd/done` and `mv` the file to `.scratch/prd/done/NNN-<slug>.md`. Leave Status as `in-progress`
 
 ## When a skill says "publish to the issue tracker"
 
-Create files under `.scratch/<feature-slug>/` (create directories as needed).
+Create `.scratch/prd/NNN-<slug>.md`. Allocate next ID first.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path or `.scratch/<slug>/PRD.md`.
+Read the active file (or the path the user passed). Do not treat `.scratch/prd/done/` as implementable.
