@@ -49,12 +49,22 @@ The solution to the problem, from the user's perspective.
 
 ## User Stories
 
-A LONG, numbered list of user stories. Each user story should be in the format of:
+A LONG, numbered list of user stories. Format and wording must match `prd-language` — never mix English scaffolds (`As a` / `I want` / `so that`) into Czech prose.
 
-1. As an <actor>, I want a <feature>, so that <benefit>
+**`en`:**
+
+1. As a/an <actor>, I want <feature>, so that <benefit>
 
 <user-story-example>
 1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
+</user-story-example>
+
+**`cs`:**
+
+1. Jako <aktor> chci <funkci>, abych <přínos>
+
+<user-story-example>
+1. Jako zákazník mobilního bankovnictví chci vidět zůstatek na účtech, abych mohl lépe rozhodovat o výdajích
 </user-story-example>
 
 This list of user stories should be extremely extensive and cover all aspects of the feature.
