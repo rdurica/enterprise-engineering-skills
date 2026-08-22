@@ -30,13 +30,14 @@ If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset
 
 See [workflow-presets.md](./workflow-presets.md) for preset values.
 
-### 2. Interview (preset + PRD language)
+### 2. Interview (preset + PRD language + UX review)
 
 Offer a preset first; user may confirm or customize.
 
-**Always ask** (presets do not set this):
+**Always ask** (presets do not set these):
 
 - **PRD language:** English (`en`) / Czech (`cs`)
+- **UX/UI review before PR?** Enabled (browser walkthrough + hard gate) / Disabled
 
 Then, unless a preset already answered them:
 
@@ -71,7 +72,9 @@ Let the user edit, then write.
 
 #### workflow.md
 
-Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{PRD_LANGUAGE}}`, `{{MONOREPO_SECTION}}`.
+Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{PRD_LANGUAGE}}`, `{{UX_REVIEW}}`, `{{MONOREPO_SECTION}}`.
+
+**`{{UX_REVIEW}}`** — `enabled` or `disabled` from the UX/UI review interview answer.
 
 **`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
 
@@ -106,7 +109,7 @@ Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, 
 Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, prd-language, work types).
-Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
+Pipeline: `/align` → `/to-prd` → `/implement` → `/verify` (functional [→ ux] → ship).
 Project skills: `.cursor/skills/development/` (vendored by `/setup` if missing).
 ```
 
@@ -133,7 +136,7 @@ Copy this skills pack into the **target repo** at `.cursor/skills/development/` 
 **Copy only these directories** (pipeline + commit format + helpers implement/verify read):
 
 ```
-align  to-prd  implement  verify  tdd  integration-tests  setup  git-release  monorepo-update  commit
+align  to-prd  implement  verify  ux-review  tdd  integration-tests  setup  git-release  monorepo-update  commit
 ```
 
 **If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent.
@@ -142,7 +145,7 @@ align  to-prd  implement  verify  tdd  integration-tests  setup  git-release  mo
 SOURCE="<development-dir>"   # parent of setup/SKILL.md
 DEST=".cursor/skills/development"
 mkdir -p "$DEST"
-for name in align to-prd implement verify tdd integration-tests setup git-release monorepo-update commit; do
+for name in align to-prd implement verify ux-review tdd integration-tests setup git-release monorepo-update commit; do
   if [ -f "$DEST/$name/SKILL.md" ]; then
     echo "skip $name (already vendored)"
     continue
@@ -161,7 +164,7 @@ In a monorepo, vendor once at the container root. Do not copy into each delivery
 
 ### 6. Done
 
-Setup complete. Pipeline: `/align` → `/to-prd` → `/implement` → `/verify`.
+Setup complete. Pipeline: `/align` → `/to-prd` → `/implement` → `/verify` (functional [→ ux] → ship).
 
 Report which skills were copied and which were skipped as already present.
 

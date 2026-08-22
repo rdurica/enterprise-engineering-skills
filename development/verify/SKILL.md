@@ -1,9 +1,9 @@
 ---
 name: verify
 description: >-
-  Gate before human review — Spec vs PRD, Standards, tests, AGENTS.md tooling.
-  Then ship: agent opens a PR; human stays on HEAD. Use at the end of
-  /implement, or when the user runs /verify after implementation.
+  Gate before human review — Spec vs PRD, Standards, tests, AGENTS.md tooling;
+  optional UX review; then ship (agent opens a PR; human stays on HEAD). Use at
+  the end of /implement, or when the user runs /verify after implementation.
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,13 @@ If `workflow.md` has `## Monorepo` (or nested git repos exist), also read [monor
 
 Do **not** open a PR, set `ready-to-review`, or move to `.scratch/prd/done/` on a red gate.
 
-## Gate (max 3 cycles)
+## Phases
+
+1. **Functional** — Spec vs PRD, Standards, local tests + tooling (below)
+2. **UX** — if `workflow.md` has `ux-review: enabled`; else skip
+3. **Ship** — path file already read (`human.md` / `github.md`)
+
+## Functional gate (max 3 cycles)
 
 Copy and track:
 
@@ -79,11 +85,9 @@ Spec and Standards sub-agents **in parallel** (`Task`, `generalPurpose`), then l
 
 **Outcome:** hard Spec/Standards misses, red tests/tooling → fail. Judgement calls → record, do not fail.
 
-Green → **Ship** in the path file already read.
-
 Fail and cycles < 3 → fix, repeat this cycle.
 
-3 failures → **stop**. Leave `in-progress`. Comment problems in `prd-language`. Do not ship.
+3 Functional failures → **stop**. Leave `in-progress`. Comment problems in `prd-language`. Do not ship.
 
 ### Fix
 
@@ -91,8 +95,27 @@ One `Task` (`generalPurpose`) per independent failure cluster (sequential if sam
 
 Parent re-runs failed commands, then **commits** per `commit/SKILL.md`: `fix(scope): <what failed> (#<PRD>)`. Trivial one-file fixes: parent, no sub-agent.
 
+## After Functional green
+
+Read `ux-review` from `workflow.md`:
+
+- `disabled` or missing → **Ship** in the path file already read
+- `enabled` → read and follow `{skills-root}/ux-review/SKILL.md` in this session (`skills-root` = parent of this file’s directory, i.e. `development/`)
+
+### Re-check after UX fixes
+
+When UX review commits fixes, re-run **Local pipeline** on affected roots (same commands as Functional).
+
+- Red → Fix (Functional rules); counts toward Functional cycles (max 3). Do not Ship.
+- Green → resume UX gate (re-walk affected screens only per ux-review skill)
+- Full Spec/Standards again **only** if the UX fix changes behaviour vs AC; otherwise skip
+
+UX gate green (or skipped / auto-skipped for non-UI diffs) → **Ship** in the path file already read.
+
+UX gate stops after 3 failures → leave `in-progress`; do not Ship.
+
 ## Rules
 
-- Max **3** gate cycles
+- Max **3** Functional cycles; max **3** UX cycles (owned by ux-review)
 - Parent commits; fix sub-agents write code
 - No commits on the monorepo container root
