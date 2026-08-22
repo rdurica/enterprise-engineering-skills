@@ -129,7 +129,7 @@ Copy this skills pack into the **target repo** at `.cursor/skills/development/` 
 
 **Skip this step** when the current working directory **is** the skills pack itself (cwd contains `development/setup/SKILL.md`).
 
-**Source:** parent of this skill — `development/` (typically `~/.cursor/skills/development`). Never copy from `~/.cursor/skills-cursor/`. Do **not** copy `images/`.
+**Source (prefer shared pack):** `$HOME/.cursor/skills/development` when it contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `ux-review`. Do **not** copy `images/`.
 
 **Destination:** `<target-repo>/.cursor/skills/development/` at the container root (not inside delivery roots).
 
@@ -139,10 +139,13 @@ Copy this skills pack into the **target repo** at `.cursor/skills/development/` 
 align  to-prd  implement  verify  ux-review  tdd  integration-tests  setup  git-release  monorepo-update  commit
 ```
 
-**If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent.
+**If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Copy a skill only when it is absent. Re-running `/setup` after updating the shared pack therefore vendors **new** pipeline skills (e.g. `ux-review`) without overwriting project overlays.
 
 ```bash
-SOURCE="<development-dir>"   # parent of setup/SKILL.md
+SOURCE="$HOME/.cursor/skills/development"
+if [ ! -f "$SOURCE/setup/SKILL.md" ]; then
+  SOURCE="<development-dir>"   # parent of this setup/SKILL.md
+fi
 DEST=".cursor/skills/development"
 mkdir -p "$DEST"
 for name in align to-prd implement verify ux-review tdd integration-tests setup git-release monorepo-update commit; do
