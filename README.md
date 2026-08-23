@@ -73,7 +73,7 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 ## branch-owner
 
-- **agent** — checkout/create branch from PRD `## Delivery`, `git pull --rebase`
+- **agent** — `git fetch origin`; create the Delivery branch from `origin/<default>` (`--no-track`); if it exists, checkout + `git pull --rebase`
 - **human** — stay on current branch; you create the branch before `/implement`
 
 **Session override:** `/implement #42 human` or `/implement #42 agent` overrides branch-owner for one session.

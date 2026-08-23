@@ -21,7 +21,21 @@ Fetch the PRD per `docs/agents/issue-tracker.md`. GitHub: `#N`. Local: `/impleme
 
 ## 2. Branch
 
-From PRD `## Delivery`, else `workflow.md`. **agent:** checkout/create the Delivery branch in each delivery root (`pull --rebase` if it exists). **human:** stay on HEAD. Never commit on a monorepo container root. Stop if a delivery root has unrelated dirty files.
+From PRD `## Delivery`, else `workflow.md`. **human:** stay on HEAD. Never commit on a monorepo container root.
+
+**agent:** in each delivery root (not the container root):
+
+1. `git status` — creating a new branch and the tree is dirty → **stop**. Existing branch: unrelated dirty files → **stop**.
+2. `git fetch origin` — missing `origin` or fetch fails → **stop**.
+3. Default base: `origin/HEAD`, else `origin/main`, else `origin/master`.
+4. `<branch>` exists locally or on origin → checkout; if `origin/<branch>` exists, `git pull --rebase`. Do not reset onto origin/default.
+5. `<branch>` does not exist → create from origin, never from HEAD:
+
+```bash
+git checkout --no-track -b <branch> origin/<default>
+```
+
+`--no-track` so the new branch does not track `origin/main`.
 
 ## 3. Plan
 

@@ -9,7 +9,7 @@ Preset: {{PRESET}}
 - branch-owner: {{BRANCH_OWNER}}   <!-- agent | human -->
 - push: {{PUSH}}                   <!-- finalize | never -->
 
-**branch-owner: agent** — agent checkout/create branch from PRD `## Delivery`, pull --rebase before work.
+**branch-owner: agent** — fetch origin; create the Delivery branch from `origin/<default>` (`--no-track`); if it exists, checkout + pull --rebase. Never create from HEAD.
 
 **branch-owner: human** — agent stays on current branch; never checkout or create. User creates branch before `/implement`.
 
