@@ -13,7 +13,7 @@ commit/             — Conventional Commits (English); used by implement/verify
 tdd/                — red-green-refactor (parent and implement sub-agents)
 integration-tests/  — Symfony HTTP integration tests (parent and implement sub-agents)
 git-release/        — semver tag + GitHub release; user must confirm version
-monorepo-update/    — no args: sync delivery roots to main + bump pointers; with PRD: checkout Delivery branch for review
+monorepo-update/    — no args: sync delivery roots to main + bump pointers; with PRD: every delivery root → Delivery branch
 ```
 
 Helpers during implement/verify: `tdd`, `integration-tests`, `commit`, `ux-review`. Outside the feature loop: `git-release`, `monorepo-update`.

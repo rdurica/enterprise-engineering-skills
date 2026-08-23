@@ -7,7 +7,7 @@ Read only when `docs/agents/workflow.md` has `## Monorepo`, or nested git repos 
 | **Container root** | wrapper (`.`) | all `gh issue …` **`-R` container remote**; `make …` from cwd; **stays on `main`** |
 | **Delivery roots** | nested repos (`backend/`, …) | checkout, pull, diff, commit, push, PR — **not** issue/PRD create |
 
-Container root is **never** a delivery root — no delivery-branch checkout, commit, push, PR, or review diff. Submodule pointer bumps are out of scope for verify: `/monorepo-update` (no args) after sub-repo PRs merge; `/monorepo-update #N` checks out the PRD Delivery branch for human review and does **not** commit pointers. Issues and PRDs always target the container-root GitHub repo (see `issue-tracker-github.md`), never a delivery-root remote.
+Container root is **never** a delivery root — no delivery-branch checkout, commit, push, PR, or review diff. Submodule pointer bumps are out of scope for verify: `/monorepo-update` (no args) after sub-repo PRs merge; `/monorepo-update #N` checks out the PRD Delivery branch in **every** delivery root for human review and does **not** commit pointers. Issues and PRDs always target the container-root GitHub repo (see `issue-tracker-github.md`), never a delivery-root remote.
 
 Delivery roots: `workflow.md` `delivery-roots`, repo overlay, or `git submodule status`. Do not add `.` to that list.
 

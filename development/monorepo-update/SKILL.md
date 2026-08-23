@@ -3,7 +3,7 @@ name: monorepo-update
 description: >-
   Syncs monorepo delivery roots: no args checks out main and bumps submodule
   pointers; a PRD number (#N / 123 / 001) checks out that PRD's Delivery branch
-  in affected roots (others to main) for human review. Use when the user runs
+  in every delivery root for human review. Use when the user runs
   /monorepo-update, passes a PRD number, or asks to bump submodules / set up
   checkout for review.
 disable-model-invocation: true
@@ -18,7 +18,7 @@ Run from the **container root** of the target project (not `~/.cursor/skills`).
 | Invocation | Mode | What happens |
 |------------|------|----------------|
 | `/monorepo-update` (no PRD) | **main** | Each delivery root → `main` + pull; container commits and pushes submodule pointer bumps |
-| `/monorepo-update 123`, `#123`, or `001` | **PRD** | Fetch PRD `## Delivery` branch; affected roots → that branch; others → `main`. No container commit |
+| `/monorepo-update 123`, `#123`, or `001` | **PRD** | Fetch PRD `## Delivery` branch; **every** delivery root → that branch. No container commit |
 
 ## When to use
 
@@ -124,37 +124,21 @@ git push origin main
 1. Fetch the PRD per `docs/agents/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `.scratch/prd/NNN-<slug>.md`). Same resolution as `/implement`.
 2. Read **`## Delivery` → Branch**. Missing PRD or Delivery branch → **STOP**.
 3. Container **stays on `main`**. Do not `git add`, commit, or push submodule pointers (that would write feature SHAs onto container `main`).
-4. In `workflow.md` order, for each delivery root:
+4. In `workflow.md` order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.
 
 ```bash
 git -C <path> fetch origin
 ```
 
-**Affected** if any of:
+If neither `origin/<branch>` nor local `<branch>` exists → **STOP**. Do not create the branch. Report which roots are missing it. Do not checkout the remaining roots until every root has the branch.
 
-- `origin/<branch>` exists
-- local `<branch>` exists
-- a PR with head `<branch>` exists on that root's remote (`gh pr list -R <delivery-remote> --head <branch>`)
-- local `<branch>` has commits vs `origin/main`
-
-Affected:
+Then, for each delivery root:
 
 ```bash
 git -C <path> checkout <branch>
 ```
 
-Then pull: tracking branch → `git pull`; else if `origin/<branch>` exists → `git pull origin <branch>`; else leave the local checkout (do not create a missing remote branch).
-
-Not affected:
-
-```bash
-git -C <path> checkout main
-git -C <path> pull
-```
-
-Do **not** create a branch that does not already exist locally or on origin.
-
-5. If **no** delivery root was affected → **STOP** (nothing to review). Roots already switched to `main` in this step may stay on `main`; report that the Delivery branch was not found.
+Pull: tracking branch → `git pull`; else if `origin/<branch>` exists → `git pull origin <branch>`; else leave the local checkout.
 
 On failure (dirty tree, missing ref, diverged branch, conflict, network error) → **STOP**.
 
@@ -166,7 +150,7 @@ Respond in the user's language.
 
 **Mode main:** container commit hash and push status, or noop if pointers unchanged.
 
-**Mode PRD:** PR URL per affected root when one exists (`gh pr view` / `gh pr list --head <branch>` on that remote). State that container submodule pointers are expected dirty and must not be committed; they are for local review only.
+**Mode PRD:** each delivery root is on the Delivery branch. PR URL per root when one exists (`gh pr view` / `gh pr list --head <branch>` on that remote). State that container submodule pointers are expected dirty and must not be committed; they are for local review only.
 
 On STOP: concrete commands to fix each blocked root.
 
@@ -192,7 +176,7 @@ Mode main:
 - [ ] Commit + push (or noop if already up to date)
 Mode PRD:
 - [ ] PRD and Delivery branch loaded
-- [ ] Affected roots on Delivery branch; others on main
+- [ ] Every delivery root on the Delivery branch
 - [ ] No container commit/push
 - [ ] Per-repo SHA / branch / PR URL report delivered
 ```

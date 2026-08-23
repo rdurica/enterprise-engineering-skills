@@ -37,7 +37,7 @@ stateDiagram-v2
 
 - `/implement` plans internal increments from PRD AC. Parent does small work; sub-agents only for large changes. The parent commits.
 - When all AC are done, `/implement` runs `/verify` in the same session.
-- `/verify` runs the shared gate (Spec, Standards, tests), then **agent** pushes and opens PRs; **human** stays on HEAD. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that PRD's Delivery branch in affected delivery roots for human review.
+- `/verify` runs the shared gate (Spec, Standards, tests), then **agent** pushes and opens PRs; **human** stays on HEAD. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that PRD's Delivery branch in every delivery root for human review.
 
 ## Setup presets
 
