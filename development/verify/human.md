@@ -2,7 +2,7 @@
 
 Stay on **HEAD**. Do not checkout, create, fetch, push, watch CI, or open a PR.
 
-If `## Monorepo`, read [monorepo.md](monorepo.md) — still no checkout; diff current HEAD only.
+If `## Monorepo`, read [monorepo.md](monorepo.md) — still no checkout; diff current HEAD only. The user can run `/monorepo-update #N` first to put delivery roots on the PRD branch.
 
 Unrelated dirty files → stop and ask. Intentional verify diffs may proceed.
 
