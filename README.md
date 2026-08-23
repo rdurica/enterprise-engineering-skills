@@ -10,7 +10,7 @@ Composable agent skills for structured feature delivery. Based on [mattpocock/sk
 | 1–2 | `/align` | Shared understanding; optional `docs/adr/` updates |
 | 3 | `/to-prd` | PRD published (`prd` on GitHub, or `.scratch/prd/NNN-<slug>.md`) + `## Delivery` (branch, branch-owner, push) |
 | 4 | `/implement #PRD` | Plan increments; parent does small work, sub-agents only for large changes; then `/verify` |
-| 5 | `/verify` | Spec vs PRD, Standards, tests, tooling; then **agent** push + CI + PR, or **human** stay on HEAD |
+| 5 | `/verify` | Closer: Spec/Standards/tests (hard findings committed); **agent** ready PR if green, draft PR if fail (notes on PRD); **human** stay on HEAD |
 
 **Helpers during implement:** `tdd`, `integration-tests` (Symfony HTTP), `commit`.
 
@@ -33,17 +33,17 @@ stateDiagram-v2
     inProgress --> readyToReview: verify_green_agent_github
 ```
 
-`ready-to-review` only after an **agent** verify that opened a PR. **human** GitHub: leave `in-progress`; user opens the PR. Local: no GitHub labels — file in `.scratch/prd/` is ready; after verify, `mv` to `.scratch/prd/done/`.
+`ready-to-review` only after an **agent** verify that opened a **ready** PR. Verify fail (agent): **draft** PR, stay `in-progress`, comment on the PRD — never on the PR. **human** GitHub: leave `in-progress`; user opens the PR. Local: no GitHub labels — file in `.scratch/prd/` is ready; after green verify, `mv` to `.scratch/prd/done/` (fail stays in `.scratch/prd/`).
 
-- `/implement` plans internal increments from PRD AC. Parent does small work; sub-agents only for large changes. The parent commits.
+- `/implement` plans internal increments from PRD AC. Parent does small work; sub-agents only for large changes. The parent commits. Progress is AC checkboxes — no ticket comment per increment.
 - When all AC are done, `/implement` runs `/verify` in the same session.
-- `/verify` runs the shared gate (Spec, Standards, tests), then **agent** pushes and opens PRs; **human** stays on HEAD. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that PRD's Delivery branch in every delivery root for human review.
+- `/verify` closes the work (hard Spec/Standards/test findings committed), then **agent** pushes and opens a PR (ready if green, draft if fail); **human** stays on HEAD. Comments only on the PRD. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that PRD's Delivery branch in every delivery root for human review.
 
 ## Setup presets
 
 | Preset | Tracker | branch-owner | push | Typical use |
 |--------|---------|--------------|------|-------------|
-| `full-agentic` | github | agent | finalize | Agent creates branch; push + PR after verify is green |
+| `full-agentic` | github | agent | finalize | Agent creates branch; ready PR if verify is green, draft PR if it fails |
 | `human-owned` | github | human | never | You create the branch; agent stays on HEAD and does not push |
 | `custom` | user choice | user choice | user choice | Tracker, branch-owner, push individually |
 
@@ -68,7 +68,7 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 1. Run **align → to-prd** in one context window when the feature still needs decisions.
 2. `/implement` on the PRD: one session for the whole PRD. Small increments in the parent; sub-agents only for large ones. Resume from `in-progress` if the session dies.
-3. `/verify` runs automatically at the end of implement. **agent:** push + CI + PR. **human:** stay on HEAD; user pushes.
+3. `/verify` runs automatically at the end of implement. **agent:** push + CI + ready PR (green) or draft PR (fail); notes on the PRD. **human:** stay on HEAD; user pushes.
 4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root. GitHub PRDs/issues always live on the container-root repo (`gh -R`), not in delivery-root repos.
 
 ## branch-owner
@@ -84,12 +84,12 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 **Per increment (implement):** relevant tests green, intentional diff only, then commit.
 
-**Verify gate (before human review):**
+**Verify gate (before human merge):**
 
 | Gate | What to verify |
 |------|----------------|
 | Acceptance criteria | Every item in the PRD `## Acceptance criteria` satisfied |
-| Spec / Standards | Sub-agent review vs PRD and repo conventions; hard findings fixed |
+| Spec / Standards | Sub-agent fix-list vs PRD and repo conventions; hard findings committed |
 | Tests | Full relevant suite green |
 | Tooling | Commands from target repo `AGENTS.md` (e.g. `make cs-fix`, `make phpstan`, `npx vue-tsc`) |
 | CI | **agent** path: `gh run watch` when GitHub Actions exist. **human:** skip |

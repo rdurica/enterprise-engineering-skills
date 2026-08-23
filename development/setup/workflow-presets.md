@@ -4,7 +4,7 @@ Used by `/setup` when configuring `docs/agents/workflow.md` in a target repo.
 
 ## full-agentic
 
-Agent manages branches and pushes after `/verify` is green — then opens the PR.
+Agent manages branches and pushes after `/verify`: ready PR if green, draft PR if the gate fails.
 
 | Setting | Value |
 |---------|-------|

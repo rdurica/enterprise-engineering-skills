@@ -56,7 +56,7 @@ One increment, then commit, then the next. Never parallel implement sub-agents.
 
 Then: diff, relevant tests. Small failures: fix yourself. Large: another sub-agent with the error. Commit in each affected delivery root per `commit/SKILL.md` (`feat(scope): <increment title> (#<PRD>)`).
 
-Check off matching AC on the PRD. Ticket comments in `prd-language` from `workflow.md`. Commit messages stay English. Then the next increment.
+Check off matching AC on the PRD. Do not comment on the ticket after each increment. Commit messages stay English. Then the next increment.
 
 ## 5. Verify
 

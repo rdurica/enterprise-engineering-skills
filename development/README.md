@@ -7,7 +7,7 @@ setup/              — per-repo tracker, git workflow, domain doc layout
 align/              — alignment interview; no PRD here
 to-prd/             — conversation → published PRD
 implement/          — plan from PRD; parent for small work, sub-agents for large increments, then verify
-verify/             — Functional (Spec + Standards + tests) [→ UX] → Ship; agent: CI + PR; human: HEAD
+verify/             — Closer: Functional (Spec + Standards + tests) [→ UX] → Ship; agent: ready PR if green, draft PR if fail; notes on PRD; human: HEAD
 ux-review/          — Phase 2 of /verify (if enabled); browser UX/a11y; re-check tooling after fixes
 commit/             — Conventional Commits (English); used by implement/verify
 tdd/                — red-green-refactor (parent and implement sub-agents)

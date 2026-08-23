@@ -36,9 +36,9 @@ UX review cycle: 1 / 3
 |----------|----------|------|
 | **Critical** | Unreadable text, broken layout, missing input label, dead primary CTA, horizontal overflow | **fail** |
 | **Major** | Weak hierarchy, contrast below AA, tap target < 44px, missing loading/error/empty, confusing nav | **fail** |
-| **Minor** | Off-grid spacing, polish, AI-slop aesthetics | report only |
+| **Minor** | Off-grid spacing, polish, AI-slop aesthetics | ignore; do not post |
 
-3 UX failures → **stop**. Leave `in-progress`. Comment in `prd-language`. Do not Ship.
+3 UX failures → **stop**. Leave `in-progress`. Return to `/verify` **Fail** (do not Ship; do not comment Minors).
 
 ## Scope
 
@@ -81,14 +81,7 @@ Full Spec/Standards again **only** if the UX fix changes behaviour vs AC (new fl
 
 ## Green output
 
-Comment in `prd-language` (for `/verify` Ship note):
-
-```markdown
-UX review green.
-
-## Findings (Minor — no block)
-- [M1] ...
-```
+Tell `/verify` UX is green. Do **not** comment Minors on the PRD or the PR.
 
 ## Rules
 

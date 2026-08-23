@@ -78,15 +78,19 @@ After the move: leave `Status: in-progress`. Do not add `ready-to-review`.
 | Fetch PRD | Active only: `.scratch/prd/NNN-<slug>.md` (or unnumbered `.scratch/<slug>/PRD.md`) |
 | Set in-progress | Write `Status: in-progress` |
 | Update AC checkboxes | Check off items in `## Acceptance criteria` |
-| Comment | Append under `## Comments` |
+| Comment | Append under `## Comments` (session death only — not per increment) |
 
 `/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `.scratch/prd/done/`, **stop**.
 
-### `/verify` — finalize
+### `/verify` — comment on the PRD only
+
+**Green:**
 
 1. Append PR URLs (or “local verify green — user should push”) under `## Comments`
 2. If the path has no `NNN-` prefix, assign next ID
 3. `mkdir -p .scratch/prd/done` and `mv` the file to `.scratch/prd/done/NNN-<slug>.md`. Leave Status as `in-progress`
+
+**Fail:** append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in `.scratch/prd/`. Do not move to `done/`.
 
 ## When a skill says "publish to the issue tracker"
 

@@ -13,7 +13,7 @@ Preset: {{PRESET}}
 
 **branch-owner: human** — agent stays on current branch; never checkout or create. User creates branch before `/implement`.
 
-**push: finalize** — `/verify` with branch-owner agent: push, watch CI, open PR.
+**push: finalize** — `/verify` with branch-owner agent: push, watch CI, open a ready PR if green or a draft PR if the gate fails.
 
 **push: never** — branch-owner human: agent does not push; user opens the PR.
 
@@ -27,7 +27,7 @@ Priority: PRD `## Delivery` overrides > this file > setup preset.
 - local-path: `.scratch/`
 - prd-language: {{PRD_LANGUAGE}}   <!-- en | cs -->
 
-`/to-prd` writes PRD prose (title, problem, AC text) in this language. Section headings stay English. `/implement` and `/verify` comments on the ticket use the same language.
+`/to-prd` writes PRD prose (title, problem, AC text) in this language. Section headings stay English. `/implement` and `/verify` comments on the **PRD** (never on the PR) use the same language. `/verify` green (agent): ready PR + `ready-to-review`. `/verify` fail (agent): draft PR, stay `in-progress`, fail note on the PRD.
 
 When `active: local`, see `docs/agents/issue-tracker.local.md` (if present) for file conventions.
 
