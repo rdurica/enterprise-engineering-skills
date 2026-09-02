@@ -3,9 +3,9 @@ name: tdd
 description: >-
   Test-driven development with red-green-refactor vertical slices. Use when
   building features or fixes test-first, or when implement delegates testing.
-  For PHP backend, routes HTTP work to integration-tests and handler/domain
-  work to PHPUnit unit tests. Always run the failing test (Verify RED) before
-  writing production code.
+  For PHP backend, HTTP goes to integration-tests; handler/domain decision
+  logic always gets PHPUnit unit tests (HTTP does not replace them). Always
+  run the failing test (Verify RED) before writing production code.
 ---
 
 # Test-Driven Development
@@ -31,7 +31,9 @@ RIGHT:  RED test1 → Verify RED → GREEN impl1 → RED test2 → GREEN impl2 �
 
 Read `docs/adr/` if it exists.
 
-Before writing code:
+When `/implement` invoked this skill: skip user approval — the published analysis is the plan. Do **one** `## Acceptance` item, then return to the parent. Do not start another Acceptance item in this invocation.
+
+Otherwise, before writing code:
 
 - Confirm interface changes and behaviours to test (prioritized)
 - List behaviours, not implementation steps
@@ -70,8 +72,10 @@ After all tests pass, apply [refactoring.md](refactoring.md). **Never refactor w
 | Seam | Skill / approach |
 |------|------------------|
 | HTTP API endpoint | `integration-tests` — full-stack contract via KernelBrowser |
-| Command/Query handler, domain service, value object | PHPUnit **unit tests** — read paths and conventions from target repo `AGENTS.md` |
-| Both in one slice | TDD cycle at the highest seam first (usually HTTP); unit tests only where HTTP cannot reach the logic cleanly |
+| Handler, domain service, or value object with **decision logic** (branches, invariant, calculation, policy) | PHPUnit **unit tests** on the public interface — **always**, even when an HTTP test already covers the endpoint. Read paths from target repo `AGENTS.md` |
+| Pure wiring (handler forwards, no branches) | Skip unit — HTTP is enough |
+| No HTTP | Unit only |
+| Both seams on one Acceptance item | Highest seam first (HTTP), then unit for the **same** decision. Each test its own Verify RED. HTTP does not replace unit |
 
 Run one test (`--filter` / one file) per red-green cycle. Project-specific PHPUnit commands live in `AGENTS.md`.
 

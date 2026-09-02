@@ -42,7 +42,7 @@ For **bugs**, set `Kind: bug` and use the shorter bug sections where appropriate
 
 Facts for implementers, not a novel. Frontend (when present) is brief in Architecture — not the focus. **Omit `## API Contracts`** when there is no API. **Always include a mermaid in Summary**, even a simple one.
 
-Architecture `###` subsections are named after real units of the project — a package or repo in a monorepo, a module / bounded context / namespace in a monolith. Never a prescribed `_backend`, and never a layer (`Controller`, `Service`, `Repository`): layer subsections hand implementers horizontal slices. Say where each unit lives (path or namespace). Omit subsections only when the whole change sits in one unit.
+Architecture `###` subsections are named after real units of the project — a package or repo in a monorepo, a module / bounded context / namespace in a monolith. Never a prescribed `_backend`, and never a layer (`Controller`, `Service`, `Repository`): layer subsections hand implementers horizontal slices. Say where each unit lives (path or namespace). Independent units with disjoint paths can be implemented in parallel; name a shared seam so `/implement` does not parallelize blindly. Omit subsections only when the whole change sits in one unit.
 
 <analysis-template>
 
@@ -67,8 +67,9 @@ One `###` subsection per real unit of the project, with its path or
 namespace: package/repo in a monorepo, module / bounded context in a
 monolith. State what changes in each one. Never a prescribed `_backend`,
 never a layer (`Controller`, `Service`, `Repository`) — that splits the
-work horizontally. Omit subsections only when the whole change sits in
-one unit.}
+work horizontally. Independent units with disjoint paths can run in
+parallel; name a shared seam. Omit subsections only when the whole
+change sits in one unit.}
 
 ## API Contracts
 
@@ -79,6 +80,9 @@ one unit.}
 {short `- [ ]` list — the testable contract for TDD and verify, not a WBS.
 One observable behaviour per item: concrete trigger/input plus the concrete
 expected result (status code, payload shape, persisted state, emitted event).
+Each item is one `/implement` behaviour (HTTP + unit where there is
+decision logic). Do not merge behaviours into one checkbox. One item,
+one seam. Do not add extra checkboxes for unit tests.
 Cover error and boundary paths, not only the happy path.
 Reference `## API Contracts` instead of restating payloads.
 Never: vague outcomes ("works", "is correct", "is tested") or task items
