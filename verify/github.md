@@ -26,6 +26,23 @@ Then run the **Gate** in [SKILL.md](SKILL.md).
 
 GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monorepo). Local: append under `## Comments`. Body in `language` from `workflow.md`. Headings stay English.
 
+## PR body
+
+Title references analysis `#N`. Pass this `--body` (overrides a repo `PULL_REQUEST_TEMPLATE`). Copy `## Acceptance` from the analysis — **never** invent a separate `## Test plan`. Check `- [x]` only items whose tests actually ran and passed in this verify; leave skipped (FAQ) and untested items `- [ ]`.
+
+```markdown
+Implements #<N>.
+
+## Summary
+
+- {1–3 bullets from Change / commits}
+
+## Acceptance
+
+- [x] {item whose tests ran and passed}
+- [ ] {skipped or not tested}
+```
+
 ## Ship (gate green)
 
 1. `git push -u origin <branch>` in **each affected delivery root** (skip container root; skip if no remote).
@@ -35,9 +52,9 @@ GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monor
    gh run watch {RUN_ID} --exit-status
    ```
    No workflows → treat CI as green. Red CI → **Fix** in SKILL.md, then a new gate cycle (do not count the cycle complete until CI is re-watched).
-3. **Ready PR** in each delivery root with commits vs default branch (title/body reference analysis `#N`). **Never** on the container root.
-   - no PR → `gh pr create` (no `--draft`)
-   - draft PR → `gh pr ready`
+3. **Ready PR** in each delivery root with commits vs default branch. **Never** on the container root.
+   - no PR → `gh pr create` (no `--draft`) with the PR body above
+   - draft PR → `gh pr ready` (do not add a Test plan; refresh Acceptance checkboxes if tests changed)
    - already ready → leave it
    Collect PR URLs.
 4. Finalize analysis:
@@ -61,8 +78,8 @@ Submodule pointer bumps on the container root are for the user after sub-repo PR
 Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-attention`; local: `Status: needs-attention`). Do not add `ready-to-review`. Do not move to `done/`.
 
 1. `git push -u origin <branch>` in **each affected delivery root** (skip container root; skip if no remote). Do not watch CI.
-2. **Draft PR** in each delivery root with commits vs default branch (title/body reference analysis `#N`). **Never** on the container root.
-   - no PR → `gh pr create --draft`
+2. **Draft PR** in each delivery root with commits vs default branch. **Never** on the container root.
+   - no PR → `gh pr create --draft` with the PR body above
    - ready PR → `gh pr ready --undo`
    - already draft → leave it
    Collect PR URLs.
