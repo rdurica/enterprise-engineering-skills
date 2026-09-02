@@ -2,10 +2,10 @@
 name: monorepo-update
 description: >-
   Syncs monorepo delivery roots: no args checks out main and bumps submodule
-  pointers; a PRD number (#N / 123 / 001) checks out that PRD's Delivery branch
-  in every delivery root for human review. Use when the user runs
-  /monorepo-update, passes a PRD number, or asks to bump submodules / set up
-  checkout for review.
+  pointers; an analysis number (#N / 123 / 001) checks out that analysis
+  Delivery branch in every delivery root for human review. Use when the user
+  runs /monorepo-update, passes an analysis number, or asks to bump submodules
+  / set up checkout for review.
 disable-model-invocation: true
 ---
 
@@ -17,14 +17,14 @@ Run from the **container root** of the target project (not `~/.cursor/skills`).
 
 | Invocation | Mode | What happens |
 |------------|------|----------------|
-| `/monorepo-update` (no PRD) | **main** | Each delivery root → `main` + pull; container commits and pushes submodule pointer bumps |
-| `/monorepo-update 123`, `#123`, or `001` | **PRD** | Fetch PRD `## Delivery` branch; **every** delivery root → that branch. No container commit |
+| `/monorepo-update` (no id) | **main** | Each delivery root → `main` + pull; container commits and pushes submodule pointer bumps |
+| `/monorepo-update 123`, `#123`, or `001` | **analysis** | Fetch analysis `## Delivery` branch; **every** delivery root → that branch. No container commit |
 
 ## When to use
 
 - After sub-repo PRs merge to `main` → mode **main**
-- Before human review of a PRD, so every delivery root is on the right branch → mode **PRD**
-- User runs `/monorepo-update` with or without a PRD number
+- Before human review of an analysis, so every delivery root is on the right branch → mode **analysis**
+- User runs `/monorepo-update` with or without an analysis number
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ Run from the **container root** of the target project (not `~/.cursor/skills`).
 - Stop only if neither `workflow.md` nor `git submodule status` can identify delivery roots; then suggest `/setup`
 - `git` and network access
 - Mode **main**: `origin` on the container root (for push)
-- Mode **PRD**: `docs/agents/issue-tracker.md` to resolve the PRD
+- Mode **analysis**: `docs/agents/issue-tracker.md` to resolve the analysis
 
 ## Step 1: Load config
 
@@ -48,7 +48,7 @@ Record each delivery-root HEAD before sync (`git -C <path> rev-parse HEAD`) for 
 
 ## Step 2: Choose mode
 
-- User passed a PRD id (`123`, `#123`, `001`, or a slug that resolves like `/implement`) → **PRD**
+- User passed an analysis id (`123`, `#123`, `001`, or a slug that resolves like `/implement`) → **analysis**
 - Otherwise → **main**
 
 ## Step 3: Preflight (mandatory — all roots)
@@ -80,7 +80,7 @@ A delivery root being on a feature branch, ahead of `origin/main`, or behind `or
 - Uncommitted changes outside the delivery-root submodule paths
 - Untracked files outside the delivery-root submodule paths
 
-Submodule pointer changes for delivery-root paths are allowed on the container root. Mode **main** stages, commits, and pushes them. Mode **PRD** leaves them dirty — do not commit.
+Submodule pointer changes for delivery-root paths are allowed on the container root. Mode **main** stages, commits, and pushes them. Mode **analysis** leaves them dirty — do not commit.
 
 On STOP, report a per-repo table: `path`, branch, problem, suggested fix. Do not stash, discard, or force anything.
 
@@ -119,10 +119,10 @@ EOF
 git push origin main
 ```
 
-## Step 4c: Mode PRD — checkout for review
+## Step 4c: Mode analysis — checkout for review
 
-1. Fetch the PRD per `docs/agents/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `.scratch/prd/NNN-<slug>.md`). Same resolution as `/implement`.
-2. Read **`## Delivery` → Branch**. Missing PRD or Delivery branch → **STOP**.
+1. Fetch the analysis per `docs/agents/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `.scratch/analysis/NNN-<slug>.md`). Same resolution as `/implement`.
+2. Read **`## Delivery` → Branch**. Missing analysis or Delivery branch → **STOP**.
 3. Container **stays on `main`**. Do not `git add`, commit, or push submodule pointers (that would write feature SHAs onto container `main`).
 4. In `workflow.md` order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.
 
@@ -150,7 +150,7 @@ Respond in the user's language.
 
 **Mode main:** container commit hash and push status, or noop if pointers unchanged.
 
-**Mode PRD:** each delivery root is on the Delivery branch. PR URL per root when one exists (`gh pr view` / `gh pr list --head <branch>` on that remote). State that container submodule pointers are expected dirty and must not be committed; they are for local review only.
+**Mode analysis:** each delivery root is on the Delivery branch. PR URL per root when one exists (`gh pr view` / `gh pr list --head <branch>` on that remote). State that container submodule pointers are expected dirty and must not be committed; they are for local review only.
 
 On STOP: concrete commands to fix each blocked root.
 
@@ -162,20 +162,20 @@ On STOP: concrete commands to fix each blocked root.
 - Force-push
 - Auto-stash — user fixes dirty trees manually
 - Mode **main**: commit anything on the container root except submodule pointer updates
-- Mode **PRD**: any commit or push on the container root; creating a Delivery branch that does not exist
+- Mode **analysis**: any commit or push on the container root; creating a Delivery branch that does not exist
 
 ## Checklist
 
 ```
 - [ ] Delivery-root config loaded from workflow.md or fallback
-- [ ] Mode chosen (main vs PRD)
+- [ ] Mode chosen (main vs analysis)
 - [ ] Delivery roots clean; container has no changes except allowed submodule refs
 Mode main:
 - [ ] Each delivery root checked out to main and pulled
 - [ ] Container pulled; submodule paths staged
 - [ ] Commit + push (or noop if already up to date)
-Mode PRD:
-- [ ] PRD and Delivery branch loaded
+Mode analysis:
+- [ ] Analysis and Delivery branch loaded
 - [ ] Every delivery root on the Delivery branch
 - [ ] No container commit/push
 - [ ] Per-repo SHA / branch / PR URL report delivered

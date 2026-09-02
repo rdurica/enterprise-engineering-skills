@@ -2,7 +2,7 @@
 
 Always push and open a **PR**. Green gate → ready PR. Failed gate → draft PR. Do not skip the PR.
 
-Never comment on the PR (`gh pr review`, `gh pr comment` forbidden). Green and fail notes go on the **PRD only**.
+Never comment on the PR (`gh pr review`, `gh pr comment` forbidden). Green and fail notes go on the **analysis only**.
 
 If `## Monorepo`, read [monorepo.md](monorepo.md) before sync.
 
@@ -22,9 +22,9 @@ Diff the local checkout — not `git show origin/<branch>:path`. Never diff the 
 
 Then run the **Gate** in [SKILL.md](SKILL.md).
 
-## PRD comments
+## Analysis comments
 
-GitHub: `gh issue comment` on the PRD issue (`-R` container-root in a monorepo). Local: append under `## Comments`. Body in `prd-language` from `workflow.md`. Headings stay English.
+GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monorepo). Local: append under `## Comments`. Body in `language` from `workflow.md`. Headings stay English.
 
 ## Ship (gate green)
 
@@ -35,14 +35,14 @@ GitHub: `gh issue comment` on the PRD issue (`-R` container-root in a monorepo).
    gh run watch {RUN_ID} --exit-status
    ```
    No workflows → treat CI as green. Red CI → **Fix** in SKILL.md, then a new gate cycle (do not count the cycle complete until CI is re-watched).
-3. **Ready PR** in each delivery root with commits vs default branch (title/body reference PRD `#N`). **Never** on the container root.
+3. **Ready PR** in each delivery root with commits vs default branch (title/body reference analysis `#N`). **Never** on the container root.
    - no PR → `gh pr create` (no `--draft`)
    - draft PR → `gh pr ready`
    - already ready → leave it
    Collect PR URLs.
-4. Finalize PRD:
+4. Finalize analysis:
    - GitHub: `--remove-label in-progress --add-label ready-to-review`
-   - Local: `mkdir -p .scratch/prd/done`, `mv` to `.scratch/prd/done/NNN-<slug>.md` (assign `NNN` if unnumbered). Leave `Status: in-progress`.
+   - Local: `mkdir -p .scratch/analysis/done` and `mv` to `.scratch/analysis/done/NNN-<slug>.md`. Leave `Status: in-progress`.
 
 ```markdown
 Verify gate green.
@@ -58,18 +58,18 @@ Submodule pointer bumps on the container root are for the user after sub-repo PR
 
 ## Fail (gate red after 3 cycles or hard stop)
 
-Leave `in-progress`. Do not add `ready-to-review`. Do not move to `.scratch/prd/done/`.
+Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-attention`; local: `Status: needs-attention`). Do not add `ready-to-review`. Do not move to `done/`.
 
 1. `git push -u origin <branch>` in **each affected delivery root** (skip container root; skip if no remote). Do not watch CI.
-2. **Draft PR** in each delivery root with commits vs default branch (title/body reference PRD `#N`). **Never** on the container root.
+2. **Draft PR** in each delivery root with commits vs default branch (title/body reference analysis `#N`). **Never** on the container root.
    - no PR → `gh pr create --draft`
    - ready PR → `gh pr ready --undo`
    - already draft → leave it
    Collect PR URLs.
-3. Comment on the PRD: what failed (Spec / Standards / tests / UX), what was tried, what remains. Include draft PR URLs.
+3. Comment on the analysis: what failed (Spec / Standards / tests / UX), what was tried, what remains. Include draft PR URLs.
 
 ```markdown
-Verify gate failed. Left in-progress. Draft PR(s) open.
+Verify gate failed. Marked needs-attention. Draft PR(s) open.
 
 ## What failed
 

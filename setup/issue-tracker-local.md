@@ -1,62 +1,61 @@
 # Issue tracker: Local Markdown
 
-Issues and PRDs live as markdown files in `.scratch/prd/` — one `.md` per ticket, no per-ticket directories.
+Issues and analyses live as markdown files in `.scratch/analysis/` — one `.md` per ticket, no per-ticket directories.
 
 Also read `docs/agents/workflow.md` for branch-owner and push defaults.
 
 ## Layout
 
 ```
-.scratch/prd/
+.scratch/analysis/
 ├── 001-<slug>.md
 ├── 002-<slug>.md
 └── done/
     └── 001-<slug>.md
 ```
 
-IDs are three digits, unique across **`.scratch/prd/` and `.scratch/prd/done/`**. Never reuse. `001` already in `done/` ⇒ next is `002`.
+IDs are three digits, unique across **`.scratch/analysis/`** and **`.scratch/analysis/done/`**. Never reuse. `001` already in either ⇒ next is `002`.
 
 Bugs are the same files with `Kind: bug` — no separate `bugs/` folder.
-
-Existing unnumbered `.scratch/<slug>/PRD.md` remains readable until `/verify` assigns an ID and writes `.scratch/prd/done/NNN-<slug>.md`.
 
 ## Next ID
 
 Scan leading `NNN` from files:
 
-- `.scratch/prd/NNN-*.md`
-- `.scratch/prd/done/NNN-*.md`
-
-Also include leftover IDs from older layouts if present (`.scratch/NNNN-*` dirs, `.scratch/bugs/`, `.scratch/done/`) so numbers never collide.
+- `.scratch/analysis/NNN-*.md`
+- `.scratch/analysis/done/NNN-*.md`
 
 Next ID = `max(found) + 1`, or `001` if none. Pad to three digits.
 
 ## File format
 
 ```markdown
-# PRD: <title>
+# Analysis: <title>
 
-Status: in-progress
+Status: in-progress | needs-attention
 Kind: feature | bug | chore
 
 ## Delivery
 
-- Branch: `feature/prd-NNN-<short-slug>`
+- Kind: feature | bug | chore
+- Branch: `feature/analysis-NNN-<short-slug>`
 - Branch owner: agent | human
 - Push: finalize | never
 
-<prd body sections>
+<analysis body sections>
 ```
 
-A file in `.scratch/prd/` is ready. Write `Status: in-progress` only when `/implement` starts. Do **not** write `ready-to-review`. Terminal state is the path under `.scratch/prd/done/`.
+A file in `.scratch/analysis/` is ready. Write `Status: in-progress` only when `/implement` starts. Do **not** write `ready-to-review`. Terminal state is the path under `.scratch/analysis/done/`.
 
 No GitHub-style `ready-for-agent` analog.
 
 ## Status transitions
 
-File in `.scratch/prd/` → `in-progress` → move to `.scratch/prd/done/` (after verify is green).
+File in `.scratch/analysis/` → `in-progress` → move to `.scratch/analysis/done/` (after verify is green).
 
-If the session dies, leave `in-progress` in the **active** file. Re-run `/implement` to resume.
+`needs-attention` is the local equivalent of the GitHub label: the agent stopped and cannot continue without a human decision or fix (verify fail, or remaining work blocked by open `## FAQ`). It **replaces** `in-progress` in `Status:`. The file stays in `.scratch/analysis/` — never move it to `done/`. `/implement` writes `Status: in-progress` again on resume.
+
+If the session dies, leave `in-progress` in the **active** file — that state is resumable. Re-run `/implement` to resume.
 
 Update `Status:` while the file is active. Append comments under `## Comments` with timestamp.
 
@@ -64,38 +63,38 @@ After the move: leave `Status: in-progress`. Do not add `ready-to-review`.
 
 ## Skill operations
 
-### `/to-prd` — publish PRD
+### `/analyze` — publish analysis
 
 1. Compute next ID (scan above)
-2. Choose `<slug>` from the PRD title (lowercase, hyphenated)
-3. Create `.scratch/prd/NNN-<slug>.md` (no Status line yet)
-4. Include `## Delivery` with `feature/prd-NNN-<short-slug>` and branch-owner/push from `docs/agents/workflow.md`
+2. Choose `<slug>` from the analysis title (lowercase, hyphenated)
+3. Create `.scratch/analysis/NNN-<slug>.md` (no Status line yet)
+4. Include `## Delivery` with Kind, `feature/analysis-NNN-<short-slug>`, and branch-owner/push from `docs/agents/workflow.md`
 
 ### `/implement` — fetch by number or slug
 
 | Operation | Action |
 |-----------|--------|
-| Fetch PRD | Active only: `.scratch/prd/NNN-<slug>.md` (or unnumbered `.scratch/<slug>/PRD.md`) |
-| Set in-progress | Write `Status: in-progress` |
-| Update AC checkboxes | Check off items in `## Acceptance criteria` |
-| Comment | Append under `## Comments` (session death only — not per increment) |
+| Fetch analysis | `.scratch/analysis/NNN-<slug>.md` |
+| Set in-progress | Write `Status: in-progress` (also on resume from `needs-attention`) |
+| Blocked by open FAQ | Write `Status: needs-attention` |
+| Update Acceptance checkboxes | Check off items in `## Acceptance` |
+| Comment | Append under `## Comments` (session death only — not per part) |
 
-`/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `.scratch/prd/done/`, **stop**.
+`/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `done/`, **stop**.
 
-### `/verify` — comment on the PRD only
+### `/verify` — comment on the analysis only
 
 **Green:**
 
 1. Append PR URLs (or “local verify green — user should push”) under `## Comments`
-2. If the path has no `NNN-` prefix, assign next ID
-3. `mkdir -p .scratch/prd/done` and `mv` the file to `.scratch/prd/done/NNN-<slug>.md`. Leave Status as `in-progress`
+2. `mkdir -p .scratch/analysis/done` and `mv` the file there. Leave Status as `in-progress`
 
-**Fail:** append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in `.scratch/prd/`. Do not move to `done/`.
+**Fail:** write `Status: needs-attention` and append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in the active folder. Do not move to `done/`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create `.scratch/prd/NNN-<slug>.md`. Allocate next ID first.
+Create `.scratch/analysis/NNN-<slug>.md`. Allocate next ID first.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the active file (or the path the user passed). Do not treat `.scratch/prd/done/` as implementable.
+Read the active file (or the path the user passed). Do not treat `done/` as implementable.

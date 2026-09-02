@@ -20,7 +20,7 @@ Conventional Commits only. Do **not** push or open a PR.
 
    Types: `feat` `fix` `docs` `style` `refactor` `perf` `test` `build` `ci` `chore` `revert`.
 
-   Optional body. Footer: `BREAKING CHANGE: …` and/or `(#N)` when a PRD/issue is in context.
+   Optional body. Footer: `BREAKING CHANGE: …` and/or `(#N)` when an analysis/issue is in context.
 
 4. Commit (no `--no-verify`, no amend, no force):
 

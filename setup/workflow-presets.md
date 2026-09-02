@@ -26,4 +26,4 @@ Human creates branch before `/implement`; agent stays on HEAD and does not push 
 
 ## custom
 
-User answers the setup questions individually (tracker, branch-owner, push). PRD language is always asked, including when a preset is chosen.
+User answers the setup questions individually (tracker, branch-owner, push). Language (`en` | `cs`) is always asked, including when a preset is chosen.

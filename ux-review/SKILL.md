@@ -13,7 +13,7 @@ Phase 2 of `/verify` when `workflow.md` has `ux-review: enabled`. Functional gat
 
 Read `docs/agents/workflow.md`. Skills root: parent of this file. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
 
-If the repo has an overlay, read it after this skill: `.cursor/skills/development/ux-review/SKILL.md`.
+If the repo has an overlay, read it after this skill: `.cursor/skills/ux-review/SKILL.md`.
 
 ## When to skip
 
@@ -38,11 +38,11 @@ UX review cycle: 1 / 3
 | **Major** | Weak hierarchy, contrast below AA, tap target < 44px, missing loading/error/empty, confusing nav | **fail** |
 | **Minor** | Off-grid spacing, polish, AI-slop aesthetics | ignore; do not post |
 
-3 UX failures → **stop**. Leave `in-progress`. Return to `/verify` **Fail** (do not Ship; do not comment Minors).
+3 UX failures → **stop**. Return to `/verify` **Fail**, which sets `needs-attention` (do not Ship; do not comment Minors).
 
 ## Scope
 
-1. Screens from PRD `## Acceptance criteria` + frontend files in `git diff <fixed-point>...HEAD`
+1. Screens from analysis `## Acceptance` + frontend files in `git diff <fixed-point>...HEAD`
 2. Short happy-path to reach those screens
 3. Viewports: desktop `1440x900`; mobile `390x844x3,mobile,touch` via Chrome DevTools MCP `emulate`
 
@@ -66,9 +66,9 @@ Fail and cycles < 3 → Fix, then **Re-check**, then repeat this cycle (re-walk 
 
 ## Fix
 
-Parent: trivial one-file CSS/copy. Else one `Task` per cluster. No push/PR, no container-root commits, no scope creep vs PRD Out of Scope.
+Parent: trivial one-file CSS/copy. Else one `Task` per cluster. No push/PR, no container-root commits, no scope creep vs analysis Change/Architecture.
 
-Commit: `fix(ui): <what> (#<PRD>)`.
+Commit: `fix(ui): <what> (#<N>)`.
 
 ### Re-check (mandatory after any UX fix)
 
@@ -77,11 +77,11 @@ Hand control to parent `/verify`: re-run **Local pipeline** (tests + tooling fro
 - Red → Functional Fix; counts toward Functional cycles (max 3). Then re-run Local pipeline.
 - Green → resume UX gate (re-walk affected screens only).
 
-Full Spec/Standards again **only** if the UX fix changes behaviour vs AC (new flow, AC copy, new screen). Otherwise skip Spec/Standards.
+Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance (new flow, Acceptance copy, new screen). Otherwise skip Spec/Standards.
 
 ## Green output
 
-Tell `/verify` UX is green. Do **not** comment Minors on the PRD or the PR.
+Tell `/verify` UX is green. Do **not** comment Minors on the analysis or the PR.
 
 ## Rules
 

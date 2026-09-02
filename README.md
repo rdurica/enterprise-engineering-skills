@@ -2,42 +2,57 @@
 
 Composable agent skills for structured feature delivery. Based on [mattpocock/skills](https://github.com/mattpocock/skills).
 
+## What this is
+
+Architecture and contracts are the spec — not a prose specification document. `/analyze` fixes the decisions that are expensive to reverse (layers, data flow, API contracts) plus a testable `## Acceptance`; how the code gets written is left to the implementing agents. The human decides at the start and approves at the end.
+
+Built for **brownfield, incremental work in an existing repository** with tests, CI and documented conventions.
+
+**Not for:** vibe coding, greenfield prototypes and spikes, one-off scripts, or trivial fixes (see `## When to use the pipeline`). Five phases and a published analysis carry real overhead — it pays off when the change crosses more than one seam or more than one package, and when someone other than the author has to review it.
+
 ## Pipeline
 
 | Phase | Skill | Output |
 |-------|-------|--------|
-| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block + pipeline skills copied to `.cursor/skills/development/` if missing |
+| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md` + `## Agent skills` block + pipeline skills copied to `.cursor/skills/` if missing |
 | 1–2 | `/align` | Shared understanding; optional `docs/adr/` updates |
-| 3 | `/to-prd` | PRD published (`prd` on GitHub, or `.scratch/prd/NNN-<slug>.md`) + `## Delivery` (branch, branch-owner, push) |
-| 4 | `/implement #PRD` | Plan increments; parent does small work, sub-agents only for large changes; then `/verify` |
-| 5 | `/verify` | Closer: Spec/Standards/tests (hard findings committed); **agent** ready PR if green, draft PR if fail (notes on PRD); **human** stay on HEAD |
+| 3 | `/analyze` | Analysis published (`analysis` on GitHub, or `.scratch/analysis/NNN-<slug>.md`) + `## Delivery` (Kind, branch, branch-owner, push) |
+| 4 | `/implement #N` | Sub-agents implement from the analysis (code + tests); parent commits; then `/verify` |
+| 5 | `/verify` | Closer: Spec/Standards/tests (hard findings committed); **agent** ready PR if green, draft PR if fail (notes on analysis); **human** stay on HEAD |
 
 **Helpers during implement:** `tdd`, `integration-tests` (Symfony HTTP), `commit`.
 
 **Outside the feature pipeline:** `git-release`, `monorepo-update`.
 
-## PRD lifecycle
+Human work is at the start (align + review the published analysis) and at the end (check the PR / HEAD). In between, agents implement, test, run tooling, and leave a clean tree.
 
-The human adds GitHub `ready-for-agent` after validating the PRD so an auto-trigger will not implement an undecided ticket. User-invoked `/implement` does not require that label.
+## Analysis lifecycle
+
+Happy path: review the published analysis, then `/implement`. GitHub `ready-for-agent` is only for auto-start without the user. User-invoked `/implement` does not require that label.
 
 ```mermaid
 stateDiagram-v2
-    prdPublished: prd
+    analysisPublished: analysis
     readyForAgent: ready_for_agent
     inProgress: in_progress
+    needsAttention: needs_attention
     readyToReview: ready_to_review
 
-    prdPublished --> readyForAgent: human_validates
-    prdPublished --> inProgress: user_calls_implement
+    analysisPublished --> readyForAgent: optional_auto_start
+    analysisPublished --> inProgress: user_calls_implement
     readyForAgent --> inProgress: implement_starts
     inProgress --> readyToReview: verify_green_agent_github
+    inProgress --> needsAttention: verify_fail_or_open_faq
+    needsAttention --> inProgress: user_calls_implement
 ```
 
-`ready-to-review` only after an **agent** verify that opened a **ready** PR. Verify fail (agent): **draft** PR, stay `in-progress`, comment on the PRD — never on the PR. **human** GitHub: leave `in-progress`; user opens the PR. Local: no GitHub labels — file in `.scratch/prd/` is ready; after green verify, `mv` to `.scratch/prd/done/` (fail stays in `.scratch/prd/`).
+`ready-to-review` only after an **agent** verify that opened a **ready** PR. Verify fail (agent): **draft** PR, `needs-attention`, comment on the analysis — never on the PR. **human** GitHub: green leaves `in-progress` and the user opens the PR; a fail sets `needs-attention`. Local: no GitHub labels — file in `.scratch/analysis/` is ready; after green verify, `mv` to `.scratch/analysis/done/` (fail stays in `.scratch/analysis/`).
 
-- `/implement` plans internal increments from PRD AC. Parent does small work; sub-agents only for large changes. The parent commits. Progress is AC checkboxes — no ticket comment per increment.
-- When all AC are done, `/implement` runs `/verify` in the same session.
-- `/verify` closes the work (hard Spec/Standards/test findings committed), then **agent** pushes and opens a PR (ready if green, draft if fail); **human** stays on HEAD. Comments only on the PRD. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that PRD's Delivery branch in every delivery root for human review.
+`needs-attention` means the agent stopped and cannot continue on its own: verify red after 3 cycles, a hard stop, or remaining work blocked by an open `## FAQ`. It **replaces** `in-progress`, so auto-start will not pick the analysis up again and `gh issue list` shows what is actually waiting on you. Answer the FAQ or fix what the comment reports, then re-run `/implement` — that swaps the state back to `in-progress`. A dead session is different: it keeps `in-progress`, because re-running `/implement` is enough.
+
+- `/implement` spawns sub-agents from the analysis (Architecture `###` subsections speed up the split; a flat Architecture still uses agents). Parent commits. Progress is `## Acceptance` checkboxes — no ticket comment per part. Open FAQ: do not invent answers; implement decided parts only.
+- When decided parts are done, `/implement` runs `/verify` in the same session.
+- `/verify` closes the work (hard Spec/Standards/test findings committed), then **agent** pushes and opens a PR (ready if green, draft if fail); **human** stays on HEAD. Comments only on the analysis. In a monorepo, PRs only in sub-repos; the container root stays on `main`. `/monorepo-update` with no args bumps submodule pointers after sub-repo PRs merge; `/monorepo-update #N` checks out that analysis Delivery branch in every delivery root for human review.
 
 ## Setup presets
 
@@ -47,29 +62,29 @@ stateDiagram-v2
 | `human-owned` | github | human | never | You create the branch; agent stays on HEAD and does not push |
 | `custom` | user choice | user choice | user choice | Tracker, branch-owner, push individually |
 
-`/setup` **always** asks **PRD language** (`en` | `cs`), including with a preset — stored in `docs/agents/workflow.md`. Section headings stay English; PRD prose and ticket comments use that language.
+`/setup` **always** asks **language** (`en` | `cs`), including with a preset — stored in `docs/agents/workflow.md` as `language`. Section headings stay English; analysis prose and ticket comments use that language.
 
 **Issue tracker backends:** GitHub (`gh`), Local (`.scratch/`), or **Both** (active backend in `issue-tracker.md` + reference copies).
 
-Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `~/.cursor/skills`. `/setup` vendors [development/](development/) skills into the target repo at `.cursor/skills/development/` when they are not already there (does not overwrite existing copies). It does not copy [images/](images/).
+Per-repo config lives in `docs/agents/workflow.md`. Pipeline skills sit **one folder per skill** at the pack root (Claude Code does not load nested category folders). `/setup` vendors those into the target repo at `.cursor/skills/` when they are not already there (does not overwrite existing copies). Personal image skills live under [images/](images/) and are not vendored.
 
 ## When to use the pipeline
 
-| Work type | `/align` | `/to-prd` | `/implement` |
-|-----------|----------|-----------|--------------|
-| New feature | recommended | PRD | orchestrator + verify |
-| Complex bug | if root cause unclear | PRD (`Kind: bug`) | yes |
-| Simple bug | skip | issue + AC | yes |
+| Work type | `/align` | `/analyze` | `/implement` |
+|-----------|----------|------------|--------------|
+| New feature | recommended | analysis | agents + verify |
+| Complex bug | if root cause unclear | analysis (`Kind: bug`) | yes |
+| Simple bug | skip | issue + Acceptance | yes |
 | Trivial fix | — | — | direct fix, outside pipeline |
 
-**Bug fast-path:** create a ticket with acceptance criteria. `/implement` implements AC from the ticket body.
+**Bug fast-path:** create a ticket with Acceptance. `/implement` implements from the ticket body.
 
 ## Context hygiene
 
-1. Run **align → to-prd** in one context window when the feature still needs decisions.
-2. `/implement` on the PRD: one session for the whole PRD. Small increments in the parent; sub-agents only for large ones. Resume from `in-progress` if the session dies.
-3. `/verify` runs automatically at the end of implement. **agent:** push + CI + ready PR (green) or draft PR (fail); notes on the PRD. **human:** stay on HEAD; user pushes.
-4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root. GitHub PRDs/issues always live on the container-root repo (`gh -R`), not in delivery-root repos.
+1. Run **align → analyze** in one context window when the feature still needs decisions. Publish even if FAQ is open (persist for later).
+2. `/implement` on the analysis: one session for the whole analysis. Sub-agents write code and tests. Resume from `in-progress` if the session dies.
+3. `/verify` runs automatically at the end of implement. **agent:** push + CI + ready PR (green) or draft PR (fail); notes on the analysis. **human:** stay on HEAD; user pushes.
+4. In monorepos, verify checkouts affected delivery roots before diffing; the container root stays on `main` and is never a delivery root. GitHub analyses/issues always live on the container-root repo (`gh -R`), not in delivery-root repos.
 
 ## branch-owner
 
@@ -78,18 +93,18 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 **Session override:** `/implement #42 human` or `/implement #42 agent` overrides branch-owner for one session.
 
-**Failure recovery:** if a session ends mid-PRD, the PRD stays `in-progress`. Re-run `/implement` to resume.
+**Failure recovery:** if a session ends mid-analysis, the analysis stays `in-progress`. Re-run `/implement` to resume.
 
 ## Definition of Done
 
-**Per increment (implement):** relevant tests green, intentional diff only, then commit.
+**Per part (implement):** relevant tests green, intentional diff only, then commit.
 
 **Verify gate (before human merge):**
 
 | Gate | What to verify |
 |------|----------------|
-| Acceptance criteria | Every item in the PRD `## Acceptance criteria` satisfied |
-| Spec / Standards | Sub-agent fix-list vs PRD and repo conventions; hard findings committed |
+| Acceptance | Every item in analysis `## Acceptance` satisfied (decided parts) and proven by a test |
+| Spec / Standards | Sub-agent fix-list vs analysis (Acceptance, Change, API Contracts) and repo conventions; hard findings committed |
 | Tests | Full relevant suite green |
 | Tooling | Commands from target repo `AGENTS.md` (e.g. `make cs-fix`, `make phpstan`, `npx vue-tsc`) |
 | CI | **agent** path: `gh run watch` when GitHub Actions exist. **human:** skip |
@@ -97,18 +112,36 @@ Per-repo config lives in `docs/agents/workflow.md`. The personal pack lives in `
 
 ## Issue tracker
 
-GitHub (`gh`) or local (`.scratch/prd/NNN-<slug>.md`; finished work in `.scratch/prd/done/`). Configured by `/setup`. Skills read `docs/agents/issue-tracker.md`. PRD language (`en` | `cs`) lives in `docs/agents/workflow.md`.
+GitHub (`gh`) or local (`.scratch/analysis/NNN-<slug>.md`; finished work in `.scratch/analysis/done/`). Configured by `/setup`. Skills read `docs/agents/issue-tracker.md`. Language (`en` | `cs`) lives in `docs/agents/workflow.md` as `language`.
 
 ## Layout
 
-Category folders are organizational only. Cursor walks the pack recursively and loads every `SKILL.md`. The skill name is the folder that contains `SKILL.md` (`images/img` is still `/img`).
+Pipeline skills are one folder per skill at the pack root (required for Claude Code). The skill name is that folder.
+
+**Pipeline** (`/setup` vendors these into `.cursor/skills/`):
 
 ```
-development/   — feature pipeline + helpers; `/setup` vendors these
-images/        — personal image skills; not vendored
+setup/              — per-repo tracker, git workflow, domain doc layout
+align/              — alignment interview; no analysis here
+analyze/            — conversation → published analysis
+implement/          — sub-agents implement from analysis; parent commits, then verify
+verify/             — Closer: Functional (Spec + Standards + tests) [→ UX] → Ship
+ux-review/          — Phase 2 of /verify (if enabled)
+commit/             — Conventional Commits (English)
+tdd/                — red-green-refactor
+integration-tests/  — Symfony HTTP integration tests
+git-release/        — semver tag + GitHub release
+monorepo-update/    — sync delivery roots / checkout analysis branch
 ```
 
-Lists: [development/README.md](development/README.md), [images/README.md](images/README.md).
+**Personal** (not vendored; Cursor loads these recursively):
+
+```
+images/img/         — generate or regenerate assets (`/img`)
+images/img-upscale/ — Real-ESRGAN 4× upscale (`/img-upscale`)
+```
+
+Helpers during implement/verify: `tdd`, `integration-tests`, `commit`, `ux-review`. Outside the feature loop: `git-release`, `monorepo-update`.
 
 ## Installation
 
@@ -120,4 +153,4 @@ git clone git@github.com:{owner}/{repository}.git ~/.cursor/skills
 
 Replace `{owner}` and `{repository}` with your GitHub user/org and repo name (often `skills`).
 
-Cursor auto-loads nested `SKILL.md` files under `~/.cursor/skills/`.
+Cursor and Claude Code load `SKILL.md` from each immediate child of `~/.cursor/skills/` (and of a project `.cursor/skills/`).

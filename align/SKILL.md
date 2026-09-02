@@ -4,13 +4,13 @@ description: >-
   Structured alignment interview on a plan or design — explore the codebase,
   resolve decision branches one by one, and write docs/adr/ when a decision
   has real trade-offs. Use when starting a feature, stress-testing a design,
-  or before writing a PRD.
+  or before writing an analysis.
 disable-model-invocation: true
 ---
 
 # Align
 
-Reach shared understanding before implementation. Do NOT write a PRD here — that is `/to-prd`. Do NOT implement here — that is `/implement`.
+Reach shared understanding before implementation. Do NOT write an analysis here — that is `/analyze`. Do NOT implement here — that is `/implement`.
 
 Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md).
 
@@ -20,7 +20,7 @@ Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fa
 |-----------|--------|
 | New feature | Recommended |
 | Complex bug / unclear root cause | Recommended |
-| Simple bug (single step, clear fix) | Skip → `/to-prd` or issue + `/implement` |
+| Simple bug (single step, clear fix) | Skip → `/analyze` or issue + `/implement` |
 | Trivial fix | Skip pipeline entirely |
 
 ## Process
@@ -58,6 +58,6 @@ Without a codebase, run steps 2–3 only — do not write local files.
 
 ### 5. Hand off
 
-When aligned, tell the user the next step is `/to-prd` to synthesize the session into a published PRD.
+When aligned, tell the user the next step is `/analyze` to synthesize the session into a published analysis.
 
-For bug fast-path, hand off to lightweight issue creation or `/to-prd` with `Kind: bug` instead.
+For bug fast-path, hand off to lightweight issue creation or `/analyze` with `Kind: bug` instead.
