@@ -81,8 +81,9 @@ change sits in one unit.}
 One observable behaviour per item: concrete trigger/input plus the concrete
 expected result (status code, payload shape, persisted state, emitted event).
 Each item is one `/implement` behaviour (HTTP + unit where there is
-decision logic). Do not merge behaviours into one checkbox. One item,
-one seam. Do not add extra checkboxes for unit tests.
+decision logic). Do not merge behaviours into one checkbox — `/implement`
+clusters overlapping same-unit items itself; keep checkboxes fine for
+verify. One item, one seam. Do not add extra checkboxes for unit tests.
 Cover error and boundary paths, not only the happy path.
 Reference `## API Contracts` instead of restating payloads.
 Never: vague outcomes ("works", "is correct", "is tested") or task items

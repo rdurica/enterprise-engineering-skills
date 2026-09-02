@@ -25,13 +25,15 @@ WRONG:  RED test1..5  →  GREEN impl1..5
 RIGHT:  RED test1 → Verify RED → GREEN impl1 → RED test2 → GREEN impl2 → …
 ```
 
+**Exception:** when `/implement` invoked this skill with a cluster of Acceptance items, writing those tests first and then implementing is allowed.
+
 ## Workflow
 
 ### 1. Planning
 
 Read `docs/adr/` if it exists.
 
-When `/implement` invoked this skill: skip user approval — the published analysis is the plan. Do **one** `## Acceptance` item, then return to the parent. Do not start another Acceptance item in this invocation.
+When `/implement` invoked this skill: skip user approval — the published analysis is the plan. Do **every** `## Acceptance` item in the prompt, then return to the parent. Do not start items that were not in the prompt.
 
 Otherwise, before writing code:
 
@@ -51,9 +53,11 @@ GREEN:      Minimal code to pass
 
 One test at a time. Only enough code to pass the current test. No speculative features.
 
+When `/implement` passed a cluster: you may write those tests first, then implement. The one-test-at-a-time loop is optional for that invocation.
+
 ### Verify RED (mandatory)
 
-Run **one** test before any production code. Command from `AGENTS.md` (typically `--filter` or a single file).
+Run **one** test before any production code. Command from `AGENTS.md` (typically `--filter` or a single file). When `/implement` passed a cluster, running the new tests as a group before production code is enough.
 
 | PHPUnit result | Meaning | Action |
 |----------------|---------|--------|
@@ -107,7 +111,7 @@ public function apply(int $subtotal, int $discount): int
 }
 ```
 
-Then the same `--filter` must pass. Next behaviour = next test, not a batch.
+Then the same `--filter` must pass. Next behaviour = next test, not a batch — except an `/implement` cluster, where those tests may be written first.
 
 ## Checklist per cycle
 
