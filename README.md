@@ -93,7 +93,7 @@ monorepo-update/    — sync delivery roots / checkout an analysis branch
 Clone or symlink into `~/.cursor/skills/` (Cursor) or the Claude Code equivalent:
 
 ```bash
-git clone git@github.com:{owner}/{repository}.git ~/.cursor/skills
+git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.cursor/skills
 ```
 
-Both tools load `SKILL.md` from each immediate child of that directory and of a project `.cursor/skills/`.
+Both tools load `SKILL.md` from each immediate child of that directory and of a project `.cursor/skills/`. A gitignored `personal/` folder is the place for local-only skills — Cursor loads them, git never sees them.

@@ -129,7 +129,7 @@ Copy pipeline skills into the **target repo** at `.cursor/skills/` (one folder p
 
 **Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` at the repo root).
 
-**Source (prefer shared pack):** `$HOME/.cursor/skills` when it contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `analyze`. Do **not** copy `images/`.
+**Source (prefer shared pack):** `$HOME/.cursor/skills` when it contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `analyze`. Do **not** copy `personal/`.
 
 **Destination:** `<target-repo>/.cursor/skills/` at the container root (not inside delivery roots).
 
