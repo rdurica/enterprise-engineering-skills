@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 One-time per-repo configuration. Run inside the **target project** (not the skills repo).
 
-Skills repo (`~/.cursor/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
+The shared skills pack (`~/.cursor/skills` or `~/.claude/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
 
 ## Process
 
@@ -23,7 +23,10 @@ Read what already exists — do not assume:
 - `CLAUDE.md` or `AGENTS.md` — existing `## Agent skills` block?
 - `docs/adr/` — existing ADRs?
 - `docs/agents/` — prior setup output?
-- `.cursor/skills/` — project-vendored pipeline skills already present?
+- **Skills dir** — which directory this repo uses for vendored skills. Check `.cursor/skills/`, `.claude/skills/`, `.agents/skills/` for any `*/SKILL.md`. Pick the default in this order:
+  1. an existing vendored dir — if more than one has skills, let the user choose
+  2. `CLAUDE.md` or `.claude/` present → `.claude/skills`
+  3. otherwise `.cursor/skills`
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
 If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push after verify → **full-agentic**.
@@ -38,6 +41,7 @@ Offer a preset first; user may confirm or customize.
 
 - **Language:** English (`en`) / Czech (`cs`) — published analysis prose and ticket comments
 - **UX/UI review before PR?** Enabled (browser walkthrough + hard gate) / Disabled
+- **Skills dir:** prefilled with the value detected in Explore (`.cursor/skills`, `.claude/skills`, `.agents/skills`); user may confirm or type any path
 
 Then, unless a preset already answered them:
 
@@ -72,9 +76,11 @@ Let the user edit, then write.
 
 #### workflow.md
 
-Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{LANGUAGE}}`, `{{UX_REVIEW}}`, `{{MONOREPO_SECTION}}`.
+Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{LANGUAGE}}`, `{{UX_REVIEW}}`, `{{SKILLS_DIR}}`, `{{MONOREPO_SECTION}}`.
 
 **`{{UX_REVIEW}}`** — `enabled` or `disabled` from the UX/UI review interview answer.
+
+**`{{SKILLS_DIR}}`** — the skills dir confirmed in the interview, without a trailing slash.
 
 **`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
 
@@ -110,8 +116,10 @@ Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, language, work types).
 Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
-Project skills: `.cursor/skills/` (vendored by `/setup` if missing).
+Project skills: `<skills-dir>/` (vendored by `/setup`; re-running `/setup` overwrites them). Repo-specific additions belong in `docs/agents/`, not in the vendored files.
 ```
+
+Substitute `<skills-dir>` with the confirmed path.
 
 #### issue-tracker.md
 
@@ -125,43 +133,46 @@ First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker:
 
 ### 5. Vendor pipeline skills
 
-Copy pipeline skills into the **target repo** at `.cursor/skills/` (one folder per skill, no nesting) so the pipeline is in git and works for Cursor and Claude Code.
+Copy pipeline skills into the **target repo** at the confirmed skills dir (one folder per skill, no nesting) so the pipeline is in git and works for Cursor and Claude Code.
 
 **Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` at the repo root).
 
-**Source (prefer shared pack):** `$HOME/.cursor/skills` when it contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `analyze`. Do **not** copy `personal/`.
+**Source (prefer shared pack):** the first of `$HOME/.cursor/skills`, `$HOME/.claude/skills`, `$HOME/.agents/skills` that contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `analyze`. Do **not** copy `personal/`.
 
-**Destination:** `<target-repo>/.cursor/skills/` at the container root (not inside delivery roots).
+**Destination:** `<target-repo>/<skills-dir>/` at the container root (not inside delivery roots).
 
 **Copy only these directories** (pipeline + commit format + helpers implement/verify read):
 
 ```
-align  analyze  implement  verify  code-review  ux-review  tdd  integration-tests  setup  git-release  monorepo-update  commit
+align  analyze  implement  verify  code-review  ux-review  tdd  integration-tests  commit
 ```
 
-**If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Re-running `/setup` after updating the shared pack therefore vendors **new** pipeline skills without overwriting project overlays.
+`setup`, `git-release` and `monorepo-update` stay in the shared pack — they are global tools, not part of the per-repo pipeline.
+
+**Overwrite, do not skip:** every run removes the vendored folder and copies a fresh one, so re-running `/setup` is how a repo picks up updates to the shared pack. Hand edits to vendored `SKILL.md` files are lost by design — repo-specific deviations belong in `docs/agents/` (see the overlay files each skill reads).
 
 ```bash
-SOURCE="$HOME/.cursor/skills"
-if [ ! -f "$SOURCE/setup/SKILL.md" ]; then
-  SOURCE="<pack-root>"   # parent of this setup/SKILL.md
-fi
-DEST=".cursor/skills"
+SOURCE=""
+for cand in "$HOME/.cursor/skills" "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+  [ -f "$cand/setup/SKILL.md" ] && SOURCE="$cand" && break
+done
+[ -z "$SOURCE" ] && SOURCE="<pack-root>"   # parent of this setup/SKILL.md
+DEST="<skills-dir from interview>"
 mkdir -p "$DEST"
-for name in align analyze implement verify code-review ux-review tdd integration-tests setup git-release monorepo-update commit; do
-  if [ -f "$DEST/$name/SKILL.md" ]; then
-    echo "skip $name (already vendored)"
-    continue
-  fi
+for name in align analyze implement verify code-review ux-review tdd integration-tests commit; do
   if [ ! -d "$SOURCE/$name" ]; then
     echo "warn $name missing in source" >&2
     continue
   fi
+  rm -rf "$DEST/$name"
   cp -a "$SOURCE/$name" "$DEST/$name"
+  echo "vendored $name"
 done
 ```
 
-Do not add `.cursor/skills` to `.gitignore` — these files should be committed with the repo.
+**Stale folders:** if `$DEST/setup`, `$DEST/git-release` or `$DEST/monorepo-update` exist from an older run, report them and offer to remove them. Never delete without confirmation.
+
+Do not add the skills dir to `.gitignore` — these files should be committed with the repo.
 
 In a monorepo, vendor once at the container root. Do not copy into each delivery root.
 
@@ -169,6 +180,6 @@ In a monorepo, vendor once at the container root. Do not copy into each delivery
 
 Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
 
-Report which skills were copied and which were skipped as already present.
+Report which skills were vendored or updated and which stale folders were found.
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-run also copies any still-missing skills; it does not overwrite existing `.cursor/skills/*`.
+User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-running is also how the repo picks up an updated shared pack — every vendored skill is overwritten.

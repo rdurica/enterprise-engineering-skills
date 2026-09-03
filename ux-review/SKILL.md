@@ -13,7 +13,7 @@ Phase 3 of `/verify` when `workflow.md` has `ux-review: enabled`. The Functional
 
 Read `docs/agents/workflow.md`. Skills root: parent of this file. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
 
-If the repo has an overlay, read it after this skill: `.cursor/skills/ux-review/SKILL.md`.
+If the repo has an overlay, read it after this skill: `docs/agents/ux-review.md`.
 
 ## When to skip
 

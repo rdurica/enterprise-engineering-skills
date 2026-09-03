@@ -41,6 +41,12 @@ When `active: local`, see `docs/agents/issue-tracker.local.md` (if present) for 
 
 Code review itself (Phase 2) has no switch — it always runs.
 
+## Skills
+
+- skills-dir: {{SKILLS_DIR}}   <!-- .cursor/skills | .claude/skills | .agents/skills -->
+
+Vendored by `/setup`; re-running `/setup` overwrites them. Repo-specific additions go to `docs/agents/`, never into the vendored files.
+
 ## Work types
 
 | Type | Pipeline | branch-owner typical |

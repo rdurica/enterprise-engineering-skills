@@ -15,7 +15,7 @@ Close the work. Every finding ends as a commit, never as a note for the human to
 
 Never post findings on a PR (`gh pr review` / `gh pr comment`). Green and fail notes go on the **analysis only**.
 
-Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` if missing. Skills root is the parent of this file's directory. If the repo has a verify overlay, read it after this skill: `.cursor/skills/verify/SKILL.md`.
+Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` if missing. Skills root is the parent of this file's directory. If the repo has a verify overlay, read it after this skill: `docs/agents/verify.md`.
 
 Read `language` from `workflow.md`.
 

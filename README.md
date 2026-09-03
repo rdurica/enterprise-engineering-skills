@@ -22,7 +22,7 @@ Built for **brownfield, incremental work** in a repository that has tests, CI an
 
 | Phase | Skill | Output |
 |-------|-------|--------|
-| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md`; vendors pipeline skills into `.cursor/skills/` |
+| 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md`; vendors pipeline skills into the repo's skills dir (`.cursor/skills`, `.claude/skills`, …) |
 | 1 | `/align` | Shared understanding; `docs/adr/` when a decision has real trade-offs |
 | 2 | `/analyze` | Published analysis (architecture, API contracts, Acceptance) + `## Delivery` |
 | 3 | `/implement #N` | Sub-agents write code and tests from the analysis; parent commits; then runs verify |
@@ -87,7 +87,7 @@ git-release/        — semver tag + GitHub release
 monorepo-update/    — sync delivery roots / checkout an analysis branch
 ```
 
-`tdd`, `integration-tests`, `commit`, `code-review` and `ux-review` are helpers called during implement and verify. `git-release` and `monorepo-update` sit outside the feature loop.
+`tdd`, `integration-tests`, `commit`, `code-review` and `ux-review` are helpers called during implement and verify. `setup`, `git-release` and `monorepo-update` sit outside the feature loop and stay in the shared pack — they are not vendored into repos.
 
 ## Sub-agents
 
@@ -95,10 +95,10 @@ The skills say "sub-agent" and never name a tool, so the same text works in both
 
 ## Installation
 
-Clone or symlink into `~/.cursor/skills/` (Cursor) or the Claude Code equivalent:
+Clone or symlink into `~/.cursor/skills/` (Cursor) or `~/.claude/skills/` (Claude Code):
 
 ```bash
 git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.cursor/skills
 ```
 
-Both tools load `SKILL.md` from each immediate child of that directory and of a project `.cursor/skills/`. A gitignored `personal/` folder is the place for local-only skills — Cursor loads them, git never sees them.
+Both tools load `SKILL.md` from each immediate child of that directory and of the project skills dir. Which one a repo uses is detected by `/setup` — an already vendored dir wins, then `.claude/skills` when the repo has `CLAUDE.md` or `.claude/`, otherwise `.cursor/skills` — and recorded as `skills-dir` in `docs/agents/workflow.md`. A gitignored `personal/` folder is the place for local-only skills — Cursor loads them, git never sees them.

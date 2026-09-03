@@ -16,7 +16,7 @@ Functional asks whether the diff matches the analysis and the documented standar
 
 **Fix-first.** Anything you would have written as a review comment, you change in code instead. Naming and readability included. Nothing is reported and left behind, nothing is posted on the PR, nothing waits for the human except what genuinely needs a decision.
 
-Read `docs/agents/workflow.md`. Skills root is the parent of this file; commit via `{skills-root}/commit/SKILL.md`. If the repo has an overlay, read it after this skill: `.cursor/skills/code-review/SKILL.md`.
+Read `docs/agents/workflow.md`. Skills root is the parent of this file; commit via `{skills-root}/commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/code-review.md`.
 
 ## Gate (max 3 cycles)
 
