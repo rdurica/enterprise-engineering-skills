@@ -32,7 +32,7 @@ If `## FAQ` is still open, do **not** invent answers. Implement the decided part
 
 ## 2. Branch
 
-From analysis `## Delivery`, else `workflow.md`. **human:** stay on HEAD. Never commit on a monorepo container root.
+Branch name from analysis `## Delivery`; branch-owner from `workflow.md`, unless the user overrode it for this session. **human:** stay on HEAD. Never commit on a monorepo container root.
 
 **agent:** in each delivery root (not the container root):
 

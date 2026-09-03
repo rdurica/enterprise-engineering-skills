@@ -19,7 +19,7 @@ Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setu
 
 Read `language` from `workflow.md`.
 
-**branch-owner** from analysis `## Delivery`, else `workflow.md`. Read the matching file **now** (agent syncs before the diff):
+**branch-owner** from `workflow.md`, unless the user overrode it for this session. Read the matching file **now** (agent syncs before the diff):
 
 | branch-owner | File |
 |--------------|------|

@@ -40,8 +40,6 @@ Kind: feature | bug | chore
 - Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
 - Branch: `feature/4821-<short-slug>`
-- Branch owner: agent | human
-- Push: finalize | never
 
 <analysis body sections>
 ```
@@ -71,7 +69,7 @@ In `done/` the file reads `Status: ready-to-review`, mirroring the GitHub label.
 1. Compute next ID (scan above)
 2. Choose `<slug>` from the analysis title (lowercase, hyphenated)
 3. Create `.scratch/analysis/NNN-<slug>.md` (no Status line yet)
-4. Include `## Delivery` with Ticket, Kind, branch `feature/<ticket>-<short-slug>` (ticket falls back to `NNN`), and branch-owner/push from `docs/agents/workflow.md`
+4. Include `## Delivery` with Ticket, Kind and branch `feature/<ticket>-<short-slug>` (ticket falls back to `NNN`)
 
 ### `/implement` — fetch by number or slug
 

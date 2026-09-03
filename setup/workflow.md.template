@@ -17,7 +17,7 @@ Preset: {{PRESET}}
 
 **push: never** — branch-owner human: agent does not push; user opens the PR.
 
-Priority: analysis `## Delivery` overrides > this file > setup preset.
+Priority: session override (`/implement #N human`) > this file. The analysis `## Delivery` only names the branch; it does not carry branch-owner or push.
 
 {{MONOREPO_SECTION}}
 

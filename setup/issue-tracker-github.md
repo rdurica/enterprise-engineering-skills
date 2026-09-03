@@ -61,8 +61,6 @@ After `/analyze`, prepend to issue body:
 - Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
 - Branch: `feature/4821-group-pricing`
-- Branch owner: agent | human    # default from docs/agents/workflow.md
-- Push: finalize | never
 ```
 
 `Ticket` is the external tracker item when there is one (clickable link), otherwise this issue: `Ticket: [#<N>](<issue url>)`. `Branch` reuses that same number as `feature/<ticket>-<short-slug>`. Commits and PRs still reference the analysis issue as `#N` — that is the number GitHub autolinks.

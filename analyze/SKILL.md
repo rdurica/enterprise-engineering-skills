@@ -35,8 +35,6 @@ Publish **even when `## FAQ` still has open questions**. The analysis has to be 
 - Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
 - Branch: `feature/4821-group-pricing`
-- Branch owner: agent | human   # from docs/agents/workflow.md unless the user overrides it
-- Push: finalize | never        # same source
 ```
 
 **Ticket** is the number this work is tracked under, as a clickable link whenever you have a URL. An external tracker wins — Azure DevOps, Jira, Redmine, whatever the project uses. Take the ID or link from the align session, and ask for it when the work clearly came from a ticket but nobody named it. Without an external ticket, use the analysis's own number: on GitHub the issue itself, linked as `Ticket: [#<N>](<issue url>)`; locally the plain file number `NNN`.
