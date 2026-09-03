@@ -69,18 +69,12 @@ Each `###` is one real unit of the project: a package or repo in a monorepo, a m
 
 The heading is the unit name and nothing else. No parentheses, no path, no file name. The path goes on the first line below the heading.
 
-good:
+example:
 
 ```markdown
 ### Frontend app
 
 Path: frontend/src/views/groups/settings/
-```
-
-bad:
-
-```markdown
-### Frontend app (frontend/src/views/groups/settings/GroupPricingView.vue)
 ```
 
 Units with disjoint paths can be implemented in parallel, so name any seam they share — otherwise `/implement` parallelizes blindly. Omit subsections only when the whole change sits in a single unit.
@@ -91,12 +85,14 @@ Units with disjoint paths can be implemented in parallel, so name any seam they 
 
 ## Summary
 
-- {what changes and **why**, one to three bullets}
+- {what changes and **why**}
+- {key changes - one to three bullets}
 - {mermaid of the behaviour — always}
 
 ## Current State
 
-{how it works today: modules, data, APIs, invariants}
+{how it works today: modules, data, APIs, invariants few sentences readable}
+{key parts - bullets}
 
 ## Change
 
@@ -129,7 +125,7 @@ Errors
 
 ## Acceptance
 
-{short `- [ ]` list — the testable contract for TDD and verify, not a WBS.
+{`- [ ]` list — the testable contract for TDD and verify, not a WBS.
 One observable behaviour per item: a concrete trigger or input plus the
 concrete expected result (status code, payload shape, persisted state,
 emitted event). Cover error and boundary paths, not only the happy path.
