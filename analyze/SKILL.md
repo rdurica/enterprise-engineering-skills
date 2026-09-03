@@ -15,7 +15,7 @@ Write for a human who was not in the align session. They should read the analysi
 
 Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md`. Run `/setup` in the target repo if they are missing.
 
-Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Analysis prose — title, summary, notes, acceptance text, comments — goes in that language, section headings stay English. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
+Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
 All publish operations follow `docs/agents/issue-tracker.md` — GitHub or local `.scratch/`, never hardcoded `gh`.
 

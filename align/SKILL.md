@@ -12,16 +12,7 @@ disable-model-invocation: true
 
 Reach shared understanding before implementation. Do NOT write an analysis here — that is `/analyze`. Do NOT implement here — that is `/implement`.
 
-Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md).
-
-## When to use align
-
-| Work type | Align? |
-|-----------|--------|
-| New feature | Recommended |
-| Complex bug / unclear root cause | Recommended |
-| Simple bug (single step, clear fix) | Skip → `/analyze` or issue + `/implement` |
-| Trivial fix | Skip pipeline entirely |
+Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md). Use this skill only for new features or complex/unclear bugs.
 
 ## Process
 
