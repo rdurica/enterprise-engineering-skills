@@ -41,6 +41,8 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 | `needs-attention` | `/verify` (fail) or `/implement` (blocked by open FAQ) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
 | `ready-to-review` | `/verify` (green) | Ready PR open, waiting for human merge |
 
+`/implement` drops `ready-for-agent` and `needs-attention` when it sets `in-progress`. A green `/verify` leaves exactly `analysis` + `ready-to-review` — every working label is removed.
+
 User invoked `/implement` → run it (do not require `ready-for-agent`). Stop if `ready-to-review`. `needs-attention` does **not** stop it — that is the resume path.
 
 Auto-start without the user → only if `ready-for-agent` or already `in-progress`. **Never** when `needs-attention` is set, even with `ready-for-agent` — a human has to act first.
@@ -56,11 +58,14 @@ After `/analyze`, prepend to issue body:
 ```markdown
 ## Delivery
 
+- Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
-- Branch: `feature/analysis-<number>-<short-slug>`
+- Branch: `feature/4821-group-pricing`
 - Branch owner: agent | human    # default from docs/agents/workflow.md
 - Push: finalize | never
 ```
+
+`Ticket` is the external tracker item when there is one (clickable link), otherwise this issue: `Ticket: [#<N>](<issue url>)`. `Branch` reuses that same number as `feature/<ticket>-<short-slug>`. Commits and PRs still reference the analysis issue as `#N` — that is the number GitHub autolinks.
 
 ## Skill operations
 
@@ -88,8 +93,7 @@ Same `-R` rule as `/analyze` (container-root in monorepo). Fetch `#N` by number.
 | Operation | Command |
 |-----------|---------|
 | Fetch analysis/ticket | `gh issue view <N> [-R …] --comments` |
-| Set in-progress | `gh issue edit <N> [-R …] --add-label in-progress` |
-| Resume after needs-attention | `gh issue edit <N> [-R …] --remove-label needs-attention --add-label in-progress` |
+| Set in-progress | `gh issue edit <N> [-R …] --remove-label ready-for-agent --remove-label needs-attention --add-label in-progress` |
 | Blocked by open FAQ | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` |
 | Update Acceptance checkboxes | `gh issue edit <N> [-R …] --body "..."` (checked items in `## Acceptance`) |
 | Comment | `gh issue comment <N> [-R …] --body "..."` (session death only — not per part) |
@@ -100,7 +104,7 @@ Do not add `ready-for-agent`.
 
 | Operation | Command |
 |-----------|---------|
-| Green | `gh issue edit <N> [-R …] --remove-label in-progress --add-label ready-to-review` then `gh issue comment` (ready PR URLs) |
+| Green | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --remove-label ready-for-agent --add-label ready-to-review` then `gh issue comment` (ready PR URLs). Final labels: `analysis` + `ready-to-review` |
 | Fail | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs). Agent still opens/keeps a **draft** PR |
 
 ## When a skill says "publish to the issue tracker"

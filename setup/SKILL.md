@@ -109,7 +109,7 @@ Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, 
 Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, language, work types).
-Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional [→ ux] → ship).
+Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
 Project skills: `.cursor/skills/` (vendored by `/setup` if missing).
 ```
 
@@ -136,7 +136,7 @@ Copy pipeline skills into the **target repo** at `.cursor/skills/` (one folder p
 **Copy only these directories** (pipeline + commit format + helpers implement/verify read):
 
 ```
-align  analyze  implement  verify  ux-review  tdd  integration-tests  setup  git-release  monorepo-update  commit
+align  analyze  implement  verify  code-review  ux-review  tdd  integration-tests  setup  git-release  monorepo-update  commit
 ```
 
 **If missing only:** if `$DEST/<name>/SKILL.md` already exists, skip that skill (keep project overlays). Re-running `/setup` after updating the shared pack therefore vendors **new** pipeline skills without overwriting project overlays.
@@ -148,7 +148,7 @@ if [ ! -f "$SOURCE/setup/SKILL.md" ]; then
 fi
 DEST=".cursor/skills"
 mkdir -p "$DEST"
-for name in align analyze implement verify ux-review tdd integration-tests setup git-release monorepo-update commit; do
+for name in align analyze implement verify code-review ux-review tdd integration-tests setup git-release monorepo-update commit; do
   if [ -f "$DEST/$name/SKILL.md" ]; then
     echo "skip $name (already vendored)"
     continue
@@ -167,7 +167,7 @@ In a monorepo, vendor once at the container root. Do not copy into each delivery
 
 ### 6. Done
 
-Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional [→ ux] → ship).
+Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
 
 Report which skills were copied and which were skipped as already present.
 

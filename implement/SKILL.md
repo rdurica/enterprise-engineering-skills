@@ -20,9 +20,15 @@ Read `language` from `workflow.md`.
 
 ## 1. Preflight
 
-Fetch the analysis per `docs/agents/issue-tracker.md`. GitHub: `#N`. Local: `/implement 001`, `#1`, or `<slug>` → `.scratch/analysis/NNN-<slug>.md`. **Stop** if GitHub has `ready-to-review`, or the only local match is under `.scratch/analysis/done/`. User invoked `/implement` → proceed (do not require `ready-for-agent`). Auto-start without the user → only if `ready-for-agent` or already `in-progress`; **never** when `needs-attention` is set. Set `in-progress` (removing `needs-attention` if present — this is the resume path after a human acted). User may pass `human` or `agent` to override branch-owner for this session.
+Fetch the analysis per `docs/agents/issue-tracker.md` — by `#N` on GitHub, or as `/implement 001`, `#1` or `<slug>` resolving to `.scratch/analysis/NNN-<slug>.md` locally.
 
-Open `## FAQ`: do **not** invent answers. Implement decided parts only; skip parts that depend on open FAQ, or leave the session for later.
+**Stop** when the GitHub issue already has `ready-to-review`, or the only local match sits under `.scratch/analysis/done/`.
+
+When the user invoked `/implement`, just proceed — `ready-for-agent` is not required. Auto-start without the user is allowed only when the issue has `ready-for-agent` or is already `in-progress`, and **never** when `needs-attention` is set.
+
+Then set `in-progress` and remove `ready-for-agent` (it has done its job) and `needs-attention` (this is the resume path after a human acted), so the issue carries `analysis` + `in-progress` and nothing else. The user may pass `human` or `agent` to override branch-owner for this session.
+
+If `## FAQ` is still open, do **not** invent answers. Implement the decided parts and skip anything that depends on an open question, or leave the whole session for later.
 
 ## 2. Branch
 
@@ -44,15 +50,15 @@ git checkout --no-track -b <branch> origin/<default>
 
 ## 3. Plan
 
-Product code always goes through **sub-agents**. A flat Architecture does not skip agents.
+Product code always goes through **sub-agents**, even when the Architecture is flat.
 
-**Part** = one unchecked `- [ ]` in `## Acceptance` (one observable behaviour). Architecture `###` maps units and paths — it is not the size of an agent. Map each part to a `###` (path / delivery root). An item that spans two units is a bad Acceptance item — implement the decided seam only.
+A **part** is one unchecked `- [ ]` in `## Acceptance`, meaning one observable behaviour. Map each part to an Architecture `###`, which gives you its path and delivery root — the `###` maps units, it is not the size of an agent. A part spanning two units is a bad Acceptance item; implement the decided seam only.
 
-**Cluster** = consecutive unchecked parts that map to the same Architecture `###` / delivery root and share files (same module, same endpoint / test class). That is the size of one agent. A single part with no overlap is a cluster of one. Cap **~8** parts per cluster; leftover overlapping parts become the next sequential cluster after commit.
+A **cluster** is consecutive unchecked parts that map to the same `###` and share files: same module, same endpoint or test class. That is the size of one agent. A part with no overlap is a cluster of one. Cap a cluster at roughly **8** parts and push the leftovers into the next sequential cluster after the commit.
 
-No `###`: still cluster by shared paths; a lone part is one agent. Parallel only when Change/Architecture paths are clearly disjoint.
+Without `###` subsections, cluster by shared paths anyway, and treat a lone part as one agent. Go parallel only when the Change and Architecture paths are clearly disjoint.
 
-`## Acceptance` is verify + TDD constraint, not a WBS. Print the plan **by cluster** (items, unit, path, wave) — not one sequential wave per overlapping part. Resume: skip work already in the branch / checked Acceptance.
+`## Acceptance` is a constraint for verify and TDD, not a work breakdown. Print the plan **by cluster** — items, unit, path, wave — rather than one sequential wave per overlapping part. When resuming, skip work already in the branch or already checked off.
 
 Group into **waves**:
 
@@ -64,11 +70,11 @@ Same worktree — safety is disjoint paths, not isolated checkouts.
 
 ## 4. Execute
 
-Independent clusters in a wave: spawn them in **one parent turn** with multiple `Task` calls. Overlapping clusters: one at a time, then commit, then the next.
+Independent clusters in a wave: spawn them in **one parent turn**, one sub-agent per cluster. Overlapping clusters: one at a time, then commit, then the next.
 
-**Sub-agent:** one `generalPurpose` `Task` per cluster. It writes code and tests only — no commit, push, PR, branch change, nested agents, or container-root commits. Prompt: **all** Acceptance items in this cluster (the list, not one item); analysis Change / Architecture (relevant `###`) / API Contracts as constraints; open FAQ to skip; skill paths (`tdd`, and `integration-tests` for PHP HTTP); `AGENTS.md` commands; delivery-root paths; no scope creep (stay inside Change/Architecture).
+**Sub-agent:** one sub-agent per cluster. It writes code and tests only — no commit, push, PR, branch change, nested agents, or container-root commits. Prompt: **all** Acceptance items in this cluster (the list, not one item); analysis Change / Architecture (relevant `###`) / API Contracts as constraints; open FAQ to skip; skill paths (`tdd`, and `integration-tests` for PHP HTTP); `AGENTS.md` commands; delivery-root paths; no scope creep (stay inside Change/Architecture).
 
-Finish every item in the prompt, then return. Stuck on one item: return done vs remaining — parent checks off only the done. For **each** item, cover both seams that apply (see `tdd/SKILL.md`):
+The sub-agent finishes every item in its prompt and then returns. If it gets stuck on one item, it returns what is done and what remains, and the parent checks off only the done ones. For **each** item, cover the seams that apply (see `tdd/SKILL.md`):
 
 - HTTP contract → `integration-tests`
 - Decision logic in handler / domain / VO → unit test (HTTP does not replace it)
@@ -79,10 +85,14 @@ Order: highest seam first (HTTP when the item is HTTP-shaped), then unit for the
 
 **Parent** does not write product code except a one-file follow-up after the agent (import, typo).
 
-After the wave joins: per cluster, diff and relevant tests. Small failures: fix yourself (one file). Large: another sub-agent with the error (still this cluster / this fail). Non-overlapping fixes in the same wave may run in parallel; overlapping files sequential.
+Once the wave joins, review the diff and run the relevant tests per cluster. Fix a small failure yourself when it is one file; hand a large one to another sub-agent scoped to that cluster and that failure. Non-overlapping fixes in the same wave may run in parallel, overlapping files stay sequential.
 
-Commit in each affected delivery root per `commit/SKILL.md`. One item: `feat(scope): <acceptance title> (#<N>)`. Cluster of several: `feat(scope): <shared theme> (#<N>)`. Check off every completed `## Acceptance` item in the cluster. Do not comment on the ticket after each cluster. Commit messages stay English. Then the next wave.
+Commit in each affected delivery root per `commit/SKILL.md` — `feat(scope): <acceptance title> (#<N>)` for a single item, `feat(scope): <shared theme> (#<N>)` for a cluster of several. Check off every completed `## Acceptance` item in the cluster, and do not comment on the ticket after each one. Commit messages stay English. Then move to the next wave.
 
 ## 5. Verify
 
-Decided parts done (or all parts if no blocking FAQ) → read and follow `{skills-root}/verify/SKILL.md` in this session. If FAQ skipped work remains: set `needs-attention` (replacing `in-progress`), comment what remains in `language`; do not run verify as if the analysis were complete. If the session dies first: leave `in-progress` — that state is resumable and needs no human — comment what remains in `language`; re-run `/implement` to resume.
+When the decided parts are done — all parts, if no FAQ blocks anything — read and follow `{skills-root}/verify/SKILL.md` in this session.
+
+If an open FAQ left work behind, set `needs-attention` in place of `in-progress`, comment what remains in `language`, and do not run verify as if the analysis were complete.
+
+If the session dies first, leave `in-progress`: that state is resumable and needs no human. Comment what remains in `language`; re-running `/implement` picks it up.

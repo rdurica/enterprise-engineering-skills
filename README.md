@@ -26,7 +26,7 @@ Built for **brownfield, incremental work** in a repository that has tests, CI an
 | 1 | `/align` | Shared understanding; `docs/adr/` when a decision has real trade-offs |
 | 2 | `/analyze` | Published analysis (architecture, API contracts, Acceptance) + `## Delivery` |
 | 3 | `/implement #N` | Sub-agents write code and tests from the analysis; parent commits; then runs verify |
-| 4 | `/verify` | Acceptance, standards, tests, tooling, CI; hard findings committed; PR opened |
+| 4 | `/verify` | Acceptance, standards, tests, tooling, code review, CI; findings fixed in code; PR opened |
 
 You work at the start (align, review the published analysis) and at the end (review the PR). In between agents implement, test, run tooling and leave a clean tree.
 
@@ -77,8 +77,9 @@ setup/              — per-repo tracker, git workflow, domain doc layout
 align/              — alignment interview; no analysis here
 analyze/            — conversation to published analysis
 implement/          — sub-agents implement from the analysis; parent commits
-verify/             — Acceptance, standards, tests, tooling, CI, then ship
-ux-review/          — browser UX gate, phase 2 of /verify
+verify/             — Acceptance, standards, tests, tooling, code review, UX, CI, then ship
+code-review/        — fix-first code review, phase 2 of /verify
+ux-review/          — browser UX gate, phase 3 of /verify
 tdd/                — red-green-refactor
 integration-tests/  — Symfony HTTP integration tests
 commit/             — Conventional Commits (English)
@@ -86,7 +87,11 @@ git-release/        — semver tag + GitHub release
 monorepo-update/    — sync delivery roots / checkout an analysis branch
 ```
 
-`tdd`, `integration-tests`, `commit` and `ux-review` are helpers called during implement and verify. `git-release` and `monorepo-update` sit outside the feature loop.
+`tdd`, `integration-tests`, `commit`, `code-review` and `ux-review` are helpers called during implement and verify. `git-release` and `monorepo-update` sit outside the feature loop.
+
+## Sub-agents
+
+The skills say "sub-agent" and never name a tool, so the same text works in both runners. Whichever you use, the general-purpose sub-agent is the one meant: Cursor spawns it with the `Task` tool and `subagent_type: generalPurpose`, Claude Code with the `Task` tool and `general-purpose`. Which model runs behind it does not matter — nothing in the pack depends on a specific one.
 
 ## Installation
 

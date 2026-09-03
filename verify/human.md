@@ -14,8 +14,8 @@ Never comment on a PR. Green and fail notes go on the **analysis only** (`langua
 
 Comment on the analysis: local verify is green; the user should push and open the PR.
 
-- GitHub: do **not** add `ready-to-review` (no PR yet). Leave `in-progress`.
-- Local: `mkdir -p .scratch/analysis/done` and `mv` to `.scratch/analysis/done/NNN-<slug>.md`. Leave `Status: in-progress`.
+- GitHub: leave `in-progress` and do **not** add `ready-to-review`. That label means a ready PR is open, and on this path the user still has to push and open it.
+- Local: write `Status: ready-to-review`, then `mkdir -p .scratch/analysis/done` and `mv` to `.scratch/analysis/done/NNN-<slug>.md` — a file in `done/` always reads `ready-to-review`.
 
 ## Fail (gate red after 3 cycles or hard stop)
 

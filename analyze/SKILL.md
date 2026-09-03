@@ -9,48 +9,94 @@ disable-model-invocation: true
 
 # Analyze
 
-Synthesize the align session and codebase into a published analysis. Do NOT interview (no seam checks). Do NOT implement — that is `/implement`.
+Synthesize the align session and the codebase into a published analysis. Do not interview here — that was `/align`. Do not implement — that is `/implement`.
 
-Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` in the target repo if missing.
+Write for a human who was not in the align session. They should read the analysis once and be able to explain the change without opening the diff.
 
-Read `language` from `workflow.md` (`en` | `cs`). If missing, ask. Write analysis **prose** (title, summary, notes, acceptance text, comments) in that language. Keep **section headings in English**. Branch slug: ASCII, hyphenated; transliterate if the title is not English.
+Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md`. Run `/setup` in the target repo if they are missing.
 
-All publish operations follow `docs/agents/issue-tracker.md` (GitHub or local `.scratch/` — do not hardcode `gh` only).
+Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Analysis prose — title, summary, notes, acceptance text, comments — goes in that language, section headings stay English. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
-Publish **even if `## FAQ` has open questions** — the analysis must be stored when work continues later. Each FAQ item names what it belongs to (section / contract). After answers, fold them into the right section and remove the FAQ item. Ideal end state: no FAQ section.
+All publish operations follow `docs/agents/issue-tracker.md` — GitHub or local `.scratch/`, never hardcoded `gh`.
+
+Publish **even when `## FAQ` still has open questions**. The analysis has to be stored so the work can continue later. Each FAQ item names what it belongs to, and once it is answered you fold the answer into that section and delete the item. The ideal end state is no FAQ section at all.
 
 ## Process
 
 1. Explore the repo if you have not already. If `docs/adr/` exists, respect those decisions.
 
-2. Write the analysis using the template below, then publish (GitHub: label `analysis` only; local: `.scratch/analysis/NNN-<slug>.md`, no Status). Do not add `ready-for-agent`. Create the `analysis` label if it is missing.
+2. Write the analysis from the template below, then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `.scratch/analysis/NNN-<slug>.md` with no Status line.
 
-3. After publish, prepend `## Delivery` (GitHub: edit issue body; local: update the file):
+3. After publishing, prepend `## Delivery` — edit the issue body on GitHub, update the file locally:
 
 ```markdown
 ## Delivery
 
+- Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
-- Branch: `feature/analysis-<number>-<short-slug>` (local: `NNN` from next ID, three digits; GitHub: issue number. Slug from title, lowercase, max ~30 chars)
-- Branch owner: agent | human   # from docs/agents/workflow.md unless user overrides
+- Branch: `feature/4821-group-pricing`
+- Branch owner: agent | human
 - Push: finalize | never
 ```
 
-For **bugs**, set `Kind: bug` and use the shorter bug sections where appropriate.
+**Ticket** is the number this work is tracked under, as a clickable link whenever you have a URL. An external tracker wins — Azure DevOps, Jira, Redmine, whatever the project uses. Take the ID or link from the align session, and ask for it when the work clearly came from a ticket but nobody named it. Without an external ticket, use the analysis's own number: on GitHub the issue itself, linked as `Ticket: [#<N>](<issue url>)`; locally the plain file number `NNN`.
+
+**Branch** is `feature/<ticket>-<short-slug>` and reuses that same number, so branch and ticket never drift apart. The slug comes from the title: lowercase, hyphenated, ASCII, around 30 characters.
+
+**Branch owner** and **Push** come from `docs/agents/workflow.md` unless the user overrides them.
+
+Commits and the PR keep referencing the GitHub analysis issue as `#N`, because that is the number GitHub autolinks. The external ticket travels in the `Ticket:` line.
+
+For **bugs**, set `Kind: bug` and use the shorter bug sections.
+
+## Writing style
+
+Facts for the implementers and for whoever has to explain the change later. Not a novel, and not a wall of backticks.
+
+- Backticks are for paths, commands, HTTP routes and literal values. Class, command, DTO and event names in prose stay plain text.
+- A data shape gets a fenced blueprint block instead of a sentence stuffed with backticked names:
+
+```
+ChangeSubscriptionPlanCommand
+- string: $groupUuid
+- string: $planCode
+- bool: $prorate
+```
+
+- Frontend stays short when it is involved; it is not the focus.
+- `## API Contracts` is omitted when there is no API.
+- Summary always carries a mermaid, even a simple one.
+
+### Architecture subsections
+
+Each `###` is one real unit of the project: a package or repo in a monorepo, a module or bounded context in a monolith. Never a layer such as Controller, Service or Repository — layer subsections hand implementers horizontal slices. Never an invented name like `_backend`.
+
+The heading is the unit name and nothing else. No parentheses, no path, no file name. The path goes on the first line below the heading.
+
+good:
+
+```markdown
+### Frontend app
+
+Path: frontend/src/views/groups/settings/
+```
+
+bad:
+
+```markdown
+### Frontend app (frontend/src/views/groups/settings/GroupPricingView.vue)
+```
+
+Units with disjoint paths can be implemented in parallel, so name any seam they share — otherwise `/implement` parallelizes blindly. Omit subsections only when the whole change sits in a single unit.
 
 ## Template
-
-Facts for implementers, not a novel. Frontend (when present) is brief in Architecture — not the focus. **Omit `## API Contracts`** when there is no API. **Always include a mermaid in Summary**, even a simple one.
-
-Architecture `###` subsections are named after real units of the project — a package or repo in a monorepo, a module / bounded context / namespace in a monolith. Never a prescribed `_backend`, and never a layer (`Controller`, `Service`, `Repository`): layer subsections hand implementers horizontal slices. Say where each unit lives (path or namespace). Independent units with disjoint paths can be implemented in parallel; name a shared seam so `/implement` does not parallelize blindly. Omit subsections only when the whole change sits in one unit.
 
 <analysis-template>
 
 ## Summary
 
-- Ticket: {GitHub / Azure DevOps / Jira URL — omit if none}
-- {what changes and **why**}
-- {short mermaid of the behaviour — always}
+- {what changes and **why**, one to three bullets}
+- {mermaid of the behaviour — always}
 
 ## Current State
 
@@ -58,36 +104,42 @@ Architecture `###` subsections are named after real units of the project — a p
 
 ## Change
 
-{delta — do not repeat Summary}
+{the delta — do not repeat Summary}
 
 ## Architecture
 
-{layers, data flow, DB/schema, decisions from align/ADRs.
-One `###` subsection per real unit of the project, with its path or
-namespace: package/repo in a monorepo, module / bounded context in a
-monolith. State what changes in each one. Never a prescribed `_backend`,
-never a layer (`Controller`, `Service`, `Repository`) — that splits the
-work horizontally. Independent units with disjoint paths can run in
-parallel; name a shared seam. Omit subsections only when the whole
-change sits in one unit.}
+{layers, data flow, DB and schema, decisions carried over from align or ADRs.
+One `###` per real unit, path on the line below the heading.}
 
 ## API Contracts
 
-{request/response, concrete objects and properties. Omit this section when there is no API.}
+{one block per endpoint; omit the whole section when there is no API}
+
+```
+POST /api/groups/{uuid}/plan
+
+Request
+- string: planCode
+- bool: prorate
+
+Response 200
+- string: planCode
+- string: effectiveFrom (ISO-8601)
+
+Errors
+- 409 plan_downgrade_blocked
+- 404 group_not_found
+```
 
 ## Acceptance
 
 {short `- [ ]` list — the testable contract for TDD and verify, not a WBS.
-One observable behaviour per item: concrete trigger/input plus the concrete
-expected result (status code, payload shape, persisted state, emitted event).
-Each item is one `/implement` behaviour (HTTP + unit where there is
-decision logic). Do not merge behaviours into one checkbox — `/implement`
-clusters overlapping same-unit items itself; keep checkboxes fine for
-verify. One item, one seam. Do not add extra checkboxes for unit tests.
-Cover error and boundary paths, not only the happy path.
-Reference `## API Contracts` instead of restating payloads.
-Never: vague outcomes ("works", "is correct", "is tested") or task items
-("add entity", "write test").
+One observable behaviour per item: a concrete trigger or input plus the
+concrete expected result (status code, payload shape, persisted state,
+emitted event). Cover error and boundary paths, not only the happy path.
+Point at the API contract instead of restating payloads. One item, one seam.
+Keep items fine-grained — `/implement` clusters overlapping ones itself, and
+verify needs them separate. Do not add checkboxes for unit tests.
 
 good: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_of_stock`, no order row
 good: - [ ] Import of a CSV row with an unknown SKU skips that row and keeps the rest
@@ -96,33 +148,39 @@ bad:  - [ ] Add OrderController and its integration test}
 
 ## Further Notes
 
-{bullets; durable decisions belong in ADRs}
+{optional, and usually omitted. Add a bullet only when it carries a decision
+with impact, a risk, a rollout or migration step, or an alternative that was
+deliberately rejected. Never state that something does not change, and never
+repeat what the sections above already say. Durable decisions belong in ADRs.
+
+good: Downgrade is blocked while an unpaid invoice exists; the queued-downgrade
+      alternative needs the billing job and is out of scope.
+bad:  No new endpoint and no change to the GET/PATCH data policy.}
 
 ## FAQ
 
-{optional. Unresolved questions as bullets; each names what it belongs to
-(section / contract). Publish with FAQ is OK — persist for later work.
-After answers: fold into the right section and remove the FAQ item.
-Ideal end state: section omitted.}
+{optional. Unresolved questions as bullets, each naming what it belongs to —
+a section or a contract. Publishing with an open FAQ is fine. After answers:
+fold each one into the right section and delete the item.}
 
 </analysis-template>
 
-**Bug:** Summary / Current State / Change / Acceptance; Architecture and API Contracts only when they apply. FAQ optional.
+**Bug:** Summary, Current State, Change, Acceptance. Architecture and API Contracts only when they apply; FAQ optional.
 
 ### Local tracker publish
 
 When `docs/agents/issue-tracker.md` is Local Markdown, follow `issue-tracker-local.md`:
 
-1. Compute next `NNN` per issue-tracker-local.md (scan `.scratch/analysis/` and `.scratch/analysis/done/`; never reuse).
-2. Choose `<slug>` from the analysis title (lowercase, hyphenated, ASCII; transliterate if needed).
-3. Create `.scratch/analysis/NNN-<slug>.md` with Kind, Delivery (`feature/analysis-NNN-<short-slug>`), and analysis body. No Status line.
+1. Compute the next `NNN` as described there — scan `.scratch/analysis/` and `.scratch/analysis/done/`, never reuse an ID.
+2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
+3. Create `.scratch/analysis/NNN-<slug>.md` with Kind, Delivery (branch `feature/<ticket>-<short-slug>`, where the ticket falls back to `NNN`) and the analysis body. No Status line.
 
-Bug fast-path (ticket with Acceptance, not a full analysis): same path and ID scan, `Kind: bug`.
+Bug fast-path — a ticket with Acceptance rather than a full analysis — uses the same path and ID scan with `Kind: bug`.
 
 ### GitHub publish
 
-When backend is GitHub, follow issue-tracker-github.md `/analyze` operations.
+When the backend is GitHub, follow the `/analyze` operations in issue-tracker-github.md.
 
-**Monorepo:** if `workflow.md` has `## Monorepo` (or nested git repos exist), create the analysis issue on the **container-root** GitHub repo only — use `gh … -R <owner/container-repo>` from that remote. Never publish the analysis into a delivery-root repository.
+**Monorepo:** if `workflow.md` has a `## Monorepo` section, or nested git repos exist, create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
 
-After publish, tell the user the next step is `/implement` on this analysis (after they have reviewed it).
+After publishing, tell the user the next step is `/implement` on this analysis, once they have reviewed it.

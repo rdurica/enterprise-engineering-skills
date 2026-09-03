@@ -1,15 +1,15 @@
 ---
 name: ux-review
 description: >-
-  Browser UX/a11y walkthrough after Functional verify — Critical/Major hard gate,
-  then re-check local tooling. Phase 2 of /verify when ux-review is enabled, or
+  Browser UX/a11y walkthrough after code review — Critical/Major hard gate,
+  then re-check local tooling. Phase 3 of /verify when ux-review is enabled, or
   run /ux-review directly after implementation.
 disable-model-invocation: true
 ---
 
 # UX review
 
-Phase 2 of `/verify` when `workflow.md` has `ux-review: enabled`. Functional gate must already be green (or you are resuming after UX fixes). Do **not** Ship from this skill — return to `/verify` for Ship.
+Phase 3 of `/verify` when `workflow.md` has `ux-review: enabled`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — return to `/verify` for Ship.
 
 Read `docs/agents/workflow.md`. Skills root: parent of this file. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
 
@@ -50,7 +50,7 @@ UX review cycle: 1 / 3
 
 ## One cycle
 
-Walkthrough and A11y+Visual sub-agents **in parallel** (`Task`, `generalPurpose`). Parent synthesizes; Minor never fails the gate.
+Walkthrough and A11y+Visual sub-agents **in parallel**. Parent synthesizes; Minor never fails the gate.
 
 **Walkthrough prompt** — base URL, scope screens, happy-path, checklist path, both viewports:
 
@@ -66,7 +66,7 @@ Fail and cycles < 3 → Fix, then **Re-check**, then repeat this cycle (re-walk 
 
 ## Fix
 
-Parent: trivial one-file CSS/copy. Else one `Task` per cluster. No push/PR, no container-root commits, no scope creep vs analysis Change/Architecture.
+Parent: trivial one-file CSS/copy. Else one sub-agent per cluster. No push/PR, no container-root commits, no scope creep vs analysis Change/Architecture.
 
 Commit: `fix(ui): <what> (#<N>)`.
 

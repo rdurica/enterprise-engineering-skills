@@ -57,9 +57,9 @@ Implements #<N>.
    - draft PR → `gh pr ready` (do not add a Test plan; refresh Acceptance checkboxes if tests changed)
    - already ready → leave it
    Collect PR URLs.
-4. Finalize analysis:
-   - GitHub: `--remove-label in-progress --add-label ready-to-review`
-   - Local: `mkdir -p .scratch/analysis/done` and `mv` to `.scratch/analysis/done/NNN-<slug>.md`. Leave `Status: in-progress`.
+4. Finalize analysis. The final state carries exactly two labels, `analysis` and `ready-to-review` — nothing else:
+   - GitHub: `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --remove-label ready-for-agent --add-label ready-to-review` (removing a label that is not set is fine)
+   - Local: write `Status: ready-to-review`, then `mkdir -p .scratch/analysis/done` and `mv` to `.scratch/analysis/done/NNN-<slug>.md`.
 
 ```markdown
 Verify gate green.
@@ -83,7 +83,7 @@ Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-att
    - ready PR → `gh pr ready --undo`
    - already draft → leave it
    Collect PR URLs.
-3. Comment on the analysis: what failed (Spec / Standards / tests / UX), what was tried, what remains. Include draft PR URLs.
+3. Comment on the analysis: what failed (Spec, Standards, tests, code review, UX), what was tried, what remains — Blocked code review items go here verbatim. Include draft PR URLs.
 
 ```markdown
 Verify gate failed. Marked needs-attention. Draft PR(s) open.
