@@ -24,7 +24,7 @@ Fetch the analysis per `docs/agents/issue-tracker.md` — by `#N` on GitHub, or 
 
 **Stop** when the GitHub issue already has `ready-to-review`, or the only local match sits under `.scratch/analysis/done/`.
 
-When the user invoked `/implement`, just proceed — `ready-for-agent` is not required. Auto-start without the user is allowed only when the issue has `ready-for-agent` or is already `in-progress`, and **never** when `needs-attention` is set.
+When the user invoked `/implement`, just proceed — `ready-for-agent` is not required. Auto-start without the user is allowed only when the issue has `ready-for-agent` or is already `in-progress`.
 
 Then set `in-progress` and remove `ready-for-agent` (it has done its job) and `needs-attention` (this is the resume path after a human acted), so the issue carries `analysis` + `in-progress` and nothing else. The user may pass `human` or `agent` to override branch-owner for this session.
 
