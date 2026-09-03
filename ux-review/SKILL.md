@@ -74,7 +74,7 @@ Commit: `fix(ui): <what> (#<N>)`.
 
 Hand control to parent `/verify`: re-run **Local pipeline** (tests + tooling from `AGENTS.md`) on affected delivery roots.
 
-- Red → Functional Fix; counts toward Functional cycles (max 3). Then re-run Local pipeline.
+- Red → Functional Fix; draws on the `/verify` re-check budget (max 3), not the Functional cycles. Then re-run Local pipeline.
 - Green → resume UX gate (re-walk affected screens only).
 
 Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance (new flow, Acceptance copy, new screen). Otherwise skip Spec/Standards.

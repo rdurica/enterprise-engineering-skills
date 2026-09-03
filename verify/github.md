@@ -83,10 +83,10 @@ Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-att
    - ready PR → `gh pr ready --undo`
    - already draft → leave it
    Collect PR URLs.
-3. Comment on the analysis: what failed (Spec, Standards, tests, code review, UX), what was tried, what remains — Blocked code review items go here verbatim. Include draft PR URLs.
+3. Comment on the analysis: which gate ran out of cycles, what failed (Spec, Standards, tests, code review, UX), what was tried, what remains — Blocked code review items go here verbatim. Include draft PR URLs.
 
 ```markdown
-Verify gate failed. Marked needs-attention. Draft PR(s) open.
+Verify failed at the {Functional | code review | UX | re-check} gate. Marked needs-attention. Draft PR(s) open.
 
 ## What failed
 

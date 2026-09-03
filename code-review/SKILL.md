@@ -45,7 +45,9 @@ Only things Spec and Standards do not already cover:
 ## Two outcomes, both ending in code
 
 - **Fix now** — everything in the table, naming and readability included. Whoever finds it, fixes it in the same pass.
-- **Blocked** — the fix needs a human decision, or it would change behaviour against the analysis (for example an authorization rule nobody specified). Leave the code alone and report the item; it fails the gate.
+- **Blocked** — the fix needs a human decision, or it would change behaviour against the analysis. Leave the code alone and report the item; it fails the gate.
+
+An endpoint whose authorization contradicts the analysis is a **Fix**: every block in `## API Contracts` carries a mandatory Authorization line, so the rule is specified and the code has to match it. Only an endpoint the analysis never described is Blocked.
 
 ## Guardrails
 
@@ -76,7 +78,7 @@ Parent synthesizes the two reports and commits per delivery root:
 - `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
 - `fix(scope): <what> (#<N>)` when broken behaviour was repaired
 
-Then hand back to the `/verify` **Re-check after gate fixes** step: the local pipeline (tests and tooling from `AGENTS.md`) runs again on the affected roots. Red counts as a Functional failure and is fixed under Functional rules, not here.
+Then hand back to the `/verify` **Re-check after gate fixes** step: the local pipeline (tests and tooling from `AGENTS.md`) runs again on the affected roots. Red is fixed under Functional rules, not here, and draws on the re-check budget rather than the Functional cycles.
 
 ## Outcome
 

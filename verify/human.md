@@ -19,4 +19,4 @@ Comment on the analysis: local verify is green; the user should push and open th
 
 ## Fail (gate red after 3 cycles or hard stop)
 
-Comment on the analysis: what failed, what was tried, what remains. Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-attention`; local: `Status: needs-attention`). Do not add `ready-to-review`. Do not move to `done/`. Do not open a PR.
+Comment on the analysis: which gate ran out of cycles (Functional, code review, UX, or re-check), what failed, what was tried, what remains. Set `needs-attention` (GitHub: `--remove-label in-progress --add-label needs-attention`; local: `Status: needs-attention`). Do not add `ready-to-review`. Do not move to `done/`. Do not open a PR.

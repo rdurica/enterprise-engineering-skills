@@ -126,13 +126,20 @@ UX gate green, skipped, or auto-skipped for a non-UI diff → **Ship**. UX gate 
 
 Whenever code review or UX review commits a fix, re-run **Local pipeline** on the affected roots — same commands as Functional.
 
-- Red → Fix (Functional rules); counts toward Functional cycles (max 3). Do not Ship.
+These re-checks carry their own budget of **3**, tracked across code review and UX together. They never draw on the Functional cycles, so a gate cannot be starved by work that happened before it.
+
+```
+Re-check: 1 / 3
+```
+
+- Red → Fix (Functional rules), then re-run; a third red re-check is a **Fail**, named as such. Do not Ship.
 - Green → resume the gate that was running (code review continues; UX re-walks affected screens only)
 - Full Spec/Standards again **only** if the fix changes behaviour vs Acceptance; otherwise skip
 
 ## Rules
 
-- Max **3** cycles per gate: Functional here, code review and UX owned by their skills
+- Max **3** cycles per gate: Functional here, code review and UX owned by their skills, re-check its own
+- A Fail note always names the gate that ran out — Functional, code review, UX, or re-check
 - Parent commits; fix sub-agents write code
 - No commits on the monorepo container root
 - No comments, reviews, or inline notes on a PR — analysis only

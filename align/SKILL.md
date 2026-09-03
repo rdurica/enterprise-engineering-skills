@@ -43,12 +43,18 @@ If a question cannot be settled in conversation, build a **throwaway spike**:
 
 ### 4. Document
 
-When a decision has real trade-offs and reversal cost, add `docs/adr/NNNN-slug.md` (next number; Context / Decision / Consequences). Do not write ADRs for obvious or easily reversed choices.
+List every decision the interview resolved and put each one in a bucket:
+
+- **ADR** — real trade-offs and a reversal cost. Write `docs/adr/NNNN-slug.md` (next number; Context / Decision / Consequences) and name the rejected alternative in Context.
+- **Analysis** — shapes the change but is cheap to reverse. It travels to `/analyze` as a `## Further Notes` bullet naming the rejected alternative.
+- **Obvious** — no alternative was ever in play. Nothing to record.
+
+Do not write ADRs for obvious or easily reversed choices, and do not let a decision leave the session in no bucket at all.
 
 Without a codebase, run steps 2–3 only — do not write local files.
 
 ### 5. Hand off
 
-When aligned, tell the user the next step is `/analyze` to synthesize the session into a published analysis.
+When aligned, tell the user the next step is `/analyze` to synthesize the session into a published analysis. Hand over the bucketed decision list with it: `/analyze` links the ADRs from `## Architecture` and folds the analysis bucket into `## Further Notes`.
 
 For bug fast-path, hand off to lightweight issue creation or `/analyze` with `Kind: bug` instead.

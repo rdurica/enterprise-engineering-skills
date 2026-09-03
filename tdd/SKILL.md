@@ -25,7 +25,9 @@ WRONG:  RED test1..5  →  GREEN impl1..5
 RIGHT:  RED test1 → Verify RED → GREEN impl1 → RED test2 → GREEN impl2 → …
 ```
 
-**Exception:** when `/implement` invoked this skill with a cluster of Acceptance items, writing those tests first and then implementing is allowed.
+That is the loop for a **direct** invocation of this skill.
+
+`/implement` always arrives with a cluster of Acceptance items, and there the normal mode is different: write the cluster's tests, watch them fail as a group, then implement. Both modes run Verify RED — a batch that was never seen red proves nothing.
 
 ## Workflow
 
@@ -53,11 +55,11 @@ GREEN:      Minimal code to pass
 
 One test at a time. Only enough code to pass the current test. No speculative features.
 
-When `/implement` passed a cluster: you may write those tests first, then implement. The one-test-at-a-time loop is optional for that invocation.
+Under `/implement` the unit is the cluster instead: its tests go in first, all of them, and only then the code that satisfies them.
 
 ### Verify RED (mandatory)
 
-Run **one** test before any production code. Command from `AGENTS.md` (typically `--filter` or a single file). When `/implement` passed a cluster, running the new tests as a group before production code is enough.
+Run the test before any production code. Command from `AGENTS.md` (typically `--filter` or a single file). Direct invocation: one test. Under `/implement`: the cluster's tests as a group, and every one of them must be failing.
 
 | PHPUnit result | Meaning | Action |
 |----------------|---------|--------|
@@ -81,7 +83,7 @@ After all tests pass, apply [refactoring.md](refactoring.md). **Never refactor w
 | No HTTP | Unit only |
 | Both seams on one Acceptance item | Highest seam first (HTTP), then unit for the **same** decision. Each test its own Verify RED. HTTP does not replace unit |
 
-Run one test (`--filter` / one file) per red-green cycle. Project-specific PHPUnit commands live in `AGENTS.md`.
+Run one test (`--filter` / one file) per red-green cycle, or the cluster's tests under `/implement`. Project-specific PHPUnit commands live in `AGENTS.md`.
 
 ## One cycle (unit)
 
@@ -111,7 +113,7 @@ public function apply(int $subtotal, int $discount): int
 }
 ```
 
-Then the same `--filter` must pass. Next behaviour = next test, not a batch — except an `/implement` cluster, where those tests may be written first.
+Then the same `--filter` must pass. Next behaviour = next test, not a batch — under `/implement` the batch is the cluster, written up front.
 
 ## Checklist per cycle
 

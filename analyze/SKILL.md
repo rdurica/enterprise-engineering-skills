@@ -79,6 +79,8 @@ Path: frontend/src/views/groups/settings/
 
 Units with disjoint paths can be implemented in parallel, so name any seam they share — otherwise `/implement` parallelizes blindly. Omit subsections only when the whole change sits in a single unit.
 
+Every ADR the change rests on is linked from `## Architecture` by path (`docs/adr/NNNN-slug.md`), so a reader can reach the reasoning without the align session. A decision `/align` put in the analysis bucket has no ADR to link — it belongs in `## Further Notes` instead.
+
 ## Template
 
 <analysis-template>
@@ -100,15 +102,23 @@ Units with disjoint paths can be implemented in parallel, so name any seam they 
 
 ## Architecture
 
-{layers, data flow, DB and schema, decisions carried over from align or ADRs.
-One `###` per real unit, path on the line below the heading.}
+{layers, data flow, decisions carried over from align or ADRs.
+One `###` per real unit, path on the line below the heading.
+When the schema changes, state the delta — tables and columns added or
+changed, nullability, defaults, indexes — plus the migration, written by
+hand, with the backfill and the rollback whenever existing rows are touched.}
 
 ## API Contracts
 
-{one block per endpoint; omit the whole section when there is no API}
+{one block per endpoint; omit the whole section when there is no API.
+Authorization is mandatory in every block — who may call it, and the status
+and error code everyone else gets.}
 
 ```
 POST /api/groups/{uuid}/plan
+
+Authorization
+- group owner only; any other member 403 insufficient_permissions
 
 Request
 - string: planCode
@@ -129,21 +139,26 @@ Errors
 One observable behaviour per item: a concrete trigger or input plus the
 concrete expected result (status code, payload shape, persisted state,
 emitted event). Cover error and boundary paths, not only the happy path.
+Every endpoint in `## API Contracts` gets its own item for the denied caller,
+carrying the status and error code from that block's Authorization.
 Point at the API contract instead of restating payloads. One item, one seam.
 Keep items fine-grained — `/implement` clusters overlapping ones itself, and
 verify needs them separate. Do not add checkboxes for unit tests.
 
 good: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_of_stock`, no order row
 good: - [ ] Import of a CSV row with an unknown SKU skips that row and keeps the rest
+good: - [ ] POST /orders as a caller outside the group → 403, body `code: insufficient_permissions`, no order row
 bad:  - [ ] Order creation works and is covered by tests
 bad:  - [ ] Add OrderController and its integration test}
 
 ## Further Notes
 
-{optional, and usually omitted. Add a bullet only when it carries a decision
-with impact, a risk, a rollout or migration step, or an alternative that was
-deliberately rejected. Never state that something does not change, and never
-repeat what the sections above already say. Durable decisions belong in ADRs.
+{one bullet for every decision `/align` put in the analysis bucket, naming the
+alternative that was rejected — those are not optional. Beyond them, add a
+bullet only when it carries impact, a risk, or a rollout or migration step.
+Never state that something does not change, and never repeat what the sections
+above already say. Durable decisions belong in ADRs, linked from
+`## Architecture`. Omit the whole section when nothing qualifies.
 
 good: Downgrade is blocked while an unpaid invoice exists; the queued-downgrade
       alternative needs the billing job and is out of scope.
@@ -161,7 +176,7 @@ fold each one into the right section and delete the item.}
 
 ### Local tracker publish
 
-When `docs/agents/issue-tracker.md` is Local Markdown, follow `issue-tracker-local.md`:
+When the active backend is Local Markdown, follow the `/analyze` operations in `docs/agents/issue-tracker.md`:
 
 1. Compute the next `NNN` as described there — scan `.scratch/analysis/` and `.scratch/analysis/done/`, never reuse an ID.
 2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
@@ -171,7 +186,7 @@ Bug fast-path — a ticket with Acceptance rather than a full analysis — uses 
 
 ### GitHub publish
 
-When the backend is GitHub, follow the `/analyze` operations in issue-tracker-github.md.
+When the backend is GitHub, follow the `/analyze` operations in `docs/agents/issue-tracker.md`.
 
 **Monorepo:** if `workflow.md` has a `## Monorepo` section, or nested git repos exist, create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
 
