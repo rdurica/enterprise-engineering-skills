@@ -11,13 +11,13 @@ disable-model-invocation: true
 
 Phase 3 of `/verify` when `workflow.md` has `ux-review: enabled`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — return to `/verify` for Ship.
 
-Read `docs/agents/workflow.md`. Skills root: parent of this file. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
+Read `docs/agents/workflow.md`. Skills root: parent of this skill directory (two levels above `SKILL.md`). Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
 
-If the repo has an overlay, read it after this skill: `docs/agents/ux-review.md`.
+If the repo has an overlay, read it after this skill: `docs/agents/ux-review.md`. Follow [implement’s Execution contract](../implement/SKILL.md#execution-contract) for fixes, resources, and test-baseline changes, including direct `/ux-review` use.
 
 ## When to skip
 
-Auto-green (no browser) when the fixed-point diff has **no UI/frontend** changes (e.g. only backend/API/docs). Tell `/verify` UX is skipped → Ship.
+Auto-green (no browser) when the intended fixed review-base diff has **no UI/frontend** changes (e.g. only backend/API/docs). Tell `/verify` UX is skipped → Ship.
 
 `ux-review: disabled` or missing → `/verify` never calls this skill.
 
@@ -42,19 +42,19 @@ UX review cycle: 1 / 3
 
 ## Scope
 
-1. Screens from analysis `## Acceptance` + frontend files in `git diff <fixed-point>...HEAD`
+1. Screens from analysis `## Acceptance` + frontend files in `git diff <review-base-SHA> -- <intended-paths>` plus intended untracked files
 2. Short happy-path to reach those screens
-3. Viewports: desktop `1440x900`; mobile `390x844x3,mobile,touch` via Chrome DevTools MCP `emulate`
+3. Viewports: desktop `1440x900`; mobile `390x844`, with mobile/touch emulation when the available browser tool supports it
 
-**Base URL** — from `AGENTS.md` / `docs/agents/domain.md`; else ask. Chrome DevTools MCP unavailable → hard fail: do not Ship.
+**Base URL** — from `AGENTS.md` / `docs/agents/domain.md`; else ask. Use any available browser automation tool capable of navigation, interaction, viewport control, screenshots, and accessible UI inspection. If the required walkthrough cannot be performed, report the missing capability and hard fail; do not claim green.
 
 ## One cycle
 
-Walkthrough and A11y+Visual sub-agents **in parallel**. Parent synthesizes; Minor never fails the gate.
+Use Walkthrough and A11y+Visual sub-agents with fresh, scoped context: relevant analysis, review-base, screens, URL, checklist and browser instructions. Parallel walkthroughs require independent browser sessions and isolated application state; otherwise run sequentially. Parent synthesizes; Minor never fails the gate.
 
 **Walkthrough prompt** — base URL, scope screens, happy-path, checklist path, both viewports:
 
-> Act as a first-time user. Use Chrome DevTools MCP (`navigate_page`, `take_snapshot`, `click`, `take_screenshot`, `emulate`). Desktop then mobile. At each screen: is the next step obvious? Is the primary action clear? Are dangerous actions guarded? Screenshot friction points. Report Critical/Major/Minor with screen + issue. Under 400 words.
+> Act as a first-time user. Use the available browser automation tool and its documented APIs. Desktop then mobile. At each screen: is the next step obvious? Is the primary action clear? Are dangerous actions guarded? Screenshot friction points. Report Critical/Major/Minor with screen + issue. Under 400 words.
 
 **A11y + Visual prompt** — same scope, [checklist.md](checklist.md):
 
@@ -66,15 +66,13 @@ Fail and cycles < 3 → Fix, then **Re-check**, then repeat this cycle (re-walk 
 
 ## Fix
 
-Parent: trivial one-file CSS/copy. Else one sub-agent per cluster. No push/PR, no container-root commits, no scope creep vs analysis Change/Architecture.
-
-Commit: `fix(ui): <what> (#<N>)`.
+Parent may handle trivial one-file CSS/copy follow-ups; delegate substantial fixes by independent cluster under the Execution contract. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits, or scope creep.
 
 ### Re-check (mandatory after any UX fix)
 
-Hand control to parent `/verify`: re-run **Local pipeline** (tests + tooling from `AGENTS.md`) on affected delivery roots.
+Hand control to parent `/verify`: re-run the local tests/tooling from `AGENTS.md` on affected delivery roots.
 
-- Red → Functional Fix; draws on the `/verify` re-check budget (max 3), not the Functional cycles. Then re-run Local pipeline.
+- Red → repair and rerun within this UX gate’s cycle limit; no separate re-check counter.
 - Green → resume UX gate (re-walk affected screens only).
 
 Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance (new flow, Acceptance copy, new screen). Otherwise skip Spec/Standards.
@@ -86,6 +84,6 @@ Tell `/verify` UX is green. Do **not** comment Minors on the analysis or the PR.
 ## Rules
 
 - Max **3** UX cycles; Functional max **3** stays owned by `/verify`
-- Parent commits; fix sub-agents write code
+- Parent orchestrates and commits; sub-agents handle substantial fixes
 - No commits on the monorepo container root
 - No Ship from this skill

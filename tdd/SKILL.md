@@ -16,18 +16,15 @@ Tests verify behaviour through **public interfaces**, not implementation details
 
 See [tests.md](tests.md), [mocking.md](mocking.md), [refactoring.md](refactoring.md). Full unit cycle: [examples.md](examples.md).
 
-## Anti-pattern: horizontal slices
+## Execution modes
 
-Do NOT write all tests first, then all code.
+For a **direct** invocation, use a vertical red-green-refactor loop:
 
 ```
-WRONG:  RED test1..5  →  GREEN impl1..5
-RIGHT:  RED test1 → Verify RED → GREEN impl1 → RED test2 → GREEN impl2 → …
+RED test1 → Verify RED → GREEN impl1 → RED test2 → Verify RED → GREEN impl2 → …
 ```
 
-That is the loop for a **direct** invocation of this skill.
-
-`/implement` always arrives with a cluster of Acceptance items, and there the normal mode is different: write the cluster's tests, watch them fail as a group, then implement. Both modes run Verify RED — a batch that was never seen red proves nothing.
+Under `/implement`, follow its [Execution contract](../implement/SKILL.md#execution-contract): test-only workers first, reviewed test commits, then new implementation workers. Stay in your assigned phase and scope; return results to the parent without git/delivery operations.
 
 ## Workflow
 
@@ -35,13 +32,13 @@ That is the loop for a **direct** invocation of this skill.
 
 Read `docs/adr/` if it exists.
 
-When `/implement` invoked this skill: skip user approval — the published analysis is the plan. Do **every** `## Acceptance` item in the prompt, then return to the parent. Do not start items that were not in the prompt.
+When `/implement` invoked this skill, the published analysis is the plan: cover every assigned Acceptance item in your phase and permitted paths. Respect shared-resource constraints and return commands, results, coverage and blockers.
 
 Otherwise, before writing code:
 
 - Confirm interface changes and behaviours to test (prioritized)
 - List behaviours, not implementation steps
-- Get user approval on the plan
+- Obtain missing contract decisions when required; an already authorized, sufficiently defined task can proceed
 
 ### 2. Tracer bullet
 
@@ -55,19 +52,23 @@ GREEN:      Minimal code to pass
 
 One test at a time. Only enough code to pass the current test. No speculative features.
 
-Under `/implement` the unit is the cluster instead: its tests go in first, all of them, and only then the code that satisfies them.
+Under `/implement`, test workers return contract coverage and RED evidence; implementation workers satisfy the committed tests through production code and return GREEN evidence. The parent controls phase changes and commits.
 
 ### Verify RED (mandatory)
 
-Run the test before any production code. Command from `AGENTS.md` (typically `--filter` or a single file). Direct invocation: one test. Under `/implement`: the cluster's tests as a group, and every one of them must be failing.
+Run tests before new production code. Command from `AGENTS.md` (typically `--filter` or a single file). Direct invocation: one test. Under `/implement`: the cluster's tests, with results mapped to behaviours. New or corrected behaviour needs an expected failure; regression tests for already correct behaviour may pass. Do not rewrite a correct regression assertion just to manufacture RED.
 
 | PHPUnit result | Meaning | Action |
 |----------------|---------|--------|
 | **FAILURE** | Assertion failed — behaviour missing | GREEN |
-| **ERROR** | Syntax, broken arrange, autoload | Fix the test and re-run. Exception: first cycle of a **new class** may ERROR with class/method not found — that is valid RED |
-| **OK** | Test already passes | You are testing existing behaviour. Change the test. Do not write production code |
+| **ERROR** | Syntax, broken arrangement, autoload or environment | Fix the test/environment and re-run. A missing **new** class/method can establish initial RED, but does not yet validate all assertions; verify them once the symbol exists |
+| **OK** | Existing behaviour passes | Keep valid regression coverage. If this was meant to reproduce a missing behaviour, investigate the input and contract; do not force a failure by weakening or distorting the test |
 
-Never skip this step. If you did not watch it fail, you do not know the test can catch the bug.
+Never skip this step for missing or corrected behaviour. Report environment blockers honestly; do not describe an infrastructure failure as behavioural RED.
+
+### Committed test baseline
+
+Follow the Execution contract for later test corrections: justify and review the change, commit it separately, and recheck RED where applicable. Never weaken assertions or remove contract coverage to make implementation pass. In direct TDD, genuine contract or test defects may be corrected with the same reason recorded.
 
 ### 4. Refactor
 
@@ -113,12 +114,12 @@ public function apply(int $subtotal, int $discount): int
 }
 ```
 
-Then the same `--filter` must pass. Next behaviour = next test, not a batch — under `/implement` the batch is the cluster, written up front.
+Then the same `--filter` must pass. In direct TDD, proceed to the next behaviour. Under `/implement`, test-only and implementation workers complete their assigned cluster/phase and return to the orchestrator.
 
 ## Checklist per cycle
 
 - [ ] Test describes behaviour, not implementation
 - [ ] Test uses public interface only
-- [ ] Watched FAIL for the expected reason before implementing
+- [ ] Recorded expected RED for new/corrected behaviour; identified passing regression coverage
 - [ ] Code is minimal for this test
 - [ ] No speculative features added

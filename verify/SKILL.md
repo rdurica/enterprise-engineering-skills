@@ -11,135 +11,54 @@ disable-model-invocation: true
 
 # Verify
 
-Close the work. Every finding ends as a commit, never as a note for the human to act on. The human arrives at a finished PR (agent) or a green HEAD (human). `/implement` runs this skill once the decided analysis parts are done, and `/verify` can be invoked directly if that session died.
+Finish implementation through Functional → code review → optional UX → Ship/Fail. `/implement` invokes this automatically; the user may also run it directly. Fix actionable findings within the analysis scope; report blockers needing a human decision.
 
-Never post findings on a PR (`gh pr review` / `gh pr comment`). Green and fail notes go on the **analysis only**.
+Read `docs/agents/issue-tracker.md` and `workflow.md`, plus `docs/agents/verify.md` if present. Run `/setup` if configuration is missing. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
 
-Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md` — run `/setup` if missing. Skills root is the parent of this file's directory. If the repo has a verify overlay, read it after this skill: `docs/agents/verify.md`.
+Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Push policy is independent of branch ownership; session no-push overrides it in Ship and Fail. No-push skips git publication, CI watches and PR changes; tracker updates remain allowed unless separately restricted.
 
-Read `language` from `workflow.md`.
+Comments go on the analysis, never the PR, in the workflow language. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
 
-**branch-owner** from `workflow.md`, unless the user overrode it for this session. Read the matching file **now** (agent syncs before the diff):
+## Scope
 
-| branch-owner | File |
-|--------------|------|
-| `human` | [human.md](human.md) |
-| `agent` | [github.md](github.md) |
+Use the analysis from implement, the user’s number/path, or the configured local tracker. Missing spec or unclear scope is a blocker; obtain it before reviewing.
 
-If `workflow.md` has `## Monorepo` (or nested git repos exist), also read [monorepo.md](monorepo.md).
+Keep implement’s review base. For direct verify, identify the intended branch first and use its merge-base with the default/explicit base. Keep that base fixed for this run; never derive it from an unrelated current branch. Continuing local implementation needs no repeated checkout, pull or rebase.
 
-Do **not** set `ready-to-review` or move to `.scratch/analysis/done/` on a red gate. A red gate ends in `needs-attention` (label on GitHub, `Status:` locally) — it replaces `in-progress`, so the analysis is visibly waiting on a human. Agent still opens or keeps a **draft** PR — **Fail** in [github.md](github.md).
-
-## Phases
-
-1. **Functional** — Spec vs analysis, Standards, local tests + tooling (below)
-2. **Code review** — `{skills-root}/code-review/SKILL.md`, always on
-3. **UX** — if `workflow.md` has `ux-review: enabled`; else skip
-4. **Ship** or **Fail** — path file already read (`human.md` / `github.md`)
-
-```mermaid
-flowchart LR
-    functional[Functional] --> codeReview[Code_review]
-    codeReview --> ux[UX_if_enabled]
-    ux --> shipOrFail[Ship_or_Fail]
-```
-
-## Functional gate (max 3 cycles)
-
-Copy and track:
-
-```
-Verify cycle: 1 / 3
-- [ ] Spec vs analysis
-- [ ] Standards
-- [ ] Local tests + AGENTS.md tooling
-- [ ] Fixes committed (if any)
-```
-
-CI, push, and PR are **not** in this gate — they live in [github.md](github.md).
-
-### Spec source
-
-1. Issue refs (`#123`) via `docs/agents/issue-tracker.md`
-2. Path the user passed
-3. `.scratch/analysis/NNN-<slug>.md` (not `analysis/done/`), else `docs/` / `specs/`
-4. Ask; if none, Spec sub-agent reports "no spec available" — hard failure → **Fail**
-
-From the analysis, read **`## Delivery` → branch name** when present.
-
-### Fixed point
-
-Default: `origin/main` (or repo default) in each affected delivery root. Session may already have a merge-base.
+Review committed and intended staged/unstaged changes, and inspect intended untracked files too:
 
 ```bash
-git -C <path> rev-parse <fixed-point>
-git -C <path> diff <fixed-point>...HEAD
-git -C <path> log <fixed-point>..HEAD --oneline
+git -C <root> diff <review-base> -- <intended-paths>
+git -C <root> status --short
 ```
 
-Single-repo: same in cwd. Need a non-empty diff before Spec/Standards sub-agents.
+Exclude unrelated work. Review delivery roots only, never a monorepo container root.
 
-### Standards sources
+## 1. Functional
 
-`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `CODING_STANDARDS.md`, `docs/adr/`, module `AGENTS.md`. Monorepo: per affected delivery root.
+Run Spec and Standards reviewers in parallel with fresh scoped context, then relevant project tests/tooling. Read-only review can be parallel; checks sharing mutable test resources need isolation or sequential execution.
 
-### One cycle
+- **Spec:** full relevant analysis and diff. Check Acceptance completeness, scope vs Change/Architecture, API contracts, invented FAQ answers and test coverage. Existing unchanged tests are valid coverage. Non-trivial handler/domain decision logic needs unit tests; HTTP coverage alone is insufficient.
+- **Standards:** diff plus `AGENTS.md`, contributor standards and ADRs. Report documented violations with file, rule and required change. Skip subjective style and violations already handled by tooling.
+- **Local checks:** documented tests, lint/type checks and other relevant commands from each affected root’s `AGENTS.md`.
 
-Spec and Standards sub-agents **in parallel**, then local tooling.
+Reviewers return concise fix lists, not comments. Delegate repairs, review and commit them, then re-run affected checks. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.
 
-**Standards prompt** — per-root diff commands, commit lists, standards files:
+## 2. Code review
 
-> Return a fix-list, not a review. For each affected delivery root run `git -C <path> diff <fixed-point>...HEAD`. Skip empty diffs. Never review the container root. Hard documented-standard violations only. Cite file + rule. Skip judgement and what tooling enforces. Format: `- path: <file> — <rule> — change: <what>`. Empty list = green. Do not post comments. Under 400 words.
+After Functional is green, check off satisfied Acceptance and follow sibling `code-review/SKILL.md`. It fixes correctness, security, structure and readability, preserving the agreed contract. Blocked findings or exhausted review cycles → Fail.
 
-**Spec prompt** — per-root diffs, commits, full analysis (`## Acceptance`, `## Change`, `## API Contracts` if present, `## Architecture`, `## FAQ`):
+## 3. UX
 
-> Return a fix-list, not a review. For each affected delivery root run `git -C <path> diff <fixed-point>...HEAD`. Skip empty diffs. Hard items only: (a) missing or partial `## Acceptance`; (b) scope creep vs `## Change` / `## Architecture`; (c) diff that invents an answer to an open `## FAQ` item; (d) `## Acceptance` behaviour with no test proving it in the diff; (e) non-trivial handler/domain/VO logic in the diff (branches, invariant, calculation, policy) with no unit test proving that logic — HTTP integration alone is not enough; skip (e) for pure wiring with no branches. Open FAQ by itself is not a failure. Format: `- path: <file> — <Acceptance, Change, Architecture, FAQ, or unit-test line> — change: <what>`. Empty list = green. Do not post comments. Under 400 words.
+If `ux-review: enabled`, follow sibling `ux-review/SKILL.md`; otherwise skip. Its non-UI skip is valid. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
 
-**Local pipeline** — each affected root's `AGENTS.md` (and repo-root `AGENTS.md` if commands live there): full relevant tests, cs-fix / phpstan / typecheck as documented. Fail → fix → re-run. Do not push while local gates are red.
+After review or UX fixes, rerun affected local checks before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
 
-**Outcome:** hard Spec or Standards misses and red tests or tooling fail this gate. Judgement calls are not its business — they belong to the code review phase, which fixes them rather than reporting them.
+## 4. Finalize
 
-Failed with fewer than 3 cycles used → fix, then repeat the cycle. 3 Functional failures → **Fail** in the path file already read.
+Ensure the intended verified work is committed before Ship, including correct uncommitted work from a direct verify invocation. Stage only that scope. If hooks change files, inspect and rerun affected checks. Do not claim historical tests-first evidence when tests and code arrived together.
 
-### Fix
+Follow the selected delivery path for push, CI and PR handling. CI fixes go through the same delegated repair and local-check loop; do not create another tracking protocol or reset exhausted gate budgets. Stop after 3 unsuccessful CI repairs or when external checks/publication cannot complete, and report the blocker honestly.
 
-One sub-agent per independent failure cluster (sequential if same files). Prompt: analysis Change/Architecture, failing output, `tdd` / `integration-tests` when changing tests, no scope creep, no push/PR, no container-root commits.
-
-Parent re-runs failed commands, then **commits** per `commit/SKILL.md`: `fix(scope): <what failed> (#<N>)`. Trivial one-file fixes: parent, no sub-agent.
-
-## After Functional green
-
-Check off remaining satisfied Acceptance on the analysis, then read and follow `{skills-root}/code-review/SKILL.md` in this session. That phase is always on: it fixes correctness, security, duplication, seam, test-quality and naming problems in code, and reports only what needs a human decision.
-
-Code review green → UX. Code review returns Blocked items, or stays red after 3 cycles → **Fail** in the path file already read.
-
-## After code review green
-
-Read `ux-review` from `workflow.md`:
-
-- `disabled` or missing → **Ship** in the path file already read
-- `enabled` → read and follow `{skills-root}/ux-review/SKILL.md` in this session
-
-UX gate green, skipped, or auto-skipped for a non-UI diff → **Ship**. UX gate stops after 3 failures → **Fail**.
-
-### Re-check after gate fixes
-
-Whenever code review or UX review commits a fix, re-run **Local pipeline** on the affected roots — same commands as Functional.
-
-These re-checks carry their own budget of **3**, tracked across code review and UX together. They never draw on the Functional cycles, so a gate cannot be starved by work that happened before it.
-
-```
-Re-check: 1 / 3
-```
-
-- Red → Fix (Functional rules), then re-run; a third red re-check is a **Fail**, named as such. Do not Ship.
-- Green → resume the gate that was running (code review continues; UX re-walks affected screens only)
-- Full Spec/Standards again **only** if the fix changes behaviour vs Acceptance; otherwise skip
-
-## Rules
-
-- Max **3** cycles per gate: Functional here, code review and UX owned by their skills, re-check its own
-- A Fail note always names the gate that ran out — Functional, code review, UX, or re-check
-- Parent commits; fix sub-agents write code
-- No commits on the monorepo container root
-- No comments, reviews, or inline notes on a PR — analysis only
+- **Green:** mark `ready-to-review`; local tracker moves to `done/`. Preserve unrelated labels. Briefly record checks, current/published commit, CI outcome and PR URL when applicable. Explicitly state skipped publication/CI.
+- **Fail:** replace `in-progress` with `needs-attention`, remove `ready-to-review`, retain local work and do not archive. Name the failing gate, attempted fixes and remaining blocker. Agent-owned may provide a draft PR if publishing is allowed; human-owned never manages PRs.

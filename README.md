@@ -1,6 +1,6 @@
 # Enterprise Engineering Skills
 
-Agent skills for delivering features in an existing codebase: architecture and contracts are the spec, agents write the code and the tests, and every change arrives as a reviewable PR.
+Agent skills for delivering features in an existing codebase: architecture and contracts are the spec, agents write the code and the tests, and each change arrives as verified local work or an agent-managed PR.
 
 ## Why
 
@@ -25,10 +25,10 @@ Built for **brownfield, incremental work** in a repository that has tests, CI an
 | 0 | `/setup` | `docs/agents/workflow.md`, `issue-tracker.md`, `domain.md`; vendors pipeline skills into the repo's skills dir (`.cursor/skills`, `.claude/skills`, …) |
 | 1 | `/align` | Shared understanding; `docs/adr/` when a decision has real trade-offs |
 | 2 | `/analyze` | Published analysis (architecture, API contracts, Acceptance) + `## Delivery` |
-| 3 | `/implement #N` | Sub-agents write code and tests from the analysis; parent commits; then runs verify |
-| 4 | `/verify` | Acceptance, standards, tests, tooling, code review, CI; findings fixed in code; PR opened |
+| 3 | `/implement #N` | Parent orchestrates test sub-agents → test-only commits → fresh implementation sub-agents → implementation commits → automatic verify |
+| 4 | `/verify` | Acceptance, standards, tests, tooling, code review, CI; findings fixed by sub-agents; push/CI per policy; PR only for agent-owned delivery |
 
-You work at the start (align, review the published analysis) and at the end (review the PR). In between agents implement, test, run tooling and leave a clean tree.
+You invoke the workflow locally: align, publish and review the analysis, then run implement. Align and analyze can share conversation history. Implement uses the published analysis and keeps the main window for orchestration; workers get fresh contexts with scoped tasks. At the end you review the current branch or the agent-managed PR.
 
 | Work type | `/align` | `/analyze` | `/implement` |
 |-----------|----------|------------|--------------|
@@ -52,7 +52,7 @@ stateDiagram-v2
     needsAttention --> inProgress: user_calls_implement
 ```
 
-`ready-to-review` appears only after a green verify that opened a ready PR. `needs-attention` means the agent stopped and cannot continue alone — verify red after three cycles, a hard stop, or work blocked by an open `## FAQ`; it replaces `in-progress` so auto-start leaves it alone. Answer what the comment asks and re-run `/implement`. A dead session keeps `in-progress`, because re-running `/implement` is enough.
+`ready-to-review` means verify completed successfully. Human-owned delivery is ready on the current branch; agent-owned delivery includes a ready PR when push/PR operations are enabled. The analysis comment records local verification, push and CI separately. `needs-attention` means the agent stopped and cannot continue alone — verify red after three cycles, a hard stop, or work blocked by an open `## FAQ`; it replaces `in-progress` so auto-start leaves it alone. Answer what the comment asks and re-run `/implement`. A dead session keeps `in-progress`, because re-running `/implement` is enough.
 
 Notes always go on the analysis, never on the PR. On GitHub these states are labels; locally they are the `Status:` line in `.scratch/analysis/NNN-<slug>.md`.
 
@@ -63,10 +63,12 @@ Notes always go on the analysis, never on the PR. On GitHub these states are lab
 | Preset | Tracker | branch-owner | push |
 |--------|---------|--------------|------|
 | `full-agentic` | github | agent | finalize |
-| `human-owned` | github | human | never |
+| `human-owned` | github | human | finalize |
 | `custom` | user choice | user choice | user choice |
 
-It always asks for **language** (`en` \| `cs`) — analysis prose and ticket comments use it, section headings stay English. Issue tracker is GitHub (`gh`), local (`.scratch/`), or both. UX review is an optional hard gate inside `/verify`.
+Branch ownership and push are independent: human-owned keeps the current branch and leaves PR management to the user, while the agent can push and check CI after verification. `push: never` and session instructions such as “do not push” take precedence in every mode, including failed delivery. Existing repo settings remain explicit until setup is rerun.
+
+Setup records **language** (`en` \| `cs`) — analysis prose and ticket comments use it, section headings stay English. Issue tracker is GitHub (`gh`), local (`.scratch/`), or both. UX review is an optional hard gate inside `/verify`.
 
 ## Skills
 
@@ -76,7 +78,7 @@ One folder per skill at the pack root — Claude Code does not load nested categ
 setup/              — per-repo tracker, git workflow, domain doc layout
 align/              — alignment interview; no analysis here
 analyze/            — conversation to published analysis
-implement/          — sub-agents implement from the analysis; parent commits
+implement/          — orchestrates tests, test commits, implementation agents and verify
 verify/             — Acceptance, standards, tests, tooling, code review, UX, CI, then ship
 code-review/        — fix-first code review, phase 2 of /verify
 ux-review/          — browser UX gate, phase 3 of /verify
@@ -91,14 +93,18 @@ monorepo-update/    — sync delivery roots / checkout an analysis branch
 
 ## Sub-agents
 
-The skills say "sub-agent" and never name a tool, so the same text works in both runners. Whichever you use, the general-purpose sub-agent is the one meant: Cursor spawns it with the `Task` tool and `subagent_type: generalPurpose`, Claude Code with the `Task` tool and `general-purpose`. Which model runs behind it does not matter — nothing in the pack depends on a specific one.
+Use the runner's sub-agent facility with a fresh context for each role. Pass the assigned Acceptance items, relevant contracts and architecture, allowed paths, skill paths, and project commands; workers read source files themselves. Avoid copying the whole parent conversation.
+
+Test agents write tests and report expected RED or already-green regression cases. The parent reviews coverage and commits tests before any production implementation. New implementation agents satisfy that committed baseline. Test corrections require a documented reason, parent review and a separate test commit; never weaken assertions to make code pass.
+
+The main window schedules work, reviews results, runs checks, commits, updates the analysis and invokes verify. Sub-agents handle tests, implementation and substantial fixes; the parent may handle a trivial one-file follow-up. Workers do not manage git delivery. Parallel workers need disjoint write paths and isolated databases, fixtures, ports and browser sessions, or those operations run sequentially.
 
 ## Installation
 
-Clone or symlink into `~/.cursor/skills/` (Cursor) or `~/.claude/skills/` (Claude Code):
+Use the shared pack in `~/.codex/skills/`, `~/.agents/skills/`, `~/.cursor/skills/` or `~/.claude/skills/`, according to your runner. For example:
 
 ```bash
 git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.cursor/skills
 ```
 
-Both tools load `SKILL.md` from each immediate child of that directory and of the project skills dir. Which one a repo uses is detected by `/setup` — an already vendored dir wins, then `.claude/skills` when the repo has `CLAUDE.md` or `.claude/`, otherwise `.cursor/skills` — and recorded as `skills-dir` in `docs/agents/workflow.md`. A gitignored `personal/` folder is the place for local-only skills — Cursor loads them, git never sees them.
+Project instructions live in `AGENTS.md`. The pack uses one skill per directory. `/setup` reuses the configured `skills-dir` or a single existing vendored installation. Otherwise the user selects a path their harness loads; there is no fallback based on editor config folders. Custom paths are supported and recorded in `docs/agents/workflow.md`. A gitignored `personal/` folder is the place for local-only skills.

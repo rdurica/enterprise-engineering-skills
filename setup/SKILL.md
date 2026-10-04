@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 One-time per-repo configuration. Run inside the **target project** (not the skills repo).
 
-The shared skills pack (`~/.cursor/skills` or `~/.claude/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
+The shared skills pack (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills` or `~/.agents/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
 
 ## Process
 
@@ -20,30 +20,27 @@ The shared skills pack (`~/.cursor/skills` or `~/.claude/skills`) is shared acro
 Read what already exists — do not assume:
 
 - `git remote -v` — GitHub? No remote?
-- `CLAUDE.md` or `AGENTS.md` — existing `## Agent skills` block?
+- `AGENTS.md` — existing `## Agent skills` block?
 - `docs/adr/` — existing ADRs?
 - `docs/agents/` — prior setup output?
-- **Skills dir** — which directory this repo uses for vendored skills. Check `.cursor/skills/`, `.claude/skills/`, `.agents/skills/` for any `*/SKILL.md`. Pick the default in this order:
-  1. an existing vendored dir — if more than one has skills, let the user choose
-  2. `CLAUDE.md` or `.claude/` present → `.claude/skills`
-  3. otherwise `.cursor/skills`
+- **Skills dir** — reuse `skills-dir` from the session or existing `workflow.md`. Otherwise look for an existing vendored pipeline (for example in `.agents/skills/`, `.codex/skills/`, `.cursor/skills/` or `.claude/skills/`; custom paths are valid too). Reuse a single unambiguous installation; if none or several are found, ask which project path the user wants. Do not infer the active harness from unrelated config folders or use an editor-specific fallback.
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
-If `CLAUDE.md` exists → often indicates human-owned workflow; recommend preset **human-owned**. For agent-managed branches and push after verify → **full-agentic**.
+The normal entry point is the user running the pipeline locally. Recommend **human-owned** when the user wants to keep their current branch and manage PRs; recommend **full-agentic** when the agent should manage branches and PRs. Do not infer branch ownership from editor files or the tracker.
 
 See [workflow-presets.md](./workflow-presets.md) for preset values.
 
 ### 2. Interview (preset + language + UX review)
 
-Offer a preset first; user may confirm or customize.
+Reuse settings already established in the session or existing `workflow.md`; show the resulting draft for review. For missing settings, offer a preset or ask only the unanswered questions.
 
-**Always ask** (presets do not set these):
+**Resolve when unknown** (presets do not set these):
 
 - **Language:** English (`en`) / Czech (`cs`) — published analysis prose and ticket comments
-- **UX/UI review before PR?** Enabled (browser walkthrough + hard gate) / Disabled
-- **Skills dir:** prefilled with the value detected in Explore (`.cursor/skills`, `.claude/skills`, `.agents/skills`); user may confirm or type any path
+- **UX/UI review before finalization?** Enabled (browser walkthrough + hard gate) / Disabled
+- **Skills dir:** reuse the configured or unambiguous existing path; otherwise ask for the project path used by the user’s harness. Multiple harnesses may share a skills directory when supported; do not assume a path is discoverable by every runner.
 
-Then, unless a preset already answered them:
+Then resolve any settings not already answered by the session, repo or preset:
 
 | # | Question | Options |
 |---|----------|---------|
@@ -54,7 +51,9 @@ Then, unless a preset already answered them:
 **Presets:**
 
 - `full-agentic` — github, agent, finalize
-- `human-owned` — github, human, never
+- `human-owned` — github (or local), human, finalize
+
+Branch ownership controls checkout and PR management. Push policy is independent: `finalize` allows the parent orchestrator to push after verification and check CI; `never` disables pushing. A session instruction such as “do not push” overrides either preset. Working subagents never commit or push.
 
 If tracker is **Both**: write active backend to `issue-tracker.md` and reference copies as `issue-tracker.github.md` + `issue-tracker.local.md`.
 
@@ -100,14 +99,9 @@ Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, 
 
 #### Agent skills block
 
-**Edit target:** `CLAUDE.md` if it exists, else `AGENTS.md`. Never create both.
+**Edit target:** `AGENTS.md`.
 
-**CLAUDE.md safe merge:**
-
-1. If `CLAUDE.md` exists → upsert `## Agent skills` block only; do **not** touch other sections
-2. If block missing → append to end of `CLAUDE.md`
-3. If neither `CLAUDE.md` nor `AGENTS.md` exists → create **AGENTS.md** (do not create `CLAUDE.md`)
-4. Never overwrite the full file; never duplicate the block
+Upsert only the `## Agent skills` section; preserve all other sections. Append it if missing, or create `AGENTS.md` if the file does not exist. Never overwrite the full existing file or duplicate the section.
 
 ```markdown
 ## Agent skills
@@ -115,7 +109,8 @@ Fill `path` and `remote` from detection (`git submodule status`, nested `.git`, 
 Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, language, work types).
-Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
+Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
+`/implement` orchestrates fresh test subagents → parent test commit → fresh implementation subagents → automatic `/verify`; see the skill for detailed rules.
 Project skills: `<skills-dir>/` (vendored by `/setup`; re-running `/setup` overwrites them). Repo-specific additions belong in `docs/agents/`, not in the vendored files.
 ```
 
@@ -133,11 +128,11 @@ First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker:
 
 ### 5. Vendor pipeline skills
 
-Copy pipeline skills into the **target repo** at the confirmed skills dir (one folder per skill, no nesting) so the pipeline is in git and works for Cursor and Claude Code.
+Copy pipeline skills into the **target repo** at the confirmed skills dir (one folder per skill, no nesting) so the pipeline is in git and available to the user’s configured harness.
 
 **Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` at the repo root).
 
-**Source (prefer shared pack):** the first of `$HOME/.cursor/skills`, `$HOME/.claude/skills`, `$HOME/.agents/skills` that contains `setup/SKILL.md`. Else parent of this skill file (so a fresh checkout of the skills repo still works). Never copy from `~/.cursor/skills-cursor/` or from the target’s already-vendored tree as the preferred source — that tree is often stale and missing new skills like `analyze`. Do **not** copy `personal/`.
+**Source:** use the shared pack containing this invoked `setup/SKILL.md` (pack root is the parent of `setup/`), or the source explicitly selected by the user. If this is a stale/vendored copy rather than the maintained pack, resolve the maintained source before refreshing; do not select another harness’s pack merely because its directory exists. Do **not** copy `personal/`.
 
 **Destination:** `<target-repo>/<skills-dir>/` at the container root (not inside delivery roots).
 
@@ -149,28 +144,9 @@ align  analyze  implement  verify  code-review  ux-review  tdd  integration-test
 
 `setup`, `git-release` and `monorepo-update` stay in the shared pack — they are global tools, not part of the per-repo pipeline.
 
-**Overwrite, do not skip:** every run removes the vendored folder and copies a fresh one, so re-running `/setup` is how a repo picks up updates to the shared pack. Hand edits to vendored `SKILL.md` files are lost by design — repo-specific deviations belong in `docs/agents/` (see the overlay files each skill reads).
+**Refresh every required skill:** validate that the source contains all listed skills and the confirmed destination stays inside the target repo, without source overlap or symlinked destination paths. Stage complete copies before replacing anything. Replace only the listed folders, retaining the old copies until the new install is checked so a failed refresh can be restored. Leave unrelated folders untouched; repo-specific deviations belong in `docs/agents/`.
 
-```bash
-SOURCE=""
-for cand in "$HOME/.cursor/skills" "$HOME/.claude/skills" "$HOME/.agents/skills"; do
-  [ -f "$cand/setup/SKILL.md" ] && SOURCE="$cand" && break
-done
-[ -z "$SOURCE" ] && SOURCE="<pack-root>"   # parent of this setup/SKILL.md
-DEST="<skills-dir from interview>"
-mkdir -p "$DEST"
-for name in align analyze implement verify code-review ux-review tdd integration-tests commit; do
-  if [ ! -d "$SOURCE/$name" ]; then
-    echo "warn $name missing in source" >&2
-    continue
-  fi
-  rm -rf "$DEST/$name"
-  cp -a "$SOURCE/$name" "$DEST/$name"
-  echo "vendored $name"
-done
-```
-
-**Stale folders:** if `$DEST/setup`, `$DEST/git-release` or `$DEST/monorepo-update` exist from an older run, report them and offer to remove them. Never delete without confirmation.
+**Stale folders:** if `<skills-dir>/setup`, `<skills-dir>/git-release` or `<skills-dir>/monorepo-update` exist from an older run, report them and offer to remove them. Never delete without confirmation.
 
 Do not add the skills dir to `.gitignore` — these files should be committed with the repo.
 
@@ -182,4 +158,4 @@ Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify`
 
 Report which skills were vendored or updated and which stale folders were found.
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `CLAUDE.md`. Re-running is also how the repo picks up an updated shared pack — every vendored skill is overwritten.
+User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `AGENTS.md`. Re-running is also how the repo picks up an updated shared pack — every vendored skill is overwritten.

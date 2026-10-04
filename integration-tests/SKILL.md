@@ -92,12 +92,14 @@ Docblocks are **English** even when user-facing API messages are localized.
 
 ## Agent workflow
 
-1. Locate controller, route attributes, and security rules in source.
+1. Read the assigned API contract and Acceptance first. Inspect existing controller, route attributes and security rules when present; a new endpoint need not exist yet. Use the documented public route and authorization, not guessed production internals.
 2. Find existing `tests/Integration/{Module}/` layout and `{Module}ApiTestCase`.
 3. Add **happy** path plus **unhappy** paths (403/404/409 per domain) and **validation** where a Request DTO exists.
 4. Add docblock to every new `test*` method before finishing.
-5. Run the project's Integration PHPUnit suite (command from `AGENTS.md`).
+5. Run the project's Integration PHPUnit checks (commands from `AGENTS.md`). In the test-only phase of `/implement`, record expected contract failures and distinguish them from broken fixtures or environment errors; regression tests may already pass. Do not implement the endpoint in this phase.
 6. If the project has a docblock check script, run it (e.g. `composer check-integration-docblocks`).
+
+When delegated, follow [implement’s Execution contract](../implement/SKILL.md#execution-contract) for phase boundaries, test corrections, commits and shared test resources.
 
 ## Coverage checklist per endpoint
 

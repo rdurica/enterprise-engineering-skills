@@ -16,7 +16,7 @@ Functional asks whether the diff matches the analysis and the documented standar
 
 **Fix-first.** Anything you would have written as a review comment, you change in code instead. Naming and readability included. Nothing is reported and left behind, nothing is posted on the PR, nothing waits for the human except what genuinely needs a decision.
 
-Read `docs/agents/workflow.md`. Skills root is the parent of this file; commit via `{skills-root}/commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/code-review.md`.
+Read `docs/agents/workflow.md`. Skills root is the parent of this skill directory (two levels above `SKILL.md`); commit via `{skills-root}/commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/code-review.md`. Follow [implement’s Execution contract](../implement/SKILL.md#execution-contract) for delegation, resource isolation, and test-baseline changes, including direct `/code-review` use.
 
 ## Gate (max 3 cycles)
 
@@ -53,32 +53,26 @@ An endpoint whose authorization contradicts the analysis is a **Fix**: every blo
 
 Fix-first is not a licence to rewrite the repo.
 
-- Only files that appear in the fixed-point diff. Untouched code stays untouched, however ugly.
+- Stay within the intended fixed review-base diff, including staged/unstaged and intended untracked files. A directly necessary regression test or adjacent repair is allowed when justified against the analysis; avoid unrelated cleanup.
 - No renaming of public API fields, DB columns, or symbols used outside the diff.
-- Behaviour must not change. A fix that changes behaviour is Blocked, not a fix.
+- Preserve the agreed analysis contract. Repairing behaviour that violates it is allowed; changing the contract is Blocked.
 - No scope creep past the analysis Change and Architecture.
 - No push, no PR, no commits on a monorepo container root, no comments anywhere.
 
 ## One cycle
 
-Two sub-agents, each fixing what it finds and reporting what it had to leave. Give both the per-root diff commands (`git -C <path> diff <fixed-point>...HEAD`), the analysis Change and Architecture, and the guardrails above.
+Use two sub-agents with fresh, scoped context: correctness/security and craft. Give them the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles.
 
-They share one worktree, so the same rule as `/implement` applies: run them in parallel only when you can scope them to disjoint delivery roots or directories. Otherwise run them one after the other, correctness and security first.
+Run in parallel only with disjoint write paths and isolated mutable resources; otherwise sequentially, correctness/security first.
 
-**Correctness and security prompt:**
+Reviewers fix issues within their assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
 
-> Review and fix the diff in each affected delivery root. Look for unhandled error and edge paths, missing validation on new input, wrong transaction or consistency boundaries, new unbounded or N+1 queries, missing authorization on new endpoints or actions, untrusted input reaching a query or path, secrets in code, over-broad payload binding. Fix what you can without changing behaviour against the analysis. Report anything that needs a human decision as Blocked with file and reason. Do not commit, push, or open a PR. Return: what you fixed (file plus one line each), then Blocked items. Under 400 words.
-
-**Craft prompt:**
-
-> Review and fix the diff in each affected delivery root. Look for duplication of logic that already exists in the repo, business logic in the wrong seam (controller or view instead of domain), leftovers (TODO, dead or commented-out code, unused parameters, debug output), weak tests (no assertions, asserting mocks instead of behaviour, over-mocked unit under test), and readability: misleading naming, naming against repo idiom, unclear signatures, comments that restate the code, needless nesting. Rename freely inside the diff, but never a public API field, a DB column, or a symbol used outside the diff. Behaviour must not change. Do not commit, push, or open a PR. Return: what you fixed (file plus one line each), then Blocked items. Under 400 words.
-
-Parent synthesizes the two reports and commits per delivery root:
+Parent reviews reports and diffs, handles trivial one-file follow-up fixes when useful, runs checks, and commits per delivery root. Apply the Execution contract to test changes: reviewed reasons, separate test commits, no weakened assertions.
 
 - `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
 - `fix(scope): <what> (#<N>)` when broken behaviour was repaired
 
-Then hand back to the `/verify` **Re-check after gate fixes** step: the local pipeline (tests and tooling from `AGENTS.md`) runs again on the affected roots. Red is fixed under Functional rules, not here, and draws on the re-check budget rather than the Functional cycles.
+Rerun affected local tests/tooling after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
 
 ## Outcome
 
@@ -89,5 +83,5 @@ Then hand back to the `/verify` **Re-check after gate fixes** step: the local pi
 ## Rules
 
 - Max **3** code review cycles; Functional and UX keep their own three
-- Parent commits; sub-agents write code
+- Parent orchestrates and commits; sub-agents handle substantial work
 - Every finding ends as a commit or as a Blocked item — never as a comment

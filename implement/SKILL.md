@@ -1,98 +1,69 @@
 ---
 name: implement
 description: >-
-  Implement a published analysis — one TDD sub-agent per cluster of
-  overlapping Acceptance items (HTTP + unit where there is decision
-  logic), parallel when paths are disjoint; parent commits, then runs
-  verify. Use when picking up an analysis issue or /implement #N.
+  Orchestrate a published analysis locally: fresh sub-agents write tests,
+  parent verifies RED and commits tests, then fresh sub-agents implement.
+  Parallelize independent paths and resources; parent commits and runs
+  verify automatically. Use for /implement #N or a local analysis.
 disable-model-invocation: true
 ---
 
 # Implement
 
-Fetch the analysis, set `in-progress`, follow `docs/agents/workflow.md` for branch and monorepo. Sub-agents write product code and tests. Parent orchestrates, commits, checks off `## Acceptance`, then runs verify. Do not push or open a PR.
+The main window orchestrates: read the saved analysis, plan work, delegate, review results, commit, then run `/verify` automatically. Tests come first; new implementation sub-agents work against committed tests.
 
-Source of truth is the analysis body. Run `/setup` if `docs/agents/` is missing.
+Read `docs/agents/issue-tracker.md` and `workflow.md`; run `/setup` if missing. Skills root is the parent of this skill's directory. Use sibling `tdd`, `integration-tests` for PHP HTTP, and `commit` skills where relevant.
 
-Skills root: parent of this file. Read `{skills-root}/tdd/SKILL.md` (and `integration-tests/SKILL.md` for PHP HTTP). Pass those paths in any sub-agent prompt. When committing, follow `{skills-root}/commit/SKILL.md`.
+## 1. Start locally
 
-Read `language` from `workflow.md`.
+Resolve the user’s analysis number or path through the configured tracker. User-invoked `/implement` needs no `ready-for-agent` label. Stop if already `ready-to-review` or archived in local `done/`. Optional auto-start requires `ready-for-agent` or `in-progress`, and must not run while `needs-attention` is set.
 
-## 1. Preflight
+Set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels. Read language and branch-owner from workflow; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
 
-Fetch the analysis per `docs/agents/issue-tracker.md` — by `#N` on GitHub, or as `/implement 001`, `#1` or `<slug>` resolving to `.scratch/analysis/NNN-<slug>.md` locally.
+Open FAQ: work only on decided scope; do not invent answers to unblock it.
 
-**Stop** when the GitHub issue already has `ready-to-review`, or the only local match sits under `.scratch/analysis/done/`.
+## 2. Branch and scope
 
-When the user invoked `/implement`, just proceed — `ready-for-agent` is not required. Auto-start without the user is allowed only when the issue has `ready-for-agent` or is already `in-progress`.
+- **Human-owned:** stay on the current branch; the user owns checkout and PRs.
+- **Agent-owned:** fetch origin and use the analysis Delivery branch. Create a new branch from the remote default with `--no-track`; reuse an existing branch. Switch only with a clean worktree. Pull the matching remote branch only when clean; preserve unfinished local work on resume without automatic stash or rebase.
+- **Monorepo:** delivery work belongs in delivery roots, never the container root.
 
-Then set `in-progress` and remove `ready-for-agent` (it has done its job) and `needs-attention` (this is the resume path after a human acted), so the issue carries `analysis` + `in-progress` and nothing else. The user may pass `human` or `agent` to override branch-owner for this session.
+Inspect existing changes and keep unrelated work out of commits. Establish the review base from the branch’s merge-base with the default or explicit analysis base, once for this run. Include earlier feature commits when resuming. Ask only if the scope/base is genuinely unclear; no mandatory checkpoint file or tracker comment.
 
-If `## FAQ` is still open, do **not** invent answers. Implement the decided parts and skip anything that depends on an open question, or leave the whole session for later.
+## 3. Plan and delegate
 
-## 2. Branch
+Group Acceptance items sharing code/tests into manageable **clusters**. Show the cluster, paths and dependencies. Parallelize independent clusters; sequence overlapping paths, dependent work and checks sharing a database, fixtures or other mutable resources unless isolated. Cover cross-unit behaviour completely.
 
-Branch name from analysis `## Delivery`; branch-owner from `workflow.md`, unless the user overrode it for this session. **human:** stay on HEAD. Never commit on a monorepo container root.
+Plan tests for the entire decided scope before production work. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
 
-**agent:** in each delivery root (not the container root):
+### Execution contract
 
-1. `git status` — creating a new branch and the tree is dirty → **stop**. Existing branch: unrelated dirty files → **stop**.
-2. `git fetch origin` — missing `origin` or fetch fails → **stop**.
-3. Default base: `origin/HEAD`, else `origin/main`, else `origin/master`.
-4. `<branch>` exists locally or on origin → checkout; if `origin/<branch>` exists, `git pull --rebase`. Do not reset onto origin/default.
-5. `<branch>` does not exist → create from origin, never from HEAD:
+Give each worker a fresh, scoped context: its phase and Acceptance items, relevant Change/Architecture/API Contracts, allowed paths, dependencies, skill paths and project commands. Link source files rather than copying the whole conversation. Workers return changed files, test results, completed items and blockers; they do not commit, push, change branches or manage PRs.
 
-```bash
-git checkout --no-track -b <branch> origin/<default>
-```
+The parent primarily coordinates and delegates code/test work. A trivial one-file follow-up such as an import or typo may be fixed directly; substantial work goes to workers.
 
-`--no-track` so the new branch does not track `origin/main`.
+Committed tests are the contract. Later corrections require a concrete test defect, missing regression coverage or an agreed contract change, parent review and a separate test commit. Never weaken assertions to make faulty code pass. These rules apply to verify and review too.
 
-## 3. Plan
+## 4. Tests, then implementation
 
-Product code always goes through **sub-agents**, even when the Architecture is flat.
+### A. Test-only sub-agents
 
-A **part** is one unchecked `- [ ]` in `## Acceptance`, meaning one observable behaviour. Map each part to an Architecture `###`, which gives you its path and delivery root — the `###` maps units, it is not the size of an agent. A part spanning two units is a bad Acceptance item; implement the decided seam only.
+Delegate all decided clusters to test workers. They write tests and necessary fixtures/helpers, without production changes. Follow `tdd` for layers and RED: PHP HTTP contracts use `integration-tests`; handler/domain decision logic also needs unit coverage; pure wiring does not.
 
-A **cluster** is consecutive unchecked parts that map to the same `###` and share files: same module, same endpoint or test class. That is the size of one agent. A part with no overlap is a cluster of one. Cap a cluster at roughly **8** parts and push the leftovers into the next sequential cluster after the commit.
+Workers run relevant tests. Missing/new behaviour must show expected RED; existing-behaviour regression tests may pass. Environment/fixture failures are not behavioural RED. Missing new symbols can establish initial RED; assertions must still be checked once the code exists.
 
-Without `###` subsections, cluster by shared paths anyway, and treat a lone part as one agent. Go parallel only when the Change and Architecture paths are clearly disjoint.
+Parent reviews coverage and results, fixes test issues through workers, then commits tests separately as `test(scope): <contract coverage> (#<N>)`. Complete the decided scope’s test commits before phase B. If hooks reject intentional RED, resolve the repository-specific blocker without silently bypassing hooks or implementing early. Tests alone do not complete Acceptance.
 
-`## Acceptance` is a constraint for verify and TDD, not a work breakdown. Print the plan **by cluster** — items, unit, path, wave — rather than one sequential wave per overlapping part. When resuming, skip work already in the branch or already checked off.
+### B. New implementation sub-agents
 
-Group into **waves**:
+Start new workers per cluster with contracts, committed tests, expected failures and permitted production paths. They implement against the stable tests. Schedule consumers after providers when needed.
 
-- **Same wave (parallel):** disjoint clusters, neither depends on the other's output. Typical: different delivery roots, or different modules with disjoint directories.
-- **Next wave after commit:** next overlapping cluster (same module / shared files), or leftover parts past the ~8 cap.
-- **Unclear / overlapping / single unit:** one sequential cluster. Do not guess.
+When a wave joins, review changes and run relevant checks; delegate substantial repairs. Commit production changes using the appropriate `feat`/`fix` type. Check off only Acceptance behaviour verified as complete, without per-cluster tracker comments.
 
-Same worktree — safety is disjoint paths, not isolated checkouts.
+## 5. Verify and resume
 
-## 4. Execute
+Once decided work is complete, automatically follow sibling `verify/SKILL.md` in this session. Carry the analysis, review base, test baseline, results and current delivery restrictions; the main window keeps orchestrating.
 
-Independent clusters in a wave: spawn them in **one parent turn**, one sub-agent per cluster. Overlapping clusters: one at a time, then commit, then the next.
+If FAQ leaves work unfinished, mark `needs-attention` and briefly explain what needs a decision. Do not verify it as complete.
 
-**Sub-agent:** one sub-agent per cluster. It writes code and tests only — no commit, push, PR, branch change, nested agents, or container-root commits. Prompt: **all** Acceptance items in this cluster (the list, not one item); analysis Change / Architecture (relevant `###`) / API Contracts as constraints; open FAQ to skip; skill paths (`tdd`, and `integration-tests` for PHP HTTP); `AGENTS.md` commands; delivery-root paths; no scope creep (stay inside Change/Architecture).
-
-The sub-agent finishes every item in its prompt and then returns. If it gets stuck on one item, it returns what is done and what remains, and the parent checks off only the done ones. For **each** item, cover the seams that apply (see `tdd/SKILL.md`):
-
-- HTTP contract → `integration-tests`
-- Decision logic in handler / domain / VO → unit test (HTTP does not replace it)
-- Pure wiring, no branches → skip unit
-- No HTTP → unit only
-
-Order: highest seam first (HTTP when the item is HTTP-shaped), then unit for the same decision. Writing the tests for the whole cluster first, then implementing, is allowed. One-test-at-a-time is also fine — not required.
-
-**Parent** does not write product code except a one-file follow-up after the agent (import, typo).
-
-Once the wave joins, review the diff and run the relevant tests per cluster. Fix a small failure yourself when it is one file; hand a large one to another sub-agent scoped to that cluster and that failure. Non-overlapping fixes in the same wave may run in parallel, overlapping files stay sequential.
-
-Commit in each affected delivery root per `commit/SKILL.md` — `feat(scope): <acceptance title> (#<N>)` for a single item, `feat(scope): <shared theme> (#<N>)` for a cluster of several. Check off every completed `## Acceptance` item in the cluster, and do not comment on the ticket after each one. Commit messages stay English. Then move to the next wave.
-
-## 5. Verify
-
-When the decided parts are done — all parts, if no FAQ blocks anything — read and follow `{skills-root}/verify/SKILL.md` in this session.
-
-If an open FAQ left work behind, set `needs-attention` in place of `in-progress`, comment what remains in `language`, and do not run verify as if the analysis were complete.
-
-If the session dies first, leave `in-progress`: that state is resumable and needs no human. Comment what remains in `language`; re-running `/implement` picks it up.
+On interruption, keep `in-progress`. When possible, leave a short analysis comment with what is done, what remains and any non-obvious run command or review base needed to resume. A new invocation reads the analysis and git state; no routine checkpoint protocol is required.

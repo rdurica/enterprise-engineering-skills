@@ -79,7 +79,7 @@ In `done/` the file reads `Status: ready-to-review`, mirroring the GitHub label.
 | Set in-progress | Write `Status: in-progress` (also on resume from `needs-attention`) |
 | Blocked by open FAQ | Write `Status: needs-attention` |
 | Update Acceptance checkboxes | Check off items in `## Acceptance` |
-| Comment | Append under `## Comments` (session death only — not per part) |
+| Comment | Append under `## Comments` (brief interruption/blocker note when needed — not per part) |
 
 `/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `done/`, **stop**.
 
@@ -87,7 +87,7 @@ In `done/` the file reads `Status: ready-to-review`, mirroring the GitHub label.
 
 **Green:**
 
-1. Append PR URLs (or “local verify green — user should push”) under `## Comments`
+1. Append verified SHA, local gate results, push/CI outcome and PR URLs when applicable under `## Comments`. Human-owned completion does not require a PR; `push: never` or a session no-push instruction permits a locally verified delivery
 2. Write `Status: ready-to-review`, then `mkdir -p .scratch/analysis/done` and `mv` the file there
 
 **Fail:** write `Status: needs-attention` and append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in the active folder. Do not move to `done/`.
