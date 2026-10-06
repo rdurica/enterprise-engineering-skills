@@ -67,7 +67,9 @@ Preselect the saved `skills-mode`. For legacy configuration with `skills-dir` bu
 
 For `vendored`, reuse the configured or single unambiguous existing project path; otherwise ask which project path the user's harness loads. Multiple harnesses may share a directory when supported; do not assume every runner discovers it.
 
-For `global`, ensure the user’s runner has access to the shared pack. If project copies exist, list the exact known pipeline directories and offer their removal with separate confirmation. Keep the old paths available for cleanup even though the new workflow omits `skills-dir`. If removal is declined, leave them untouched and warn that the runner may still load them. Do not claim global-only loading while copies remain.
+For `global`, verify that the user's runner discovers every required pipeline skill from the shared pack independently of project copies before offering their removal. A checkout path or an `AGENTS.md` reference alone is not proof of discovery. For Codex, user skills belong in `~/.agents/skills/`; a checkout elsewhere can be exposed through individual skill-folder symlinks there. Preserve unrelated skills and resolve name collisions before changing links. Check the discovered skill paths in a fresh session (Codex: `/skills`) to distinguish global sources from project copies. If discovery cannot be verified or required skills are missing, retain project copies and report the missing global setup; do not offer cleanup yet.
+
+Once global discovery is verified, if project copies exist, list the exact known pipeline directories and offer their removal with separate confirmation. Keep the old paths available for cleanup even though the new workflow omits `skills-dir`. If removal is declined, leave them untouched and warn that the runner may still load them. Do not claim global-only loading while copies remain.
 
 ### 4. Auto-detect
 

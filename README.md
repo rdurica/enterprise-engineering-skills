@@ -93,11 +93,13 @@ Tests are committed before production implementation. Later test corrections nee
 
 ## Installation
 
-Install the shared pack in the skills directory loaded by your runner, such as `~/.codex/skills/`, `~/.agents/skills/`, `~/.cursor/skills/` or `~/.claude/skills/`. For example:
+Install the shared pack in the skills directory loaded by your runner. Codex discovers user skills in `~/.agents/skills/`; Cursor and Claude Code use their respective skills directories. For example, when the destination does not already exist:
 
 ```bash
-git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.cursor/skills
+git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.agents/skills
 ```
+
+If the checkout already lives elsewhere, such as `~/.codex/skills/`, expose each maintained skill through a symlink inside `~/.agents/skills/` instead of copying it. For example: `ln -s ~/.codex/skills/analyze ~/.agents/skills/analyze`. Link each versioned folder containing `SKILL.md`; exclude `.system` and `personal`, and preserve existing unrelated skills. Reuse correct links and resolve name collisions before replacing anything. Codex follows symlinked skill folders. Verify the skills appear in `/skills` in a new Codex session before removing project copies; restart Codex if discovery has not refreshed.
 
 Run `/setup` inside the target project and choose global skills or project copies. Only project copies require a destination: setup reuses a configured or unambiguous existing project skills directory; otherwise you choose the path. Each skill has its own folder.
 
