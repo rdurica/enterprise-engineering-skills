@@ -68,7 +68,7 @@ Progress and verification notes go on the analysis, never on the PR. The final n
 
 ## Configuration
 
-`/setup` writes `docs/agents/workflow.md`, tracker configuration and domain documentation, updates the Agent skills block in `AGENTS.md`, and vendors pipeline skills into the confirmed project skills directory.
+`/setup` writes `docs/agents/workflow.md`, tracker configuration and domain documentation, and updates the Agent skills block in `AGENTS.md`. On every run, you choose whether to use global skills or copy the pipeline into the project; the saved choice is preselected.
 
 Choose **full-agentic** for agent-managed branches and PRs, **human-owned** to stay on your current branch and manage PRs yourself, or **custom** to select settings individually. Both presets default to GitHub and `push: finalize`; human-owned can use the local tracker.
 
@@ -77,12 +77,13 @@ Choose **full-agentic** for agent-managed branches and PRs, **human-owned** to s
 - **Tracker:** GitHub or Local Markdown in `.scratch/analysis/`. Setup can keep reference configurations for both, with one active backend.
 - **Language:** `en` or `cs` for analysis prose and tracker comments; section headings remain English.
 - **UX review:** optional browser gate after code review; skipped for changes without UI.
+- **Skills mode:** `global` uses the shared pack installed in your runner; `vendored` copies the pipeline into a confirmed project directory and refreshes it on every `/setup`. New projects default to the global recommendation; existing configuration with only `skills-dir` defaults to project copies.
 
 Agent-owned delivery produces a ready PR after green checks, or may retain a draft PR on failure when publication is allowed. Human-owned delivery never manages PRs. In monorepos, analyses live at the container root and implementation happens in delivery roots; submodule pointer updates remain a human step.
 
 ## Skills and agents
 
-The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. `/setup` vendors those nine skills; `setup`, `git-release` and `monorepo-update` remain in the shared pack.
+The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
 
 The parent agent schedules work, reviews results, runs checks, commits and handles delivery. Workers get fresh contexts with scoped Acceptance, architecture, contracts and allowed paths. They never commit, push or manage PRs. Parallel work requires disjoint write paths and isolated mutable resources.
 
@@ -96,6 +97,6 @@ Install the shared pack in the skills directory loaded by your runner, such as `
 git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.cursor/skills
 ```
 
-Run `/setup` inside the target project. It reuses a configured or unambiguous existing project skills directory; otherwise you choose the path. Each skill has its own folder.
+Run `/setup` inside the target project and choose global skills or project copies. Only project copies require a destination: setup reuses a configured or unambiguous existing project skills directory; otherwise you choose the path. Each skill has its own folder.
 
-Re-run `/setup` to refresh vendored skills. Keep project-specific additions in `docs/agents/`, because refresh replaces the vendored copies. A gitignored `personal/` folder holds local-only skills in the shared pack.
+Re-run `/setup` to refresh project configuration and review the skills mode. In vendored mode, every pipeline copy is refreshed from the maintained shared pack. In global mode, `/setup` leaves that pack unchanged; update it separately. When switching to global skills, setup offers to remove existing project copies with separate confirmation; if retained, it warns that your runner may still load them. Keep project-specific additions in `docs/agents/`, because refresh replaces vendored copies. A gitignored `personal/` folder holds local-only skills in the shared pack.

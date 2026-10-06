@@ -43,9 +43,9 @@ Code review itself (Phase 2) has no switch — it always runs.
 
 ## Skills
 
-- skills-dir: {{SKILLS_DIR}}   <!-- confirmed project path loaded by the user’s harness -->
+- skills-mode: {{SKILLS_MODE}}   <!-- global | vendored -->
 
-Vendored by `/setup`; re-running `/setup` overwrites them. Repo-specific additions go to `docs/agents/`, never into the vendored files.
+{{SKILLS_LOCATION}}
 
 ## Implementation orchestration
 

@@ -2,14 +2,14 @@
 name: setup
 description: >-
   Configure a repo for the engineering skills pipeline — issue tracker, git
-  workflow (branch-owner, push), and docs/adr. Run once per repo before
-  align, analyze, or implement.
+  workflow (branch-owner, push), docs/adr, and global or project skills.
+  Run before align, analyze, or implement, or again to refresh configuration.
 disable-model-invocation: true
 ---
 
 # Setup
 
-One-time per-repo configuration. Run inside the **target project** (not the skills repo).
+Configure or refresh a repo. Run inside the **target project** (not the skills repo).
 
 The shared skills pack (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills` or `~/.agents/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
 
@@ -23,7 +23,7 @@ Read what already exists — do not assume:
 - `AGENTS.md` — existing `## Agent skills` block?
 - `docs/adr/` — existing ADRs?
 - `docs/agents/` — prior setup output?
-- **Skills dir** — reuse `skills-dir` from the session or existing `workflow.md`. Otherwise look for an existing vendored pipeline (for example in `.agents/skills/`, `.codex/skills/`, `.cursor/skills/` or `.claude/skills/`; custom paths are valid too). Reuse a single unambiguous installation; if none or several are found, ask which project path the user wants. Do not infer the active harness from unrelated config folders or use an editor-specific fallback.
+- **Skills mode and existing copies** — read `skills-mode` and `skills-dir` from existing `workflow.md` and inspect any configured project skills directory. Also look for existing pipeline copies in `.agents/skills/`, `.codex/skills/`, `.cursor/skills/` or `.claude/skills/`; custom paths are valid too. Record existing paths for refresh or cleanup, but do not ask for a destination until copying is selected. Do not infer the active harness from unrelated config folders or use an editor-specific fallback.
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
 The normal entry point is the user running the pipeline locally. Recommend **human-owned** when the user wants to keep their current branch and manage PRs; recommend **full-agentic** when the agent should manage branches and PRs. Do not infer branch ownership from editor files or the tracker.
@@ -38,7 +38,6 @@ Reuse settings already established in the session or existing `workflow.md`; sho
 
 - **Language:** English (`en`) / Czech (`cs`) — published analysis prose and ticket comments
 - **UX/UI review before finalization?** Enabled (browser walkthrough + hard gate) / Disabled
-- **Skills dir:** reuse the configured or unambiguous existing path; otherwise ask for the project path used by the user’s harness. Multiple harnesses may share a skills directory when supported; do not assume a path is discoverable by every runner.
 
 Then resolve any settings not already answered by the session, repo or preset:
 
@@ -57,12 +56,25 @@ Branch ownership controls checkout and PR management. Push policy is independent
 
 If tracker is **Both**: write active backend to `issue-tracker.md` and reference copies as `issue-tracker.github.md` + `issue-tracker.local.md`.
 
-### 3. Auto-detect
+### 3. Choose skills mode
+
+On every run, offer **Copy pipeline skills into this project?** unless the user has already explicitly chosen for this run:
+
+- **No — global** (`skills-mode: global`): use the shared pack installed in the user's runner; do not copy skills or ask for a destination. `/setup` does not download or update the shared pack.
+- **Yes — project copies** (`skills-mode: vendored`): keep the pipeline in the project's git history and refresh it from the maintained shared pack on every `/setup`.
+
+Preselect the saved `skills-mode`. For legacy configuration with `skills-dir` but no mode, preselect `vendored` to preserve existing behavior. Otherwise recommend `global`. Presets do not choose the mode; the user can change it on every run.
+
+For `vendored`, reuse the configured or single unambiguous existing project path; otherwise ask which project path the user's harness loads. Multiple harnesses may share a directory when supported; do not assume every runner discovers it.
+
+For `global`, ensure the user’s runner has access to the shared pack. If project copies exist, list the exact known pipeline directories and offer their removal with separate confirmation. Keep the old paths available for cleanup even though the new workflow omits `skills-dir`. If removal is declined, leave them untouched and warn that the runner may still load them. Do not claim global-only loading while copies remain.
+
+### 4. Auto-detect
 
 - **Agent trigger:** GitHub `ready-for-agent` (optional auto-start). Happy path: human reviews the analysis, then runs `/implement`. User-invoked `/implement` does not require the label.
 - **Monorepo:** if nested git repos were found in Explore, include `## Monorepo` in the workflow draft (see below). Otherwise omit the section.
 
-### 4. Confirm and write
+### 5. Confirm and write
 
 Show draft of:
 
@@ -73,13 +85,17 @@ Show draft of:
 
 Let the user edit, then write.
 
+On re-runs, refresh these managed outputs using the current templates and confirmed settings. Preserve project-specific documentation and additions in `docs/agents/`; merge existing content rather than blindly replacing it. Leave unrelated files untouched.
+
 #### workflow.md
 
-Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{LANGUAGE}}`, `{{UX_REVIEW}}`, `{{SKILLS_DIR}}`, `{{MONOREPO_SECTION}}`.
+Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRACKER_ACTIVE}}`, `{{LANGUAGE}}`, `{{UX_REVIEW}}`, `{{SKILLS_MODE}}`, `{{SKILLS_LOCATION}}`, `{{MONOREPO_SECTION}}`.
 
 **`{{UX_REVIEW}}`** — `enabled` or `disabled` from the UX/UI review interview answer.
 
-**`{{SKILLS_DIR}}`** — the skills dir confirmed in the interview, without a trailing slash.
+**`{{SKILLS_MODE}}`** — `global` or `vendored` from the skills-mode step.
+
+**`{{SKILLS_LOCATION}}`** — for `vendored`, write `- skills-dir: <confirmed project path>` (without a trailing slash), then explain that every `/setup` refreshes the copies. For `global`, omit `skills-dir` entirely and state that the runner uses its installed shared pack, updated separately from `/setup`. In both modes, repo-specific additions belong in `docs/agents/`.
 
 **`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
 
@@ -111,10 +127,10 @@ Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
 Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, language, work types).
 Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
 `/implement` orchestrates fresh test subagents → parent test commit → fresh implementation subagents → automatic `/verify`; see the skill for detailed rules.
-Project skills: `<skills-dir>/` (vendored by `/setup`; re-running `/setup` overwrites them). Repo-specific additions belong in `docs/agents/`, not in the vendored files.
+Skills: <mode-specific location and refresh behavior>. Repo-specific additions belong in `docs/agents/`.
 ```
 
-Substitute `<skills-dir>` with the confirmed path.
+For `vendored`, substitute `project copies in <skills-dir>/; every /setup refreshes them from the maintained shared pack`. For `global`, substitute `the shared pack installed in the runner; /setup updates project configuration, not the global pack`. Do not put a machine-specific global path into project configuration. If copies remain in global mode, also record their paths and the possible loading conflict in this block.
 
 #### issue-tracker.md
 
@@ -126,11 +142,15 @@ Write using templates:
 
 First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker: Local Markdown`.
 
-### 5. Vendor pipeline skills
+### 6. Apply skills mode
+
+**Skip copying and cleanup** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` at the repo root).
+
+**Global mode:** do not create a project skills directory or copy files. Remove only the exact known pipeline directories separately confirmed in step 3; validate that each stays inside the target repo, without source overlap or symlinked paths. Never remove the whole skills directory or unrelated skills. Report copies left behind. The nine directories listed below define the pipeline; legacy `setup`, `git-release` and `monorepo-update` copies may also be offered for removal, with explicit confirmation. Then proceed to Done; do not run the vendoring procedure.
+
+**Vendored mode:** follow the refresh procedure below on every run.
 
 Copy pipeline skills into the **target repo** at the confirmed skills dir (one folder per skill, no nesting) so the pipeline is in git and available to the user’s configured harness.
-
-**Skip this step** when the current working directory **is** the skills pack itself (cwd contains `setup/SKILL.md` at the repo root).
 
 **Source:** use the shared pack containing this invoked `setup/SKILL.md` (pack root is the parent of `setup/`), or the source explicitly selected by the user. If this is a stale/vendored copy rather than the maintained pack, resolve the maintained source before refreshing; do not select another harness’s pack merely because its directory exists. Do **not** copy `personal/`.
 
@@ -152,10 +172,10 @@ Do not add the skills dir to `.gitignore` — these files should be committed wi
 
 In a monorepo, vendor once at the container root. Do not copy into each delivery root.
 
-### 6. Done
+### 7. Done
 
 Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
 
-Report which skills were vendored or updated and which stale folders were found.
+Report the selected mode, configuration files updated, skills copied/refreshed or removed, and any stale or retained project copies. In global mode, state that the shared pack was not updated.
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to update workflow without touching the rest of `AGENTS.md`. Re-running is also how the repo picks up an updated shared pack — every vendored skill is overwritten.
+User can edit `docs/agents/*.md` directly later. Re-run `/setup` to review or change the mode and refresh project configuration without touching the rest of `AGENTS.md`. In vendored mode, every pipeline skill is refreshed from the maintained shared pack; in global mode, update that pack separately.
