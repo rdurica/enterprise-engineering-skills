@@ -13,7 +13,7 @@ disable-model-invocation: true
 
 Finish implementation through Functional → code review → optional UX → Ship/Fail. `/implement` invokes this automatically; the user may also run it directly. Fix actionable findings within the analysis scope; report blockers needing a human decision.
 
-Read `docs/agents/issue-tracker.md` and `workflow.md`, plus `docs/agents/verify.md` if present. Run `/setup` if configuration is missing. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
+Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`, plus `docs/agents/config/verify.md` if present. Run `/setup` if configuration is missing. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
 
 Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Push policy is independent of branch ownership; session no-push overrides it in Ship and Fail. No-push skips git publication, CI watches and PR changes; tracker updates remain allowed unless separately restricted.
 

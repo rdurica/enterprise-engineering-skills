@@ -15,11 +15,11 @@ Write for a human who was not in the align session. They should read the analysi
 
 Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
-Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md`. Run `/setup` in the target repo if they are missing.
+Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`. Run `/setup` in the target repo if they are missing.
 
 Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
-All publish operations follow `docs/agents/issue-tracker.md` — GitHub or local `.scratch/`, never hardcoded `gh`.
+All publish operations follow `docs/agents/config/issue-tracker.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
 
 Publish **even when `## FAQ` still has open questions**. The analysis has to be stored so the work can continue later. Each FAQ item names what it belongs to, and once it is answered you fold the answer into that section and delete the item. The ideal end state is no FAQ section at all.
 
@@ -27,7 +27,7 @@ Publish **even when `## FAQ` still has open questions**. The analysis has to be 
 
 1. Explore the repo if you have not already. If `docs/adr/` exists, respect those decisions.
 
-2. Before drafting, read [analysis-template.md](analysis-template.md) for writing rules, section structure, Acceptance examples and the shorter bug variant. Write the analysis from that template, then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `.scratch/analysis/NNN-<slug>.md` with no Status line.
+2. Before drafting, read [analysis-template.md](analysis-template.md) for writing rules, section structure, Acceptance examples and the shorter bug variant. Write the analysis from that template, then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `docs/agents/analysis/NNN-<slug>.md` with no Status line.
 
 3. After publishing, prepend `## Delivery` — edit the issue body on GitHub, update the file locally:
 
@@ -51,17 +51,17 @@ For **bugs**, set `Kind: bug` and use the shorter bug sections.
 
 ### Local tracker publish
 
-When the active backend is Local Markdown, follow the `/analyze` operations in `docs/agents/issue-tracker.md`:
+When the active backend is Local Markdown, follow the `/analyze` operations in `docs/agents/config/issue-tracker.md`:
 
-1. Compute the next `NNN` as described there — scan `.scratch/analysis/` and `.scratch/analysis/done/`, never reuse an ID.
+1. Compute the next `NNN` as described there — scan `docs/agents/analysis/` and `docs/agents/analysis/done/`, never reuse an ID.
 2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
-3. Create `.scratch/analysis/NNN-<slug>.md` with Kind, Delivery (branch `feature/<ticket>-<short-slug>`, where the ticket falls back to `NNN`) and the analysis body. No Status line.
+3. Create `docs/agents/analysis/NNN-<slug>.md` with Kind, Delivery (branch `feature/<ticket>-<short-slug>`, where the ticket falls back to `NNN`) and the analysis body. No Status line.
 
 Bug fast-path — a ticket with Acceptance rather than a full analysis — uses the same path and ID scan with `Kind: bug`.
 
 ### GitHub publish
 
-When the backend is GitHub, follow the `/analyze` operations in `docs/agents/issue-tracker.md`.
+When the backend is GitHub, follow the `/analyze` operations in `docs/agents/config/issue-tracker.md`.
 
 **Monorepo:** if `workflow.md` has a `## Monorepo` section, or nested git repos exist, create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
 

@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 Configure or refresh a repo. Run inside the **target project** (not the skills repo).
 
-The shared skills pack (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills` or `~/.agents/skills`) is shared across machines. Per-repo differences live in `docs/agents/workflow.md`.
+The shared skills pack (`~/.codex/skills`, `~/.cursor/skills`, `~/.claude/skills` or `~/.agents/skills`) is shared across machines. Per-repo differences live in `docs/agents/config/workflow.md`.
 
 ## Process
 
@@ -22,7 +22,7 @@ Read what already exists — do not assume:
 - `git remote -v` — GitHub? No remote?
 - `AGENTS.md` — existing `## Agent skills` block?
 - `docs/adr/` — existing ADRs?
-- `docs/agents/` — prior setup output?
+- `docs/agents/config/` — prior setup output? Also inspect any legacy configuration directly under `docs/agents/` to recover saved settings on refresh.
 - **Skills mode and existing copies** — read `skills-mode` and `skills-dir` from existing `workflow.md` and inspect any configured project skills directory. Also look for existing pipeline copies in `.agents/skills/`, `.codex/skills/`, `.cursor/skills/` or `.claude/skills/`; custom paths are valid too. Record existing paths for refresh or cleanup, but do not ask for a destination until copying is selected. Do not infer the active harness from unrelated config folders or use an editor-specific fallback.
 - **Monorepo:** nested git repos — run `git submodule status` and/or find nested `.git` dirs (excluding `.git/modules/`). If found, note paths and remotes for the `## Monorepo` section in `workflow.md`.
 
@@ -78,14 +78,18 @@ For `global`, ensure the user’s runner has access to the shared pack. If proje
 
 Show draft of:
 
-- `docs/agents/workflow.md` (from [workflow.md.template](./workflow.md.template))
-- `docs/agents/issue-tracker.md` (+ reference copies if Both)
-- `docs/agents/domain.md`
+- `docs/agents/config/workflow.md` (from [workflow.md.template](./workflow.md.template))
+- `docs/agents/config/issue-tracker.md` (+ reference copies if Both)
+- `docs/agents/config/domain.md`
 - `## Agent skills` block patch
 
 Let the user edit, then write.
 
-On re-runs, refresh these managed outputs using the current templates and confirmed settings. Preserve project-specific documentation and additions in `docs/agents/`; merge existing content rather than blindly replacing it. Leave unrelated files untouched.
+On re-runs, refresh these managed outputs using the current templates and confirmed settings. Preserve project-specific documentation and additions in `docs/agents/config/`; merge existing content rather than blindly replacing it. Leave unrelated files untouched.
+
+Keep configuration and project-specific instruction overlays in `docs/agents/config/`, active local analyses in `docs/agents/analysis/`, and completed analyses in `docs/agents/analysis/done/`. Refresh only configuration; never overwrite, move or delete analyses during setup. When refreshing a legacy project, read its old configuration to preserve settings and additions, then write the current configuration under `config/`; leave legacy files untouched and report their paths.
+
+Do not automatically ignore, stage or commit `docs/agents/`. Versioning agent configuration and analyses is the project's choice.
 
 #### workflow.md
 
@@ -95,7 +99,7 @@ Fill template placeholders: `{{PRESET}}`, `{{BRANCH_OWNER}}`, `{{PUSH}}`, `{{TRA
 
 **`{{SKILLS_MODE}}`** — `global` or `vendored` from the skills-mode step.
 
-**`{{SKILLS_LOCATION}}`** — for `vendored`, write `- skills-dir: <confirmed project path>` (without a trailing slash), then explain that every `/setup` refreshes the copies. For `global`, omit `skills-dir` entirely and state that the runner uses its installed shared pack, updated separately from `/setup`. In both modes, repo-specific additions belong in `docs/agents/`.
+**`{{SKILLS_LOCATION}}`** — for `vendored`, write `- skills-dir: <confirmed project path>` (without a trailing slash), then explain that every `/setup` refreshes the copies. For `global`, omit `skills-dir` entirely and state that the runner uses its installed shared pack, updated separately from `/setup`. In both modes, repo-specific additions belong in `docs/agents/config/`.
 
 **`{{MONOREPO_SECTION}}`** — empty string when not a monorepo. When nested git repos exist, replace with:
 
@@ -122,12 +126,12 @@ Upsert only the `## Agent skills` section; preserve all other sections. Append i
 ```markdown
 ## Agent skills
 
-Issue tracker: [GitHub | local markdown]. See `docs/agents/issue-tracker.md`.
-Domain docs: `docs/adr/`. See `docs/agents/domain.md`.
-Workflow defaults: `docs/agents/workflow.md` (branch-owner, push, language, work types).
+Issue tracker: [GitHub | local markdown]. See `docs/agents/config/issue-tracker.md`.
+Domain docs: `docs/adr/`. See `docs/agents/config/domain.md`.
+Workflow defaults: `docs/agents/config/workflow.md` (branch-owner, push, language, work types).
 Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
 `/implement` orchestrates fresh test subagents → parent test commit → fresh implementation subagents → automatic `/verify`; see the skill for detailed rules.
-Skills: <mode-specific location and refresh behavior>. Repo-specific additions belong in `docs/agents/`.
+Skills: <mode-specific location and refresh behavior>. Repo-specific additions belong in `docs/agents/config/`.
 ```
 
 For `vendored`, substitute `project copies in <skills-dir>/; every /setup refreshes them from the maintained shared pack`. For `global`, substitute `the shared pack installed in the runner; /setup updates project configuration, not the global pack`. Do not put a machine-specific global path into project configuration. If copies remain in global mode, also record their paths and the possible loading conflict in this block.
@@ -164,7 +168,7 @@ align  analyze  implement  verify  code-review  ux-review  tdd  integration-test
 
 `setup`, `git-release` and `monorepo-update` stay in the shared pack — they are global tools, not part of the per-repo pipeline.
 
-**Refresh every required skill:** validate that the source contains all listed skills and the confirmed destination stays inside the target repo, without source overlap or symlinked destination paths. Stage complete copies before replacing anything. Replace only the listed folders, retaining the old copies until the new install is checked so a failed refresh can be restored. Leave unrelated folders untouched; repo-specific deviations belong in `docs/agents/`.
+**Refresh every required skill:** validate that the source contains all listed skills and the confirmed destination stays inside the target repo, without source overlap or symlinked destination paths. Stage complete copies before replacing anything. Replace only the listed folders, retaining the old copies until the new install is checked so a failed refresh can be restored. Leave unrelated folders untouched; repo-specific deviations belong in `docs/agents/config/`.
 
 **Stale folders:** if `<skills-dir>/setup`, `<skills-dir>/git-release` or `<skills-dir>/monorepo-update` exist from an older run, report them and offer to remove them. Never delete without confirmation.
 
@@ -178,4 +182,4 @@ Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify`
 
 Report the selected mode, configuration files updated, skills copied/refreshed or removed, and any stale or retained project copies. In global mode, state that the shared pack was not updated.
 
-User can edit `docs/agents/*.md` directly later. Re-run `/setup` to review or change the mode and refresh project configuration without touching the rest of `AGENTS.md`. In vendored mode, every pipeline skill is refreshed from the maintained shared pack; in global mode, update that pack separately.
+User can edit `docs/agents/config/*.md` directly later. Re-run `/setup` to review or change the mode and refresh project configuration without touching the rest of `AGENTS.md`. In vendored mode, every pipeline skill is refreshed from the maintained shared pack; in global mode, update that pack separately.

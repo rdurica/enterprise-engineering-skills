@@ -12,7 +12,7 @@ disable-model-invocation: true
 
 The main window orchestrates: read the saved analysis, plan work, delegate, review results, commit, then run `/verify` automatically. Tests come first; new implementation sub-agents work against committed tests.
 
-Read `docs/agents/issue-tracker.md` and `workflow.md`; run `/setup` if missing. Skills root is the parent of this skill's directory. Use sibling `tdd`, `integration-tests` for PHP HTTP, and `commit` skills where relevant.
+Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`; run `/setup` if missing. Skills root is the parent of this skill's directory. Use sibling `tdd`, `integration-tests` for PHP HTTP, and `commit` skills where relevant.
 
 ## 1. Start locally
 

@@ -16,7 +16,7 @@ Never comment on a PR. Green and fail notes go on the **analysis only** (`langua
 2. For a GitHub remote after a successful push, follow **CI** in [github.md](github.md), without changing or creating a PR. CI failures use delegated fixes, local re-checks and a new pushed SHA. If required CI needs a PR the human has not opened, mark verification pending and explain the blocker; do not open it yourself.
 3. When all applicable gates are green (or publishing is disabled by configuration/session), finalize analysis as `ready-to-review` regardless of whether a PR exists:
    - GitHub: remove `in-progress`, `needs-attention` and `ready-for-agent`; add `ready-to-review`.
-   - Local: write `Status: ready-to-review`, then move to `.scratch/analysis/done/NNN-<slug>.md`.
+   - Local: write `Status: ready-to-review`, then move to `docs/agents/analysis/done/NNN-<slug>.md`.
 4. Comment with local verification evidence, current commit SHA(s), publication/CI outcome or “not run: publishing disabled”, and any remaining human PR step. `ready-to-review` means verified work is ready for the human, not that a PR exists.
 
 ## Fail (gate red after budget or hard stop)

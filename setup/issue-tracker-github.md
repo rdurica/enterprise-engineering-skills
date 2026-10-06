@@ -2,7 +2,7 @@
 
 Issues and analyses live as GitHub issues. Use the `gh` CLI.
 
-Also read `docs/agents/workflow.md` for branch-owner and push defaults.
+Also read `docs/agents/config/workflow.md` for branch-owner and push defaults.
 
 ## Which GitHub repo
 

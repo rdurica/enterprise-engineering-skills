@@ -28,16 +28,16 @@ Run from the **container root** of the target project (not `~/.cursor/skills`).
 
 ## Prerequisites
 
-- Prefer `docs/agents/workflow.md` with `## Monorepo` and `delivery-roots`
+- Prefer `docs/agents/config/workflow.md` with `## Monorepo` and `delivery-roots`
 - If `## Monorepo` or `delivery-roots` is missing, fall back to `git submodule status` for delivery-root paths
 - Stop only if neither `workflow.md` nor `git submodule status` can identify delivery roots; then suggest `/setup`
 - `git` and network access
 - Mode **main**: `origin` on the container root (for push)
-- Mode **analysis**: `docs/agents/issue-tracker.md` to resolve the analysis
+- Mode **analysis**: `docs/agents/config/issue-tracker.md` to resolve the analysis
 
 ## Step 1: Load config
 
-Read `## Monorepo` from `docs/agents/workflow.md` when available (same terms as `/implement`):
+Read `## Monorepo` from `docs/agents/config/workflow.md` when available (same terms as `/implement`):
 
 - **container-root** — monorepo wrapper (usually `.`)
 - **delivery-roots** — list of `{ path, remote }` entries
@@ -121,7 +121,7 @@ git push origin main
 
 ## Step 4c: Mode analysis — checkout for review
 
-1. Fetch the analysis per `docs/agents/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `.scratch/analysis/NNN-<slug>.md`). Same resolution as `/implement`.
+1. Fetch the analysis per `docs/agents/config/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `docs/agents/analysis/NNN-<slug>.md`). Same resolution as `/implement`.
 2. Read **`## Delivery` → Branch**. Missing analysis or Delivery branch → **STOP**.
 3. Container **stays on `main`**. Do not `git add`, commit, or push submodule pointers (that would write feature SHAs onto container `main`).
 4. In `workflow.md` order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.

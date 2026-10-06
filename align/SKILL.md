@@ -12,13 +12,13 @@ disable-model-invocation: true
 
 Reach shared understanding before implementation. Do NOT write an analysis here — that is `/analyze`. Do NOT implement here — that is `/implement`.
 
-Read `docs/agents/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md). Use this skill only for new features or complex/unclear bugs.
+Read `docs/agents/config/workflow.md` if present — skip align for simple bugs (bug fast-path in workflow.md). Use this skill only for new features or complex/unclear bugs.
 
 ## Process
 
 ### 1. Explore
 
-If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/domain.md` if configured).
+If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/config/domain.md` if configured).
 
 If a question can be answered by exploring the codebase, explore instead of asking.
 

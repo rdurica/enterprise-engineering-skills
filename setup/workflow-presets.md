@@ -1,6 +1,6 @@
 # Workflow presets
 
-Used by `/setup` when configuring `docs/agents/workflow.md` in a target repo.
+Used by `/setup` when configuring `docs/agents/config/workflow.md` in a target repo.
 
 ## full-agentic
 
