@@ -24,6 +24,8 @@ If a question can be answered by exploring the codebase, explore instead of aski
 
 ### 2. Interview
 
+Use Claude Code `AskUserQuestion` or Codex `request_user_input_async` with a recommended option, falling back to a text question if the tool is unavailable or does not permit the request.
+
 Walk the decision tree one branch at a time:
 
 - One question at a time

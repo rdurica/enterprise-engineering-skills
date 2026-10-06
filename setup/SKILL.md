@@ -32,6 +32,8 @@ See [workflow-presets.md](./workflow-presets.md) for preset values.
 
 ### 2. Interview (preset + language + UX review)
 
+Ask one question at a time with a recommended option using Claude Code `AskUserQuestion` or Codex `request_user_input_async`, with a text fallback if the tool is unavailable or does not permit the request.
+
 Reuse settings already established in the session or existing `workflow.md`; show the resulting draft for review. For missing settings, offer a preset or ask only the unanswered questions.
 
 **Resolve when unknown** (presets do not set these):

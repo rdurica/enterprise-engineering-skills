@@ -18,6 +18,8 @@ Repo-specific notes: [examples.md](examples.md). Changelog skeleton: [changelog-
 - User asks for a release, tag, version bump, or changelog for GitHub
 - After a feature batch is merged to `main` and ready to ship
 
+For `AskQuestion`, use Claude Code `AskUserQuestion` or Codex `request_user_input_async`, with a recommended option and a text fallback if the tool does not permit approval requests.
+
 ## Workflow overview
 
 1. Preflight checks
