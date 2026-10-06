@@ -13,6 +13,8 @@ Synthesize the align session and the codebase into a published analysis. Do not 
 
 Write for a human who was not in the align session. They should read the analysis once and be able to explain the change without opening the diff.
 
+Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
+
 Read `docs/agents/issue-tracker.md` and `docs/agents/workflow.md`. Run `/setup` in the target repo if they are missing.
 
 Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.

@@ -4,39 +4,37 @@ Writing rules and section template for `/analyze`. Delivery and publishing follo
 
 ## Writing style
 
-Facts for the implementers and for whoever has to explain the change later. Not a novel, and not a wall of backticks.
+Keep the analysis easy to scan. Current State and Change each use one paragraph of 2–4 short sentences in plain language. Explain behaviour and user impact there; keep class names, paths, data shapes and implementation steps in Architecture or API Contracts. Avoid repeating the same information across sections.
 
 - Backticks are for paths, commands, HTTP routes and literal values. Class, command, DTO and event names in prose stay plain text.
-- A data shape gets a fenced blueprint block instead of a sentence stuffed with backticked names:
-
-```
-ChangeSubscriptionPlanCommand
-- string: $groupUuid
-- string: $planCode
-- bool: $prorate
-```
-
+- Put data shapes in fenced blueprint blocks.
 - Frontend stays short when it is involved; it is not the focus.
 - `## API Contracts` is omitted when there is no API.
-- Summary always carries a mermaid, even a simple one.
+- Summary always includes a Mermaid diagram of the behaviour.
+
+### Mermaid highlighting
+
+Every diagram must highlight the processes, nodes or regions being changed or added in orange; keep surrounding context neutral. Highlight only parts affected by this change, including in current-state diagrams. Add a short legend below each diagram in the analysis language: “Orange = changed or new part.”
+
+For flowcharts, use the shared `changed` class with an orange fill and a strong border:
+
+```mermaid
+flowchart LR
+    A[Request] --> B[Validation] --> C[Result]
+    classDef default fill:#f3f4f6,stroke:#6b7280,color:#111827
+    classDef changed fill:#ffedd5,stroke:#c2410c,stroke-width:3px,color:#7c2d12
+    class B changed
+```
+
+Orange = changed or new part.
+
+For other Mermaid types, use their supported styling to highlight the affected region in orange. If the type cannot highlight the affected part, use a flowchart instead.
 
 ### Architecture subsections
 
-Each `###` is one real unit of the project: a package or repo in a monorepo, a module or bounded context in a monolith. Never a layer such as Controller, Service or Repository — layer subsections hand implementers horizontal slices. Never an invented name like `_backend`.
+Each `###` names one real project unit: a package, repo, module or bounded context, never a layer such as Controller or Repository or an invented unit. Use only the unit name in the heading; put `Path: <path>` on the first line below it. Omit subsections for a single-unit change.
 
-The heading is the unit name and nothing else. No parentheses, no path, no file name. The path goes on the first line below the heading.
-
-example:
-
-```markdown
-### Frontend app
-
-Path: frontend/src/views/groups/settings/
-```
-
-Units with disjoint paths can be implemented in parallel, so name any seam they share — otherwise `/implement` parallelizes blindly. Omit subsections only when the whole change sits in a single unit.
-
-Every ADR the change rests on is linked from `## Architecture` by path (`docs/adr/NNNN-slug.md`), so a reader can reach the reasoning without the align session. A decision `/align` put in the analysis bucket has no ADR to link — it belongs in `## Further Notes` instead.
+Name shared seams between units so `/implement` can safely parallelize disjoint paths. Link supporting ADRs by path from Architecture. Decisions `/align` assigned to the analysis rather than an ADR belong in Further Notes.
 
 ## Template
 
@@ -46,16 +44,17 @@ Every ADR the change rests on is linked from `## Architecture` by path (`docs/ad
 
 - {what changes and **why**}
 - {key changes - one to three bullets}
-- {mermaid of the behaviour — always}
+- {Mermaid of the behaviour, affected parts in orange, with a legend — always}
 
 ## Current State
 
-{how it works today: modules, data, APIs, invariants few sentences readable}
-{key parts - bullets}
+{2–4 short sentences: how the relevant behaviour works today and what problem
+or limitation motivates the change. No technical inventory or extra bullets.}
 
 ## Change
 
-{the delta — do not repeat Summary}
+{2–4 short sentences: how that behaviour will work after the change and what
+the user will experience differently. Keep technical details in Architecture.}
 
 ## Architecture
 
@@ -92,34 +91,21 @@ Errors
 
 ## Acceptance
 
-{`- [ ]` list — the testable contract for TDD and verify, not a WBS.
-One observable behaviour per item: a concrete trigger or input plus the
-concrete expected result (status code, payload shape, persisted state,
-emitted event). Cover error and boundary paths, not only the happy path.
-Every endpoint in `## API Contracts` gets its own item for the denied caller,
-carrying the status and error code from that block's Authorization.
-Point at the API contract instead of restating payloads. One item, one seam.
-Keep items fine-grained — `/implement` clusters overlapping ones itself, and
-verify needs them separate. Do not add checkboxes for unit tests.
+{`- [ ]` list: one observable behaviour and one seam per item, with a concrete
+input or trigger and expected result. Cover happy, error and boundary paths.
+Each API endpoint needs a denied-caller item with its authorization status
+and error code. Reference API contracts instead of repeating payloads.
+Keep items separate for TDD clustering and verify; no implementation tasks
+or test-writing checkboxes.
 
-good: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_of_stock`, no order row
-good: - [ ] Import of a CSV row with an unknown SKU skips that row and keeps the rest
-good: - [ ] POST /orders as a caller outside the group → 403, body `code: insufficient_permissions`, no order row
-bad:  - [ ] Order creation works and is covered by tests
-bad:  - [ ] Add OrderController and its integration test}
+Example: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_of_stock`, no order row}
 
 ## Further Notes
 
-{one bullet for every decision `/align` put in the analysis bucket, naming the
-alternative that was rejected — those are not optional. Beyond them, add a
-bullet only when it carries impact, a risk, or a rollout or migration step.
-Never state that something does not change, and never repeat what the sections
-above already say. Durable decisions belong in ADRs, linked from
-`## Architecture`. Omit the whole section when nothing qualifies.
-
-good: Downgrade is blocked while an unpaid invoice exists; the queued-downgrade
-      alternative needs the billing job and is out of scope.
-bad:  No new endpoint and no change to the GET/PATCH data policy.}
+{one bullet for each decision `/align` assigned to the analysis, including the
+rejected alternative. Add other bullets only for impact, risks or rollout
+and migration steps. No repetition or statements about unchanged behaviour.
+Durable decisions belong in ADRs linked from Architecture. Omit when empty.}
 
 ## FAQ
 
