@@ -1,6 +1,6 @@
 # Enterprise Engineering Skills
 
-Agent skills for incremental changes in an existing codebase. You own the decisions and contracts; agents write tests, implement the change and verify the result. Delivery is verified local work or an agent-managed PR, depending on the project configuration.
+Claude Code skills and subagents for incremental changes in an existing codebase. You own the decisions and contracts; agents write tests, implement the change and verify the result. Delivery is verified local work or an agent-managed PR, depending on the project configuration.
 
 ## Why
 
@@ -15,7 +15,7 @@ Run `/setup` once in the target project, then:
 1. **`/align`** — explore the code and resolve decisions together. Record durable trade-offs in ADRs.
 2. **`/analyze`** — publish the agreed change and its Acceptance criteria. Current State and Change each explain the behaviour in 2–4 short sentences; implementation details belong in Architecture and API Contracts. Mermaid diagrams highlight affected parts in orange.
 3. **Review the analysis**, then run **`/implement #N`** or pass a local analysis path.
-4. **`/implement` orchestrates the work** — fresh test agents write tests; the parent reviews RED evidence and commits the tests. Fresh implementation agents then write production code; the parent checks and commits it.
+4. **`/implement` orchestrates the work** — fresh `test-writer` agents write tests; the parent reviews RED evidence and commits the tests. Fresh `implementer` agents then write production code; the parent checks and commits it.
 5. **`/verify` runs automatically** — Functional checks, code review, optional UX review, then delivery according to branch ownership and push policy. You review the result.
 
 ```mermaid
@@ -79,28 +79,57 @@ Choose **full-agentic** for agent-managed branches and PRs, **human-owned** to s
 - **Tracker:** GitHub or Local Markdown in `docs/agents/analysis/`. Setup can keep reference configurations for both, with one active backend.
 - **Language:** `en` or `cs` for analysis prose and tracker comments; section headings remain English.
 - **UX review:** optional browser gate after code review; skipped for changes without UI.
-- **Skills mode:** `global` uses the shared pack installed in your runner; `vendored` copies the pipeline into a confirmed project directory and refreshes it on every `/setup`. New projects default to the global recommendation; existing configuration with only `skills-dir` defaults to project copies.
+- **Skills mode:** `global` uses the shared pack installed in `~/.claude/`; `vendored` copies the pipeline skills and agents into `.claude/skills/` and `.claude/agents/` and refreshes them on every `/setup`. New projects default to the global recommendation; existing configuration with only `skills-dir` defaults to project copies.
 
 Agent-owned delivery produces a ready PR after green checks, or may retain a draft PR on failure when publication is allowed. Human-owned delivery never manages PRs. In monorepos, analyses live at the container root and implementation happens in delivery roots; submodule pointer updates remain a human step.
 
 ## Skills and agents
 
-The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
+The repository holds two folders: `skills/` (one folder per skill) and `agents/` (one Claude Code subagent per file). The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills and all nine agents; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
 
-The parent agent schedules work, reviews results, runs checks, commits and handles delivery. Workers get fresh contexts with scoped Acceptance, architecture, contracts and allowed paths. They never commit, push or manage PRs. Parallel work requires disjoint write paths and isolated mutable resources.
+The parent session schedules work, reviews results, commits and handles delivery. Workers are named agents with fresh contexts, scoped Acceptance, architecture, contracts and allowed paths. They never commit, push or manage PRs. Parallel work requires disjoint write paths and isolated mutable resources.
 
 Tests are committed before production implementation. Later test corrections need a concrete reason, parent review and a separate test commit; assertions must not be weakened to make faulty code pass. Verify fixes actionable findings within scope and stops on blockers or exhausted repair limits.
 
+## Models and cost
+
+Every skill and agent sets `model` and `effort` in its frontmatter. The expensive model decides; cheaper models do bounded, well-specified work in fresh contexts.
+
+| Where | Runs on | Effort | Why |
+|-------|---------|--------|-----|
+| `/align`, `/analyze`, `/implement`, `/verify`, `/code-review`, `/ux-review` (main session) | Opus | medium | Interview, planning, review of worker output, commits |
+| `analyst` agent | Sonnet | high | Drafts the analysis from the align decisions; Opus reviews and publishes |
+| `test-writer` agent | Sonnet | medium | Tests from a written contract, with `tdd` and `integration-tests` preloaded |
+| `implementer` agent | Sonnet | medium | Code against committed tests; also delegated repairs |
+| `spec-reviewer` agent | Sonnet | high | Read-only check of the diff against the analysis |
+| `standards-reviewer` agent | Sonnet | medium | Read-only check against documented rules |
+| `correctness-reviewer` agent | Sonnet | high | Fix-first correctness and security pass |
+| `craft-reviewer` agent | Sonnet | medium | Fix-first readability, duplication and test-quality pass |
+| `ux-reviewer` agent | Sonnet | medium | Browser walkthrough or a11y pass |
+| `check-runner` agent | Haiku | low | Runs tests, linters and type checks; returns a compact summary instead of full logs |
+| `/setup` | Sonnet | high | Configuration interview; usually its own session |
+| `/git-release`, `/monorepo-update` | Sonnet | medium | Mechanical git and GitHub work with an approval step |
+| `commit`, `tdd`, `integration-tests` | inherit | — | Run inside another skill or agent |
+
+Three rules keep the savings real:
+
+- **Cheap models live in agents, not in the main session.** A skill's `model` switches the main conversation for the rest of the turn, and prompt caches are per model, so a mid-conversation switch re-reads the whole history uncached. That is why `commit` inherits the model and `/analyze` delegates drafting to `analyst` instead of switching itself to Sonnet.
+- **Logs stay out of Opus.** Long test and lint output goes through `check-runner`.
+- **Escalate on evidence.** `/implement` retries a failing cluster with `effort: high`, then with Opus, never on the first attempt.
+
+Tune a role by editing its frontmatter. Aliases (`opus`, `sonnet`, `haiku`) follow the newest model in each family; pin a full ID such as `claude-sonnet-5-5` when you need reproducible runs. The `CLAUDE_CODE_EFFORT_LEVEL` environment variable overrides the `effort` values.
+
 ## Installation
 
-Install the shared pack in the skills directory loaded by your runner. Codex discovers user skills in `~/.agents/skills/`; Cursor and Claude Code use their respective skills directories. For example, when the destination does not already exist:
+Clone once, anywhere, then link both folders into Claude Code:
 
 ```bash
-git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/.agents/skills
+git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/src/enterprise-engineering-skills
+~/src/enterprise-engineering-skills/install.sh
 ```
 
-If the checkout already lives elsewhere, such as `~/.codex/skills/`, expose each maintained skill through a symlink inside `~/.agents/skills/` instead of copying it. For example: `ln -s ~/.codex/skills/analyze ~/.agents/skills/analyze`. Link each versioned folder containing `SKILL.md`; exclude `.system` and `personal`, and preserve existing unrelated skills. Reuse correct links and resolve name collisions before replacing anything. Codex follows symlinked skill folders. Verify the skills appear in `/skills` in a new Codex session before removing project copies; restart Codex if discovery has not refreshed.
+`install.sh` creates one symlink per skill in `~/.claude/skills/` and one per agent in `~/.claude/agents/`. It reuses correct links, relinks links into this pack or dangling ones, and skips anything else that already uses the same name. `--dry-run` shows the plan. After that, `git pull` updates everything; re-run `install.sh` only when a skill or agent is added or renamed. Check `/skills` and `/agents` in a new session.
 
-Run `/setup` inside the target project and choose global skills or project copies. Only project copies require a destination: setup reuses a configured or unambiguous existing project skills directory; otherwise you choose the path. Each skill has its own folder.
+Run `/setup` inside the target project and choose global skills or project copies. Project copies go to `.claude/skills/` and `.claude/agents/` by default; project definitions take precedence over global ones with the same name.
 
-Re-run `/setup` to refresh project configuration and review the skills mode. In vendored mode, every pipeline copy is refreshed from the maintained shared pack. In global mode, `/setup` leaves that pack unchanged; update it separately. When switching to global skills, setup offers to remove existing project copies with separate confirmation; if retained, it warns that your runner may still load them. Keep project-specific additions in `docs/agents/config/`, because refresh replaces vendored copies. A gitignored `personal/` folder holds local-only skills in the shared pack.
+Re-run `/setup` to refresh project configuration and review the skills mode. In vendored mode, every pipeline skill and agent is refreshed from the maintained shared pack. In global mode, `/setup` leaves that pack unchanged; update it with `git pull`. When switching to global skills, setup offers to remove existing project copies with separate confirmation; if retained, it warns that they shadow the global pack. Keep project-specific additions in `docs/agents/config/`, because refresh replaces vendored copies. A gitignored `skills/personal/` folder holds local-only skills; `install.sh` links them too.

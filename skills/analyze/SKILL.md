@@ -5,6 +5,8 @@ description: >-
   change, architecture, API contracts, acceptance. Use after /align or when
   the user wants to create, write, or publish an analysis.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # Analyze
@@ -25,9 +27,9 @@ Publish **even when `## FAQ` still has open questions**. The analysis has to be 
 
 ## Process
 
-1. Explore the repo if you have not already. If `docs/adr/` exists, respect those decisions.
+1. Make sure the decisions are complete; explore the repo only to fill gaps the session left. If `docs/adr/` exists, respect those decisions.
 
-2. Before drafting, read [analysis-template.md](analysis-template.md) for writing rules, section structure, Acceptance examples and the shorter bug variant. Write the analysis from that template, then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `docs/agents/analysis/NNN-<slug>.md` with no Status line.
+2. Delegate the draft to the `analyst` agent (sonnet, high effort). Its brief must stand alone, because it does not see this conversation: the bucketed decision list from `/align` with rejected alternatives, ADR paths, language, kind, ticket and branch data, the files the session identified, and the absolute path of [analysis-template.md](analysis-template.md). Review the returned draft against the session: every decision present, nothing invented, Current State and Change 2–4 sentences each, Mermaid highlighting per the template. Fix small gaps yourself; send substantial gaps back to a new `analyst` with the concrete corrections. Then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `docs/agents/analysis/NNN-<slug>.md` with no Status line.
 
 3. After publishing, prepend `## Delivery` — edit the issue body on GitHub, update the file locally:
 

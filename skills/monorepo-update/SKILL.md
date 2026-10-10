@@ -7,13 +7,15 @@ description: >-
   runs /monorepo-update, passes an analysis number, or asks to bump submodules
   / set up checkout for review.
 disable-model-invocation: true
+model: sonnet
+effort: medium
 ---
 
 # Monorepo update
 
 Two modes. Complements `/implement` — agents never commit pointer bumps during implementation.
 
-Run from the **container root** of the target project (not `~/.cursor/skills`).
+Run from the **container root** of the target project (not the skills pack).
 
 | Invocation | Mode | What happens |
 |------------|------|----------------|

@@ -6,6 +6,8 @@ description: >-
   not reported. Phase 2 of /verify, or run /code-review directly after
   implementation.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # Code review
@@ -61,13 +63,13 @@ Fix-first is not a licence to rewrite the repo.
 
 ## One cycle
 
-Use two sub-agents with fresh, scoped context: correctness/security and craft. Give them the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles.
+Use two agents with fresh, scoped context: `correctness-reviewer` (correctness/security) and `craft-reviewer` (craft). Give them the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles.
 
 Run in parallel only with disjoint write paths and isolated mutable resources; otherwise sequentially, correctness/security first.
 
 Reviewers fix issues within their assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
 
-Parent reviews reports and diffs, handles trivial one-file follow-up fixes when useful, runs checks, and commits per delivery root. Apply the Execution contract to test changes: reviewed reasons, separate test commits, no weakened assertions.
+Parent reviews reports and diffs, handles trivial one-file follow-up fixes when useful, runs checks through `check-runner`, and commits per delivery root. Apply the Execution contract to test changes: reviewed reasons, separate test commits, no weakened assertions.
 
 - `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
 - `fix(scope): <what> (#<N>)` when broken behaviour was repaired

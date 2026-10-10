@@ -6,6 +6,8 @@ description: >-
   has real trade-offs. Use when starting a feature, stress-testing a design,
   or before writing an analysis.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # Align
@@ -20,11 +22,11 @@ Read `docs/agents/config/workflow.md` if present — skip align for simple bugs 
 
 If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/config/domain.md` if configured).
 
-If a question can be answered by exploring the codebase, explore instead of asking.
+If a question can be answered by exploring the codebase, explore instead of asking. Delegate broad searches across many files to the built-in `Explore` agent and keep only its conclusions; read the few files that decide a question yourself.
 
 ### 2. Interview
 
-Use Claude Code `AskUserQuestion` or Codex `request_user_input_async` with a recommended option, falling back to a text question if the tool is unavailable or does not permit the request.
+Use `AskUserQuestion` with a recommended option, falling back to a text question if the tool is unavailable or does not permit the request.
 
 Walk the decision tree one branch at a time:
 

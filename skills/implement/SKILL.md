@@ -6,6 +6,8 @@ description: >-
   Parallelize independent paths and resources; parent commits and runs
   verify automatically. Use for /implement #N or a local analysis.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # Implement
@@ -42,13 +44,28 @@ Give each worker a fresh, scoped context: its phase and Acceptance items, releva
 
 The parent primarily coordinates and delegates code/test work. A trivial one-file follow-up such as an import or typo may be fixed directly; substantial work goes to workers.
 
+**Agents.** Delegate through the Agent tool with these `subagent_type` values. Each agent definition fixes its model and effort, so the expensive orchestrator model only plans, reviews and commits:
+
+| Agent | Work | Model / effort |
+|-------|------|----------------|
+| `test-writer` | Phase A tests, justified test corrections | sonnet / medium |
+| `implementer` | Phase B production code, delegated repairs | sonnet / medium |
+| `check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
+| `spec-reviewer`, `standards-reviewer` | Functional review in `/verify` | sonnet / high, medium |
+| `correctness-reviewer`, `craft-reviewer` | `/code-review` passes | sonnet / high, medium |
+| `ux-reviewer` | `/ux-review` passes | sonnet / medium |
+
+Run full or long check suites through `check-runner` instead of reading their logs in the main window; a single fast targeted test may run directly.
+
+**Escalation.** When a worker returns the same cluster unfinished or wrong twice, start a new one with `effort: "high"` and a sharper brief (failure evidence, the decision it missed). If that also fails, take the cluster with `model: "opus"`, or mark the cluster blocked when the cause is an undecided contract. Do not escalate on the first attempt.
+
 Committed tests are the contract. Later corrections require a concrete test defect, missing regression coverage or an agreed contract change, parent review and a separate test commit. Never weaken assertions to make faulty code pass. These rules apply to verify and review too.
 
 ## 4. Tests, then implementation
 
 ### A. Test-only sub-agents
 
-Delegate all decided clusters to test workers. They write tests and necessary fixtures/helpers, without production changes. Follow `tdd` for layers and RED: PHP HTTP contracts use `integration-tests`; handler/domain decision logic also needs unit coverage; pure wiring does not.
+Delegate all decided clusters to `test-writer` agents. They write tests and necessary fixtures/helpers, without production changes. Follow `tdd` for layers and RED: PHP HTTP contracts use `integration-tests`; handler/domain decision logic also needs unit coverage; pure wiring does not.
 
 Workers run relevant tests. Missing/new behaviour must show expected RED; existing-behaviour regression tests may pass. Environment/fixture failures are not behavioural RED. Missing new symbols can establish initial RED; assertions must still be checked once the code exists.
 
@@ -56,9 +73,9 @@ Parent reviews coverage and results, fixes test issues through workers, then com
 
 ### B. New implementation sub-agents
 
-Start new workers per cluster with contracts, committed tests, expected failures and permitted production paths. They implement against the stable tests. Schedule consumers after providers when needed.
+Start new `implementer` agents per cluster with contracts, committed tests, expected failures and permitted production paths. They implement against the stable tests. Schedule consumers after providers when needed.
 
-When a wave joins, review changes and run relevant checks; delegate substantial repairs. Commit production changes using the appropriate `feat`/`fix` type. Check off only Acceptance behaviour verified as complete, without per-cluster tracker comments.
+When a wave joins, review changes and run relevant checks through `check-runner`; delegate substantial repairs. Commit production changes using the appropriate `feat`/`fix` type. Check off only Acceptance behaviour verified as complete, without per-cluster tracker comments.
 
 ## 5. Verify and resume
 

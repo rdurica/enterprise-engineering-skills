@@ -7,6 +7,8 @@ description: >-
   analysis, never on the PR. Use at the end of /implement, or when the user
   runs /verify after implementation.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # Verify
@@ -36,13 +38,13 @@ Exclude unrelated work. Review delivery roots only, never a monorepo container r
 
 ## 1. Functional
 
-Run Spec and Standards reviewers in parallel with fresh scoped context, then relevant project tests/tooling. Read-only review can be parallel; checks sharing mutable test resources need isolation or sequential execution.
+Run `spec-reviewer` and `standards-reviewer` agents in parallel with fresh scoped context, then relevant project tests/tooling through `check-runner`. Read-only review can be parallel; checks sharing mutable test resources need isolation or sequential execution.
 
 - **Spec:** full relevant analysis and diff. Check Acceptance completeness, scope vs Change/Architecture, API contracts, invented FAQ answers and test coverage. Existing unchanged tests are valid coverage. Non-trivial handler/domain decision logic needs unit tests; HTTP coverage alone is insufficient.
 - **Standards:** diff plus `AGENTS.md`, contributor standards and ADRs. Report documented violations with file, rule and required change. Skip subjective style and violations already handled by tooling.
 - **Local checks:** documented tests, lint/type checks and other relevant commands from each affected root’s `AGENTS.md`.
 
-Reviewers return concise fix lists, not comments. Delegate repairs, review and commit them, then re-run affected checks. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.
+Reviewers return concise fix lists, not comments. Delegate repairs to `implementer` (or `test-writer` for justified test corrections), review and commit them, then re-run affected checks. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.
 
 ## 2. Code review
 

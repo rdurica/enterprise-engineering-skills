@@ -5,6 +5,8 @@ description: >-
   then re-check local tooling. Phase 3 of /verify when ux-review is enabled, or
   run /ux-review directly after implementation.
 disable-model-invocation: true
+model: opus
+effort: medium
 ---
 
 # UX review
@@ -50,7 +52,7 @@ UX review cycle: 1 / 3
 
 ## One cycle
 
-Use Walkthrough and A11y+Visual sub-agents with fresh, scoped context: relevant analysis, review-base, screens, URL, checklist and browser instructions. Parallel walkthroughs require independent browser sessions and isolated application state; otherwise run sequentially. Parent synthesizes; Minor never fails the gate.
+Use two `ux-reviewer` agents, one per pass (Walkthrough, A11y+Visual), with fresh, scoped context: relevant analysis, review-base, screens, URL, checklist and browser instructions. Parallel walkthroughs require independent browser sessions and isolated application state; otherwise run sequentially. Parent synthesizes; Minor never fails the gate.
 
 **Walkthrough prompt** — base URL, scope screens, happy-path, checklist path, both viewports:
 
@@ -66,11 +68,11 @@ Fail and cycles < 3 → Fix, then **Re-check**, then repeat this cycle (re-walk 
 
 ## Fix
 
-Parent may handle trivial one-file CSS/copy follow-ups; delegate substantial fixes by independent cluster under the Execution contract. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits, or scope creep.
+Parent may handle trivial one-file CSS/copy follow-ups; delegate substantial fixes to `implementer` agents by independent cluster under the Execution contract. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits, or scope creep.
 
 ### Re-check (mandatory after any UX fix)
 
-Hand control to parent `/verify`: re-run the local tests/tooling from `AGENTS.md` on affected delivery roots.
+Hand control to parent `/verify`: re-run the local tests/tooling from `AGENTS.md` on affected delivery roots through `check-runner`.
 
 - Red → repair and rerun within this UX gate’s cycle limit; no separate re-check counter.
 - Green → resume UX gate (re-walk affected screens only).

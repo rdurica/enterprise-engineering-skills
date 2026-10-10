@@ -52,7 +52,7 @@ Code review itself (Phase 2) has no switch — it always runs.
 ## Implementation orchestration
 
 1. The user starts `/align` → `/analyze` locally; conversation history produces the saved analysis.
-2. `/implement` orchestrates fresh test subagents, reviews RED evidence and commits tests, then delegates production code to fresh subagents. Independent work runs in parallel.
+2. `/implement` (Opus) orchestrates fresh `test-writer` agents, reviews RED evidence and commits tests, then delegates production code to fresh `implementer` agents (Sonnet). Checks run through `check-runner` (Haiku). Independent work runs in parallel.
 3. Parent integrates, commits and automatically runs `/verify`. See `/implement` for context, test stability and isolation rules. If hooks block the intentional RED test commit, resolve the blocker without `--no-verify`.
 
 ## Work types

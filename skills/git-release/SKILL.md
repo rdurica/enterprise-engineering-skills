@@ -5,6 +5,8 @@ description: >-
   Proposes a semver bump (patch/minor/major) and always asks the user to
   approve or change the tag version before tagging. Use when the user asks
   for a release, tag, version bump, or GitHub release notes.
+model: sonnet
+effort: medium
 ---
 
 # Git release
@@ -18,7 +20,7 @@ Repo-specific notes: [examples.md](examples.md). Changelog skeleton: [changelog-
 - User asks for a release, tag, version bump, or changelog for GitHub
 - After a feature batch is merged to `main` and ready to ship
 
-For `AskQuestion`, use Claude Code `AskUserQuestion` or Codex `request_user_input_async`, with a recommended option and a text fallback if the tool does not permit approval requests.
+For `AskQuestion`, use `AskUserQuestion`, with a recommended option and a text fallback if the tool does not permit approval requests.
 
 ## Workflow overview
 
