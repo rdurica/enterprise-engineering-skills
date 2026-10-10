@@ -19,7 +19,7 @@ Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`,
 
 Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Push policy is independent of branch ownership; session no-push overrides it in Ship and Fail. No-push skips git publication, CI watches and PR changes; tracker updates remain allowed unless separately restricted.
 
-Comments go on the analysis, never the PR, in the workflow language. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
+Comments go on the analysis, never the PR, in the workflow language. Status labels below apply to GitHub only; the local tracker has no status — its file stays active or moves to `done/`. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
 
 ## Scope
 

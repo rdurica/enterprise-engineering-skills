@@ -5,8 +5,6 @@ description: >-
   change, architecture, API contracts, acceptance. Use after /align or when
   the user wants to create, write, or publish an analysis.
 disable-model-invocation: true
-model: opus
-effort: medium
 ---
 
 # Analyze

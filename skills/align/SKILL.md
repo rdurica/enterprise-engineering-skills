@@ -6,8 +6,6 @@ description: >-
   has real trade-offs. Use when starting a feature, stress-testing a design,
   or before writing an analysis.
 disable-model-invocation: true
-model: opus
-effort: medium
 ---
 
 # Align

@@ -20,7 +20,7 @@ Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`;
 
 Resolve the user’s analysis number or path through the configured tracker. User-invoked `/implement` needs no `ready-for-agent` label. Stop if already `ready-to-review` or archived in local `done/`. Optional auto-start requires `ready-for-agent` or `in-progress`, and must not run while `needs-attention` is set.
 
-Set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels. Read language and branch-owner from workflow; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
+On GitHub set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels; the local tracker has no status. Read language and branch-owner from workflow; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
 
 Open FAQ: work only on decided scope; do not invent answers to unblock it.
 
@@ -83,4 +83,4 @@ Once decided work is complete, automatically follow sibling `verify/SKILL.md` in
 
 If FAQ leaves work unfinished, mark `needs-attention` and briefly explain what needs a decision. Do not verify it as complete.
 
-On interruption, keep `in-progress`. When possible, leave a short analysis comment with what is done, what remains and any non-obvious run command or review base needed to resume. A new invocation reads the analysis and git state; no routine checkpoint protocol is required.
+On interruption, keep `in-progress` on GitHub. When possible, leave a short analysis comment with what is done, what remains and any non-obvious run command or review base needed to resume. A new invocation reads the analysis and git state; no routine checkpoint protocol is required.

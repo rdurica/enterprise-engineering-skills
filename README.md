@@ -1,136 +1,135 @@
 # Enterprise Engineering Skills
 
-Claude Code skills and subagents for incremental changes in an existing codebase. You own the decisions and contracts; agents write tests, implement the change and verify the result. Delivery is verified local work or an agent-managed PR, depending on the project configuration.
+Claude Code skills and agents for changes in an existing codebase. You make the decisions; agents write the tests and code, review them and deliver the result.
 
-## Why
+The goal is not just working code. Whoever owns the project should understand the change well enough to explain it, so behaviour and boundaries are agreed first and implemented second. Trivial fixes skip the pipeline.
 
-Working code is only part of the goal. Whoever owns the project must understand the change and be able to explain it. This workflow puts that understanding first: agree on the behaviour, architecture and boundaries, then let agents handle implementation inside them.
+## Quick start
 
-Built for repositories with tests and documented conventions, especially changes that cross modules or need review by someone other than the author. Trivial fixes can go directly through the project's normal workflow.
+```bash
+git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/enterprise-engineering-skills
+~/Projects/enterprise-engineering-skills/install.sh
+```
 
-## Process
+`install.sh` links every skill into `~/.claude/skills/` and every agent into `~/.claude/agents/`. It never overwrites a different skill with the same name, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added or renamed.
 
-Run `/setup` once in the target project, then:
+Then run `/setup` once in each target project.
 
-1. **`/align`** — explore the code and resolve decisions together. Record durable trade-offs in ADRs.
-2. **`/analyze`** — publish the agreed change and its Acceptance criteria. Current State and Change each explain the behaviour in 2–4 short sentences; implementation details belong in Architecture and API Contracts. Mermaid diagrams highlight affected parts in orange.
-3. **Review the analysis**, then run **`/implement #N`** or pass a local analysis path.
-4. **`/implement` orchestrates the work** — fresh `test-writer` agents write tests; the parent reviews RED evidence and commits the tests. Fresh `implementer` agents then write production code; the parent checks and commits it.
-5. **`/verify` runs automatically** — Functional checks, code review, optional UX review, then delivery according to branch ownership and push policy. You review the result.
+## Workflow
+
+You take part in only three steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session (Opus) sits between them, reviews every handoff and makes the commits.
 
 ```mermaid
 flowchart TD
-    Setup["/setup: configure the project"] --> Align["/align: agree on the change"]
-    Align --> Analyze["/analyze: publish the analysis"]
-    Analyze --> Review["Human reviews the analysis"]
-    Review --> Start["Run /implement with the analysis ID or path"]
-    Bug["Simple bug: ticket with Acceptance"] --> Start
+    Align(["<b>you · /align, then /analyze</b><br/>agree on the change"])
+    analyst["<b>analyst</b><br/>drafts the analysis<br/><i>/analyze</i>"]
+    Review(["<b>you · review</b><br/>then run /implement #N"])
+    Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
 
-    subgraph Implement["/implement: parent orchestrates"]
-        Tests["Fresh test agents: write tests"] --> TestCommit["Parent: review RED evidence and commit tests"]
-        TestCommit --> Code["Fresh implementation agents: write code"]
-        Code --> CodeCommit["Parent: check and commit implementation"]
+    subgraph Auto["Automatic · /implement continues into /verify"]
+        direction TB
+        testWriter["<b>test-writer</b><br/>writes tests that fail first<br/><i>/implement · tdd, integration-tests</i>"]
+        implementer["<b>implementer</b><br/>writes code until the tests pass<br/><i>/implement</i>"]
+        functional["<b>spec-reviewer</b> + <b>standards-reviewer</b><br/>match the analysis and project rules?<br/><i>/verify · in parallel</i>"]
+        correctness["<b>correctness-reviewer</b><br/>finds and fixes bugs and security issues<br/><i>/code-review</i>"]
+        craft["<b>craft-reviewer</b><br/>cleans up duplication and readability<br/><i>/code-review</i>"]
+        ux["<b>ux-reviewer</b><br/>walks the UI in a browser<br/><i>/ux-review · optional</i>"]
+
+        testWriter -- "failing tests, committed" --> implementer
+        implementer -- "passing code, committed" --> functional
+        functional -. "fix list" .-> implementer
+        functional -- "green" --> correctness
+        correctness --> craft
+        craft -- "clean diff" --> ux
     end
-    Start --> Tests
-    CodeCommit --> Verify["Automatic /verify: Functional, code review, optional UX"]
-    Verify --> Deliver["Delivery: local commits, or push and CI; agent-owned PR when enabled"]
-    Deliver --> Ready["ready-to-review: human reviews the result"]
-    Verify -->|"Blocked or gate fails after repairs"| Attention["needs-attention: blocker recorded on the analysis"]
-    Deliver -->|"Publication or CI blocked"| Attention
-    CodeCommit -->|"Remaining scope blocked by FAQ"| Attention
-    Attention --> Resolve["Human resolves the blocker"]
-    Resolve --> Start
 
-    classDef default fill:#f3f4f6,stroke:#6b7280,color:#111827
+    Ready(["<b>ready-to-review</b><br/>your turn"])
+    Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
+
+    Align --> analyst -- "analysis draft" --> Review -- "approved analysis" --> testWriter
+    Bug --> testWriter
+    ux -- "delivered" --> Ready
+    Auto -. "blocked" .-> Attention
+
     classDef human fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
-    classDef automated fill:#ffedd5,stroke:#c2410c,stroke-width:2px,color:#7c2d12
+    classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Align,Review,Start,Resolve human
-    class Analyze,Tests,TestCommit,Code,CodeCommit,Verify,Deliver automated
+    class Align,Review,Bug human
+    class analyst,testWriter,implementer,functional,correctness,craft,ux agent
     class Ready ready
     class Attention blocked
+    style Auto fill:#f9fafb,stroke:#9ca3af
 ```
 
-Blue = human decisions and invocation; orange = agent work; green = ready for review; red = needs attention.
+**Blue** = you · **orange** = agents · *italics* = the skill that runs the agent. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
 
-For a **complex bug**, use the same flow, with `/align` when the root cause is unclear and `Kind: bug` in the analysis. A **simple bug** starts with a ticket containing Acceptance and goes straight to `/implement`. You can also invoke `/verify` directly for work with an existing analysis.
+1. **`/align`** — you and Claude explore the code and settle decisions one question at a time. Lasting trade-offs become ADRs.
+2. **`/analyze`** — `analyst` turns the decisions into an analysis: current state, change, architecture, API contracts and Acceptance.
+3. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
+   - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
+   - `implementer` writes code against those tests until they pass.
+   - `spec-reviewer` and `standards-reviewer` check the result against the analysis and project rules in parallel; anything missing goes back to `implementer`.
+   - `correctness-reviewer` and `craft-reviewer` review and fix the code; `ux-reviewer` walks the UI if UX review is enabled.
+   - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
 
-## Tracking and resume
+A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/implement`.
 
-Publishing an analysis does not start implementation. On GitHub it has the `analysis` label; a new local analysis has no Status line. User-invoked `/implement` needs no `ready-for-agent` label; that label is only for optional auto-start.
+## Agents
 
-- **`in-progress`** — implementation is running. An interrupted session stays here; re-run `/implement` to resume from the analysis and git state.
-- **`needs-attention`** — a blocker requires a decision or fix. It replaces `in-progress`. Resolve the reported blocker and re-run `/implement`. An open FAQ permits work on decided scope, but unfinished scope cannot be verified as complete.
-- **`ready-to-review`** — all applicable gates passed. Local analyses move to `docs/agents/analysis/done/`; GitHub analyses receive the label. This records verified delivery, not a merge or human approval.
+| Agent | Used by | What it does | Model |
+|-------|---------|--------------|-------|
+| `analyst` | `/analyze` | Drafts the analysis from your brief and the codebase | Sonnet, high |
+| `test-writer` | `/implement` | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
+| `implementer` | `/implement`, repairs | Writes production code against the committed tests | Sonnet, medium |
+| `spec-reviewer` | `/verify` | Checks Acceptance, scope, API contracts and test coverage (read-only) | Sonnet, high |
+| `standards-reviewer` | `/verify` | Checks documented project rules: `AGENTS.md`, ADRs, guides (read-only) | Sonnet, medium |
+| `correctness-reviewer` | `/code-review` | Finds and fixes bugs and security issues | Sonnet, high |
+| `craft-reviewer` | `/code-review` | Fixes leftovers, duplication and readability | Sonnet, medium |
+| `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
+| `check-runner` | all pipeline skills | Runs tests, lint and type checks; returns only failures | Haiku, low |
+| `committer` | `/commit` | Writes a Conventional Commits message and commits | Haiku, low |
 
-Progress and verification notes go on the analysis, never on the PR. The final note distinguishes local checks, publication and CI, including anything skipped.
+`/align` and `/analyze` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium.
+
+- **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
+- **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.
+- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus.
+
+Change a role by editing `model` or `effort` in its frontmatter. `CLAUDE_CODE_EFFORT_LEVEL` overrides every `effort`.
+
+Agents never commit, push or open PRs; the main session does. Tests are committed before the code, and assertions are never weakened to make code pass.
+
+## Status
+
+With the local tracker there is no status: an analysis in `docs/agents/analysis/` is active, and a green `/verify` moves it to `done/`. Blockers are noted under `## Comments`. On GitHub, the issue carries these labels:
+
+| Label | Meaning |
+|-------|---------|
+| `in-progress` | `/implement` is running or was interrupted; rerun it to resume |
+| `needs-attention` | A blocker needs your decision; resolve it and rerun `/implement` |
+| `ready-to-review` | All gates passed; your turn to review |
+
+Notes go on the analysis, never on the PR.
 
 ## Configuration
 
-`/setup` writes `docs/agents/config/workflow.md`, tracker configuration and domain documentation, and updates the Agent skills block in `AGENTS.md`. On every run, you choose whether to use global skills or copy the pipeline into the project; the saved choice is preselected.
+`/setup` writes `docs/agents/config/` and an `## Agent skills` block in `AGENTS.md`. Re-run it any time to change settings.
 
-Agent files share `docs/agents/`: configuration and project-specific instruction overlays live in `config/`, active local analyses in `analysis/`, and completed analyses in `analysis/done/`. Workflow `local-path` points to `docs/agents/config/`, not the analysis directory. Setup preserves analyses when refreshing configuration. Projects choose whether to version these files; setup does not automatically ignore, stage or commit them.
+| Setting | Options |
+|---------|---------|
+| Preset | `full-agentic` (agent manages branch and PR) · `human-owned` (stays on your branch, PRs are yours) |
+| Push | `finalize` (push and watch CI) · `never` (local commits only) |
+| Tracker | GitHub issues · local Markdown in `docs/agents/analysis/` |
+| Language | `en` · `cs` for analysis prose and comments |
+| UX review | enabled · disabled |
+| Skills | `global` (this pack in `~/.claude/`) · `vendored` (copies in `.claude/skills/` and `.claude/agents/`, refreshed by `/setup`) |
 
-Choose **full-agentic** for agent-managed branches and PRs, **human-owned** to stay on your current branch and manage PRs yourself, or **custom** to select settings individually. Both presets default to GitHub and `push: finalize`; human-owned can use the local tracker.
+Project-specific rules go in `docs/agents/config/`, because `/setup` replaces vendored copies. Local-only skills go in the gitignored `skills/personal/`.
 
-- **Branch ownership:** `agent` uses the analysis Delivery branch and manages PRs; `human` stays on the current branch and leaves PRs to you.
-- **Push policy:** `finalize` permits push and CI during delivery; `never` keeps local commits and skips push, CI watches and PR changes. Session instructions such as “do not push” override the defaults.
-- **Tracker:** GitHub or Local Markdown in `docs/agents/analysis/`. Setup can keep reference configurations for both, with one active backend.
-- **Language:** `en` or `cs` for analysis prose and tracker comments; section headings remain English.
-- **UX review:** optional browser gate after code review; skipped for changes without UI.
-- **Skills mode:** `global` uses the shared pack installed in `~/.claude/`; `vendored` copies the pipeline skills and agents into `.claude/skills/` and `.claude/agents/` and refreshes them on every `/setup`. New projects default to the global recommendation; existing configuration with only `skills-dir` defaults to project copies.
+## Other skills
 
-Agent-owned delivery produces a ready PR after green checks, or may retain a draft PR on failure when publication is allowed. Human-owned delivery never manages PRs. In monorepos, analyses live at the container root and implementation happens in delivery roots; submodule pointer updates remain a human step.
-
-## Skills and agents
-
-The repository holds two folders: `skills/` (one folder per skill) and `agents/` (one Claude Code subagent per file). The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills and all ten agents; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
-
-The parent session schedules work, reviews results, commits and handles delivery. Workers are named agents with fresh contexts, scoped Acceptance, architecture, contracts and allowed paths. They never commit, push or manage PRs. Parallel work requires disjoint write paths and isolated mutable resources.
-
-Tests are committed before production implementation. Later test corrections need a concrete reason, parent review and a separate test commit; assertions must not be weakened to make faulty code pass. Verify fixes actionable findings within scope and stops on blockers or exhausted repair limits.
-
-## Models and cost
-
-Every skill and agent sets `model` and `effort` in its frontmatter. The expensive model decides; cheaper models do bounded, well-specified work in fresh contexts.
-
-| Where | Runs on | Effort | Why |
-|-------|---------|--------|-----|
-| `/align`, `/analyze`, `/implement`, `/verify`, `/code-review`, `/ux-review` (main session) | Opus | medium | Interview, planning, review of worker output, commits |
-| `analyst` agent | Sonnet | high | Drafts the analysis from the align decisions; Opus reviews and publishes |
-| `test-writer` agent | Sonnet | medium | Tests from a written contract, with `tdd` and `integration-tests` preloaded |
-| `implementer` agent | Sonnet | medium | Code against committed tests; also delegated repairs |
-| `spec-reviewer` agent | Sonnet | high | Read-only check of the diff against the analysis |
-| `standards-reviewer` agent | Sonnet | medium | Read-only check against documented rules |
-| `correctness-reviewer` agent | Sonnet | high | Fix-first correctness and security pass |
-| `craft-reviewer` agent | Sonnet | medium | Fix-first readability, duplication and test-quality pass |
-| `ux-reviewer` agent | Sonnet | medium | Browser walkthrough or a11y pass |
-| `check-runner` agent | Haiku | low | Runs tests, linters and type checks; returns a compact summary instead of full logs |
-| `/commit` → `committer` agent | Haiku | low | Forked skill: commits from the diff, pushes only when asked; no conversation history needed |
-| `/setup` | Sonnet | high | Configuration interview; usually its own session |
-| `/git-release`, `/monorepo-update` | Sonnet | medium | Mechanical git and GitHub work with an approval step |
-| `tdd`, `integration-tests` | inherit | — | Preloaded into `test-writer` or followed inline |
-
-Three rules keep the savings real:
-
-- **Cheap models live in agents, not in the main session.** A skill's `model` switches the main conversation for the rest of the turn, and prompt caches are per model, so a mid-conversation switch re-reads the whole history uncached. That is why `/commit` runs as a forked skill and `/analyze` delegates drafting to `analyst` instead of switching itself to Sonnet.
-- **Logs stay out of Opus.** Long test and lint output goes through `check-runner`.
-- **Escalate on evidence.** `/implement` retries a failing cluster with `effort: high`, then with Opus, never on the first attempt.
-
-Tune a role by editing its frontmatter. Aliases (`opus`, `sonnet`, `haiku`) follow the newest model in each family; pin a full ID such as `claude-sonnet-5-5` when you need reproducible runs. The `CLAUDE_CODE_EFFORT_LEVEL` environment variable overrides the `effort` values.
-
-## Installation
-
-Clone once, anywhere, then link both folders into Claude Code:
-
-```bash
-git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/src/enterprise-engineering-skills
-~/src/enterprise-engineering-skills/install.sh
-```
-
-`install.sh` creates one symlink per skill in `~/.claude/skills/` and one per agent in `~/.claude/agents/`. It reuses correct links, relinks links into this pack or dangling ones, and skips anything else that already uses the same name. `--dry-run` shows the plan. After that, `git pull` updates everything; re-run `install.sh` only when a skill or agent is added or renamed. Check `/skills` and `/agents` in a new session.
-
-Run `/setup` inside the target project and choose global skills or project copies. Project copies go to `.claude/skills/` and `.claude/agents/` by default; project definitions take precedence over global ones with the same name.
-
-Re-run `/setup` to refresh project configuration and review the skills mode. In vendored mode, every pipeline skill and agent is refreshed from the maintained shared pack. In global mode, `/setup` leaves that pack unchanged; update it with `git pull`. When switching to global skills, setup offers to remove existing project copies with separate confirmation; if retained, it warns that they shadow the global pack. Keep project-specific additions in `docs/agents/config/`, because refresh replaces vendored copies. A gitignored `skills/personal/` folder holds local-only skills; `install.sh` links them too.
+- **`/commit`** — Conventional Commits from the diff; `/commit push` also pushes.
+- **`/git-release`** — semver tag and GitHub release with a changelog.
+- **`/monorepo-update`** — bump submodules or check out an analysis branch in every delivery root.
+- **`tdd`**, **`integration-tests`** — testing playbooks used by `test-writer`.

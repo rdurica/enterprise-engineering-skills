@@ -53,13 +53,13 @@ When publishing is allowed, per affected delivery root with changes:
 Finalize only after all applicable gates are green (or publishing explicitly disabled):
 
 - GitHub analysis: remove `in-progress`, `needs-attention`, `ready-for-agent`; add `ready-to-review`, preserve the existing tracker kind label (`analysis` or bug).
-- Local: write `Status: ready-to-review`, then move to `docs/agents/analysis/done/NNN-<slug>.md`.
+- Local: move to `docs/agents/analysis/done/NNN-<slug>.md` (no status).
 
 Comment on the analysis with gate evidence, published SHA(s), CI outcome, PR URLs or explicit local-only outcome. Monorepo pointer bumps remain for the user after delivery PRs merge.
 
 ## Fail (gate red after budget or hard stop)
 
-Set `needs-attention`; remove `in-progress` and `ready-to-review`. Do not move to `done/`.
+GitHub: set `needs-attention`; remove `in-progress` and `ready-to-review`. Local: comment only, no status. Do not move to `done/`.
 
 Only when publishing is allowed, publish committed work to the intended delivery branch and create/keep a **draft** PR for review (ready PR → draft). Skip container root; never force-push. Do not publish unverified repair commits after an earlier CI failure. Report any unavailable remote, push rejection or PR failure honestly; these do not excuse losing the local results. Do not watch CI for a failed local gate.
 
