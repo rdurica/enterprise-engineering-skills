@@ -22,7 +22,6 @@ You take part in only three steps. Everything after `/implement #N` is a chain o
 ```mermaid
 flowchart TD
     Align(["<b>you · /align, then /analyze</b><br/>agree on the change"])
-    analyst["<b>analyst</b><br/>drafts the analysis<br/><i>/analyze</i>"]
     Review(["<b>you · review</b><br/>then run /implement #N"])
     Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
 
@@ -46,7 +45,7 @@ flowchart TD
     Ready(["<b>ready-to-review</b><br/>your turn"])
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
 
-    Align --> analyst -- "analysis draft" --> Review -- "approved analysis" --> testWriter
+    Align -- "published analysis" --> Review -- "approved analysis" --> testWriter
     Bug --> testWriter
     ux -- "delivered" --> Ready
     Auto -. "blocked" .-> Attention
@@ -56,7 +55,7 @@ flowchart TD
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
     class Align,Review,Bug human
-    class analyst,testWriter,implementer,functional,correctness,craft,ux agent
+    class testWriter,implementer,functional,correctness,craft,ux agent
     class Ready ready
     class Attention blocked
     style Auto fill:#f9fafb,stroke:#9ca3af
@@ -65,7 +64,7 @@ flowchart TD
 **Blue** = you · **orange** = agents · *italics* = the skill that runs the agent. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
 
 1. **`/align`** — you and Claude explore the code and settle decisions one question at a time. Lasting trade-offs become ADRs.
-2. **`/analyze`** — `analyst` turns the decisions into an analysis: current state, change, architecture, API contracts and Acceptance.
+2. **`/analyze`** — Claude turns the decisions into an analysis in the same conversation: current state, change, architecture, API contracts and Acceptance.
 3. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
    - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
    - `implementer` writes code against those tests until they pass.
@@ -79,7 +78,6 @@ A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/
 
 | Agent | Used by | What it does | Model |
 |-------|---------|--------------|-------|
-| `analyst` | `/analyze` | Drafts the analysis from your brief and the codebase | Sonnet, high |
 | `test-writer` | `/implement` | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
 | `implementer` | `/implement`, repairs | Writes production code against the committed tests | Sonnet, medium |
 | `spec-reviewer` | `/verify` | Checks Acceptance, scope, API contracts and test coverage (read-only) | Sonnet, high |
