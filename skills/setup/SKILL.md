@@ -174,7 +174,7 @@ Copy pipeline skills and agents into the **target repo** at the confirmed skills
 ```
 skills/: align  analyze  implement  verify  code-review  ux-review  tdd  integration-tests  commit
 agents/: analyst  test-writer  implementer  check-runner  spec-reviewer  standards-reviewer
-         correctness-reviewer  craft-reviewer  ux-reviewer   (each <name>.md)
+         correctness-reviewer  craft-reviewer  ux-reviewer  committer   (each <name>.md)
 ```
 
 `setup`, `git-release` and `monorepo-update` stay in the shared pack — they are global tools, not part of the per-repo pipeline.

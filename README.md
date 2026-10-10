@@ -85,7 +85,7 @@ Agent-owned delivery produces a ready PR after green checks, or may retain a dra
 
 ## Skills and agents
 
-The repository holds two folders: `skills/` (one folder per skill) and `agents/` (one Claude Code subagent per file). The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills and all nine agents; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
+The repository holds two folders: `skills/` (one folder per skill) and `agents/` (one Claude Code subagent per file). The project pipeline is `/align` → `/analyze` → `/implement`, with `/verify` called automatically. Its helpers are `tdd`, `integration-tests` for Symfony HTTP tests, `commit`, `code-review` and `ux-review`. In vendored mode, `/setup` copies those nine skills and all ten agents; in global mode, they stay in the shared pack. `setup`, `git-release` and `monorepo-update` always remain in the shared pack.
 
 The parent session schedules work, reviews results, commits and handles delivery. Workers are named agents with fresh contexts, scoped Acceptance, architecture, contracts and allowed paths. They never commit, push or manage PRs. Parallel work requires disjoint write paths and isolated mutable resources.
 
@@ -107,13 +107,14 @@ Every skill and agent sets `model` and `effort` in its frontmatter. The expensiv
 | `craft-reviewer` agent | Sonnet | medium | Fix-first readability, duplication and test-quality pass |
 | `ux-reviewer` agent | Sonnet | medium | Browser walkthrough or a11y pass |
 | `check-runner` agent | Haiku | low | Runs tests, linters and type checks; returns a compact summary instead of full logs |
+| `/commit` → `committer` agent | Haiku | low | Forked skill: commits from the diff, pushes only when asked; no conversation history needed |
 | `/setup` | Sonnet | high | Configuration interview; usually its own session |
 | `/git-release`, `/monorepo-update` | Sonnet | medium | Mechanical git and GitHub work with an approval step |
-| `commit`, `tdd`, `integration-tests` | inherit | — | Run inside another skill or agent |
+| `tdd`, `integration-tests` | inherit | — | Preloaded into `test-writer` or followed inline |
 
 Three rules keep the savings real:
 
-- **Cheap models live in agents, not in the main session.** A skill's `model` switches the main conversation for the rest of the turn, and prompt caches are per model, so a mid-conversation switch re-reads the whole history uncached. That is why `commit` inherits the model and `/analyze` delegates drafting to `analyst` instead of switching itself to Sonnet.
+- **Cheap models live in agents, not in the main session.** A skill's `model` switches the main conversation for the rest of the turn, and prompt caches are per model, so a mid-conversation switch re-reads the whole history uncached. That is why `/commit` runs as a forked skill and `/analyze` delegates drafting to `analyst` instead of switching itself to Sonnet.
 - **Logs stay out of Opus.** Long test and lint output goes through `check-runner`.
 - **Escalate on evidence.** `/implement` retries a failing cluster with `effort: high`, then with Opus, never on the first attempt.
 
