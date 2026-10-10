@@ -52,7 +52,7 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `implementer` | Phase B production code, delegated repairs | sonnet / medium |
 | `check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
 | `spec-reviewer`, `standards-reviewer` | Functional review in `/verify` | sonnet / high, medium |
-| `correctness-reviewer`, `craft-reviewer` | `/code-review` passes | sonnet / high, medium |
+| `code-reviewer` | `/code-review` pass | sonnet / high |
 | `ux-reviewer` | `/ux-review` passes | sonnet / medium |
 
 Run full or long check suites through `check-runner` instead of reading their logs in the main window; a single fast targeted test may run directly.

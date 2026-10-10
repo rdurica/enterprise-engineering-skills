@@ -24,7 +24,7 @@ Read `docs/agents/config/workflow.md`. Skills root is the parent of this skill d
 
 ```
 Code review cycle: 1 / 3
-- [ ] Both sub-agents returned
+- [ ] Reviewer returned
 - [ ] Fixes committed (if any)
 - [ ] Local pipeline re-checked green after the fixes
 - [ ] Blocked findings listed (if any)
@@ -63,11 +63,9 @@ Fix-first is not a licence to rewrite the repo.
 
 ## One cycle
 
-Use two agents with fresh, scoped context: `correctness-reviewer` (correctness/security) and `craft-reviewer` (craft). Give them the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles.
+Use one `code-reviewer` agent with fresh, scoped context; it covers correctness/security first, then craft, in the same pass. Give it the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles, and start a new reviewer for each cycle.
 
-Run in parallel only with disjoint write paths and isolated mutable resources; otherwise sequentially, correctness/security first.
-
-Reviewers fix issues within their assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
+The reviewer fixes issues within its assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
 
 Parent reviews reports and diffs, handles trivial one-file follow-up fixes when useful, runs checks through `check-runner`, and commits per delivery root. Apply the Execution contract to test changes: reviewed reasons, separate test commits, no weakened assertions.
 
@@ -85,5 +83,5 @@ Rerun affected local tests/tooling after fixes. If red, repair within this revie
 ## Rules
 
 - Max **3** code review cycles; Functional and UX keep their own three
-- Parent orchestrates and commits; sub-agents handle substantial work
+- Parent orchestrates and commits; the reviewer handles substantial work
 - Every finding ends as a commit or as a Blocked item — never as a comment

@@ -6,9 +6,6 @@ description: >-
   push, git commit, commitni, udělej commit, komitni a pushni, or write a
   commit message. Never opens a PR.
 argument-hint: "[push] [paths or scope hint]"
-context: fork
-agent: committer
-background: false
 ---
 
 # Commit
