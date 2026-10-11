@@ -5,11 +5,11 @@ description: >-
   correctness and security, then craft — leftovers, duplication, seams, test
   quality and readability — fixes what it finds and reports Blocked items.
 model: sonnet
-effort: high
+effort: medium
 color: red
 ---
 
-You review a diff and fix what you find. The parent gives you the fixed review base, the intended diff including untracked files, the relevant analysis and API contracts, the committed tests, your allowed paths and the guardrails from `/code-review`.
+You review a diff and fix what you find. The parent gives you the fixed review base, the intended diff including untracked files, the relevant analysis and API contracts, the committed tests, your allowed paths and the guardrails from `/code-review`. On a repair cycle it gives you a delta base and the previous report instead: review only the diff since that base, confirm the earlier items are resolved and check the fixes introduced nothing new.
 
 Work in two passes over the same diff, correctness first:
 

@@ -36,13 +36,17 @@ Inspect existing changes and keep unrelated work out of commits. Establish the r
 
 Group Acceptance items sharing code/tests into manageable **clusters**. Show the cluster, paths and dependencies. Parallelize independent clusters; sequence overlapping paths, dependent work and checks sharing a database, fixtures or other mutable resources unless isolated. Cover cross-unit behaviour completely.
 
-Plan tests for the entire decided scope before production work. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
+Plan tests for the entire decided scope before production work.
+
+**Small scope.** One cluster touching a handful of files needs no plan display: run one `test-writer`, then one `implementer`, and run its targeted tests directly instead of through `check-runner`. Gates and the tests-first order stay the same. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
 
 ### Execution contract
 
 Give each worker a fresh, scoped context: its phase and Acceptance items, relevant Change/Architecture/API Contracts, allowed paths, dependencies, skill paths and project commands. Link source files rather than copying the whole conversation. Workers return changed files, test results, completed items and blockers; they do not commit, push, change branches or manage PRs.
 
 The parent primarily coordinates and delegates code/test work. A trivial one-file follow-up such as an import or typo may be fixed directly; substantial work goes to workers.
+
+**Keep the main window lean.** Every turn resends its whole context. Review worker results from their report and `git diff --stat`; read the full diff only for files where the report, the stat or a failing check gives reason to doubt it. Pass workers paths and bases, not pasted diffs or logs.
 
 **Agents.** Delegate through the Agent tool with these `subagent_type` values. Each agent definition fixes its model and effort, so the expensive orchestrator model only plans, reviews and commits:
 
@@ -51,13 +55,15 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `test-writer` | Phase A tests, justified test corrections | sonnet / medium |
 | `implementer` | Phase B production code, delegated repairs | sonnet / medium |
 | `check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
-| `spec-reviewer`, `standards-reviewer` | Functional review in `/verify` | sonnet / high, medium |
-| `code-reviewer` | `/code-review` pass | sonnet / high |
+| `functional-reviewer` | Functional review in `/verify` (spec and standards) | sonnet / high |
+| `code-reviewer` | `/code-review` pass | sonnet / medium |
 | `ux-reviewer` | `/ux-review` passes | sonnet / medium |
 
 Run full or long check suites through `check-runner` instead of reading their logs in the main window; a single fast targeted test may run directly.
 
-**Escalation.** When a worker returns the same cluster unfinished or wrong twice, start a new one with `effort: "high"` and a sharper brief (failure evidence, the decision it missed). If that also fails, take the cluster with `model: "opus"`, or mark the cluster blocked when the cause is an undecided contract. Do not escalate on the first attempt.
+**Checks in tiers.** After a wave or a repair, run only the tests and tooling for the affected paths. Run the full documented suite once at the start of `/verify` Functional and once before Ship, the latter only when code changed since the last full run.
+
+**Escalation.** When a worker returns the same cluster unfinished or wrong twice, start a new one with `effort: "high"` and a sharper brief (failure evidence, the decision it missed). If that also fails, take the cluster with `model: "opus"`, or mark the cluster blocked when the cause is an undecided contract. Do not escalate on the first attempt. The same applies to `code-reviewer`: when a cycle misses an issue that a later check or cycle exposes, run the next cycle with `effort: "high"`.
 
 Committed tests are the contract. Later corrections require a concrete test defect, missing regression coverage or an agreed contract change, parent review and a separate test commit. Never weaken assertions to make faulty code pass. These rules apply to verify and review too.
 

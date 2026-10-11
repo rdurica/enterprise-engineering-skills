@@ -38,13 +38,13 @@ Exclude unrelated work. Review delivery roots only, never a monorepo container r
 
 ## 1. Functional
 
-Run `spec-reviewer` and `standards-reviewer` agents in parallel with fresh scoped context, then relevant project tests/tooling through `check-runner`. Read-only review can be parallel; checks sharing mutable test resources need isolation or sequential execution.
+Run one `functional-reviewer` agent with fresh scoped context, alongside the full documented suite through `check-runner`. Read-only review can run in parallel with checks; checks sharing mutable test resources need isolation or sequential execution.
 
 - **Spec:** full relevant analysis and diff. Check Acceptance completeness, scope vs Change/Architecture, API contracts, invented FAQ answers and test coverage. Existing unchanged tests are valid coverage. Non-trivial handler/domain decision logic needs unit tests; HTTP coverage alone is insufficient.
 - **Standards:** diff plus `AGENTS.md`, contributor standards and ADRs. Report documented violations with file, rule and required change. Skip subjective style and violations already handled by tooling.
 - **Local checks:** documented tests, lint/type checks and other relevant commands from each affected root’s `AGENTS.md`.
 
-Reviewers return concise fix lists, not comments. Delegate repairs to `implementer` (or `test-writer` for justified test corrections), review and commit them, then re-run affected checks. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.
+The reviewer returns a concise fix list, not comments. Delegate repairs to `implementer` (or `test-writer` for justified test corrections), review and commit them, then re-run checks for the affected paths. A repair cycle starts a new `functional-reviewer` on the delta since the previous cycle's last commit, with the previous fix list; the code review that follows covers the whole diff again. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.
 
 ## 2. Code review
 
@@ -54,11 +54,11 @@ After Functional is green, check off satisfied Acceptance and follow sibling `co
 
 If `ux-review: enabled`, follow sibling `ux-review/SKILL.md`; otherwise skip. Its non-UI skip is valid. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
 
-After review or UX fixes, rerun affected local checks before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
+After review or UX fixes, rerun checks for the affected paths before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
 
 ## 4. Finalize
 
-Ensure the intended verified work is committed before Ship, including correct uncommitted work from a direct verify invocation. Stage only that scope. If hooks change files, inspect and rerun affected checks. Do not claim historical tests-first evidence when tests and code arrived together.
+Ensure the intended verified work is committed before Ship, including correct uncommitted work from a direct verify invocation. Stage only that scope. If code changed since the last full suite run, run the full suite once more through `check-runner`. If hooks change files, inspect and rerun affected checks. Do not claim historical tests-first evidence when tests and code arrived together.
 
 Follow the selected delivery path for push, CI and PR handling. CI fixes go through the same delegated repair and local-check loop; do not create another tracking protocol or reset exhausted gate budgets. Stop after 3 unsuccessful CI repairs or when external checks/publication cannot complete, and report the blocker honestly.
 

@@ -63,7 +63,9 @@ Fix-first is not a licence to rewrite the repo.
 
 ## One cycle
 
-Use one `code-reviewer` agent with fresh, scoped context; it covers correctness/security first, then craft, in the same pass. Give it the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Keep the same base across cycles, and start a new reviewer for each cycle.
+Use one `code-reviewer` agent with fresh, scoped context; it covers correctness/security first, then craft, in the same pass. Give it the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Start a new reviewer for each cycle.
+
+**Full first, then deltas.** Cycle 1 reviews the whole diff from the fixed review base: it is the complete review of the finished change. Cycles 2 and 3 review only the delta since the previous cycle's last commit, together with the previous report, to confirm the fixes and catch anything they introduced.
 
 The reviewer fixes issues within its assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
 
@@ -72,7 +74,7 @@ Parent reviews reports and diffs, handles trivial one-file follow-up fixes when 
 - `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
 - `fix(scope): <what> (#<N>)` when broken behaviour was repaired
 
-Rerun affected local tests/tooling after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
+Rerun tests/tooling for the affected paths after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
 
 ## Outcome
 

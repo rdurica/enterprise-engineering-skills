@@ -29,7 +29,7 @@ flowchart TD
         direction TB
         testWriter["<b>test-writer</b><br/>writes tests that fail first<br/><i>/implement · tdd, integration-tests</i>"]
         implementer["<b>implementer</b><br/>writes code until the tests pass<br/><i>/implement</i>"]
-        functional["<b>spec-reviewer</b> + <b>standards-reviewer</b><br/>match the analysis and project rules?<br/><i>/verify · in parallel</i>"]
+        functional["<b>functional-reviewer</b><br/>match the analysis and project rules?<br/><i>/verify</i>"]
         codeReview["<b>code-reviewer</b><br/>fixes bugs and security issues,<br/>then duplication and readability<br/><i>/code-review</i>"]
         ux["<b>ux-reviewer</b><br/>walks the UI in a browser<br/><i>/ux-review · optional</i>"]
 
@@ -66,8 +66,8 @@ flowchart TD
 3. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
    - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
    - `implementer` writes code against those tests until they pass.
-   - `spec-reviewer` and `standards-reviewer` check the result against the analysis and project rules in parallel; anything missing goes back to `implementer`.
-   - `code-reviewer` reviews and fixes the code, correctness first, then craft; `ux-reviewer` walks the UI if UX review is enabled.
+   - `functional-reviewer` checks the result against the analysis and project rules; anything missing goes back to `implementer`.
+   - `code-reviewer` reviews and fixes the code, correctness first, then craft. Its first cycle covers the whole diff; repair cycles check only what changed since; `ux-reviewer` walks the UI if UX review is enabled.
    - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
 
 A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/implement`.
@@ -78,9 +78,8 @@ A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/
 |-------|---------|--------------|-------|
 | `test-writer` | `/implement` | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
 | `implementer` | `/implement`, repairs | Writes production code against the committed tests | Sonnet, medium |
-| `spec-reviewer` | `/verify` | Checks Acceptance, scope, API contracts and test coverage (read-only) | Sonnet, high |
-| `standards-reviewer` | `/verify` | Checks documented project rules: `AGENTS.md`, ADRs, guides (read-only) | Sonnet, medium |
-| `code-reviewer` | `/code-review` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, high |
+| `functional-reviewer` | `/verify` | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, high |
+| `code-reviewer` | `/code-review` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, medium |
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
@@ -88,7 +87,10 @@ A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/
 
 - **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
 - **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.
-- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus.
+- **Opus reads summaries.** The main session reviews worker reports and `git diff --stat`, and opens full diffs only where something looks wrong.
+- **Full review once, deltas after.** Repair cycles review only what changed since the previous cycle; the first code-review cycle covers the whole diff.
+- **Checks in tiers.** Repairs run only the affected tests; the full suite runs at the start of `/verify` and before Ship.
+- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus; a code-review cycle that missed an issue is rerun at high effort.
 
 Change a role by editing `model` or `effort` in its frontmatter. `CLAUDE_CODE_EFFORT_LEVEL` overrides every `effort`.
 

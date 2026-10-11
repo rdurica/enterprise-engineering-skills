@@ -173,7 +173,7 @@ Copy pipeline skills and agents into the **target repo** at the confirmed skills
 
 ```
 skills/: align  analyze  implement  verify  code-review  ux-review  tdd  integration-tests  commit
-agents/: test-writer  implementer  check-runner  spec-reviewer  standards-reviewer
+agents/: test-writer  implementer  check-runner  functional-reviewer
          code-reviewer  ux-reviewer   (each <name>.md)
 ```
 
@@ -181,7 +181,7 @@ agents/: test-writer  implementer  check-runner  spec-reviewer  standards-review
 
 **Refresh every required skill:** validate that the source contains all listed skills and the confirmed destination stays inside the target repo, without source overlap or symlinked destination paths. Stage complete copies before replacing anything. Replace only the listed folders and agent files, retaining the old copies until the new install is checked so a failed refresh can be restored. Leave unrelated folders untouched; repo-specific deviations belong in `docs/agents/config/`.
 
-**Stale folders:** if `<skills-dir>/setup`, `<skills-dir>/git-release` or `<skills-dir>/monorepo-update`, or the retired agents `analyst.md`, `committer.md`, `correctness-reviewer.md` and `craft-reviewer.md` in `<agents-dir>`, exist from an older run, report them and offer to remove them. Never delete without confirmation.
+**Stale folders:** if `<skills-dir>/setup`, `<skills-dir>/git-release` or `<skills-dir>/monorepo-update`, or the retired agents `analyst.md`, `committer.md`, `correctness-reviewer.md`, `craft-reviewer.md`, `spec-reviewer.md` and `standards-reviewer.md` in `<agents-dir>`, exist from an older run, report them and offer to remove them. Never delete without confirmation.
 
 Do not add the skills or agents dir to `.gitignore` — these files should be committed with the repo.
 
