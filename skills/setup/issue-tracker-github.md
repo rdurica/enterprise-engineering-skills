@@ -39,7 +39,7 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 | `ready-for-agent` | human, after validating the analysis | Auto-trigger may start `/implement`. Agent never adds this. Happy path: user runs `/implement` after review |
 | `in-progress` | `/implement` | Agent is working |
 | `needs-attention` | `/verify` (fail), `/implement` (blocked by open FAQ) or `/analyze-modify` (delivered work revised) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
-| `ready-to-review` | `/verify` (green) | Verified delivery ready for human review; publishing-enabled agent-owned delivery also has a ready PR |
+| `ready-to-review` | `/verify` (green) | Verified delivery ready for human review; publishing-enabled agent-owned delivery also has a ready PR. `/complete` removes it when it merges the PR and closes the issue |
 
 `/implement` drops `ready-for-agent` and `needs-attention` when it sets `in-progress`. A green `/verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. Human-owned delivery does not require a PR. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
 
@@ -51,7 +51,7 @@ Create a label on first use if it is missing (`gh label create <name> [-R …]`;
 
 The normal workflow starts locally when the user invokes `/implement`; the labels below support optional automation, not a requirement to claim work.
 
-**Lifecycle:** `analysis` → user reviews, then `/implement` (optional `ready-for-agent` for auto-start) → `in-progress` → `ready-to-review`. Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
+**Lifecycle:** `analysis` → user reviews, then `/implement` (optional `ready-for-agent` for auto-start) → `in-progress` → `ready-to-review` → `/complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
 
 ## Delivery section
 
@@ -116,6 +116,15 @@ Do not add `ready-for-agent`.
 |-----------|---------|
 | Green | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --remove-label ready-for-agent --add-label ready-to-review` then `gh issue comment` (verified SHA, local gates, push/CI outcome, PR URLs when applicable). Preserve unrelated labels |
 | Fail | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs when applicable). Human-owned never manages PRs; agent-owned draft PR delivery follows push policy and session restrictions |
+
+### `/complete` — merge and close
+
+Only for agent-owned delivery with an open PR on an open `ready-to-review` issue; otherwise `/complete` does nothing.
+
+| Operation | Command |
+|-----------|---------|
+| Merge | `gh pr merge <pr> --rebase --delete-branch --match-head-commit <sha>` in each delivery root |
+| Close | `gh issue edit <N> [-R …] --remove-label ready-to-review` then `gh issue close <N> [-R …] --comment "..."` (merged PR URLs and commit). Preserve unrelated labels |
 
 ## When a skill says "publish to the issue tracker"
 

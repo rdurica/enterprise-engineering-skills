@@ -93,6 +93,10 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 
 **Fail:** append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in the active folder. Do not move to `done/`.
 
+### `/complete` — merge only
+
+Runs only when the file is in `done/` and an agent-owned PR is open. It merges the PR and syncs `main`; the file stays in `done/` unchanged.
+
 ## When a skill says "publish to the issue tracker"
 
 Create `docs/agents/analysis/NNN-<slug>.md`. Allocate next ID first.

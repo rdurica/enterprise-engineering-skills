@@ -17,7 +17,7 @@ Then run `/setup` once in each target project.
 
 ## Workflow
 
-You take part in only three steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session (Opus) sits between them, reviews every handoff and makes the commits.
+You take part in only four steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session (Opus) sits between them, reviews every handoff and makes the commits.
 
 ```mermaid
 flowchart TD
@@ -72,6 +72,8 @@ flowchart TD
    - `code-reviewer` reviews and fixes the code, correctness first, then craft. Its first cycle covers the whole diff; repair cycles check only what changed since; `ux-reviewer` walks the UI if UX review is enabled.
    - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
 
+4. **You review the delivery** and run **`/complete #N`**. For agent-owned delivery with an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. Human-owned delivery, or delivery without a PR, is left to you and `/complete` does nothing.
+
 A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/implement`.
 
 To **change an existing analysis** — before `/implement`, or after it when a change request arrives — run **`/analyze-modify #N`** with what should be different. Claude checks the analysis, ADRs and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked, `## Revisions` at the end records the modification, and `/implement #N` continues on the same branch with only the unchecked items.
@@ -87,7 +89,7 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
-`/align`, `/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium.
+`/align`, `/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
 
 - **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
 - **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.
@@ -108,7 +110,7 @@ With the local tracker there is no status: an analysis in `docs/agents/analysis/
 |-------|---------|
 | `in-progress` | `/implement` is running or was interrupted; rerun it to resume |
 | `needs-attention` | A blocker needs your decision; resolve it and rerun `/implement` |
-| `ready-to-review` | All gates passed; your turn to review |
+| `ready-to-review` | All gates passed; your turn to review, then `/complete` |
 
 Notes go on the analysis, never on the PR.
 
