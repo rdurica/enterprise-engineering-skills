@@ -1,10 +1,9 @@
 ---
 name: commit
 description: >-
-  Create a git commit with a Conventional Commits message from the current
-  diff, and push it when asked. Use when the user asks to commit, commit and
-  push, git commit, commitni, udělej commit, komitni a pushni, or write a
-  commit message. Never opens a PR.
+  Commit the current changes with a Conventional Commits message and
+  optionally push them. Use whenever changes need to be committed, a commit
+  message written, or a commit pushed. Never opens a PR.
 argument-hint: "[push] [paths or scope hint]"
 ---
 
@@ -14,7 +13,7 @@ Request: $ARGUMENTS
 
 Conventional Commits only. Push **only** when the request asks for it (`push`, `pushni`). Never open a PR.
 
-Pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) follow these steps inline in the orchestrator and never push from here; delivery handles publishing.
+Other skills may apply these rules directly without invoking this skill; they never push from here, even when the request mentions a push. Their own delivery handles publishing.
 
 ## Steps
 
