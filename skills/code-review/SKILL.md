@@ -74,7 +74,7 @@ Parent reviews reports and diffs, handles trivial one-file follow-up fixes when 
 - `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
 - `fix(scope): <what> (#<N>)` when broken behaviour was repaired
 
-Rerun tests/tooling for the affected paths after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
+Rerun tests/tooling for the affected paths through `check-runner` after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
 
 ## Outcome
 

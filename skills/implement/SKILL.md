@@ -40,7 +40,7 @@ Plan tests for the entire decided scope before production work.
 
 **Revised analysis.** When the analysis has `## Revisions` and the branch already has work, plan only the unchecked Acceptance items; checked items stay done. The tests the latest revision names are an agreed contract change — correct them through `test-writer` in a separate test commit before phase B.
 
-**Small scope.** One cluster touching a handful of files needs no plan display: run one `test-writer`, then one `implementer`, and run its targeted tests directly instead of through `check-runner`. Gates and the tests-first order stay the same. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
+**Small scope.** One cluster touching a handful of files needs no plan display: run one `test-writer`, then one `implementer`. Gates and the tests-first order stay the same. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
 
 ### Execution contract
 
@@ -61,7 +61,7 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `code-reviewer` | `/code-review` pass | sonnet / medium |
 | `ux-reviewer` | `/ux-review` passes | sonnet / medium |
 
-Run full or long check suites through `check-runner` instead of reading their logs in the main window; a single fast targeted test may run directly.
+The parent runs every test, lint and type check through `check-runner`, never directly, so logs stay out of the main window. Workers run their own cluster tests.
 
 **Checks in tiers.** After a wave or a repair, run only the tests and tooling for the affected paths. Run the full documented suite once at the start of `/verify` Functional and once before Ship, the latter only when code changed since the last full run.
 

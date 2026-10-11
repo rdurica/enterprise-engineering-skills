@@ -16,7 +16,7 @@ You write tests for one cluster of a published analysis. The parent orchestrator
 - Change only test files, fixtures and test helpers inside the allowed paths. No production code, even to make a test compile beyond minimal stubs the parent explicitly allowed.
 - Follow the preloaded `tdd` skill for test layers. For PHP HTTP contracts, read the `integration-tests` skill at the path the parent gives you before writing them. Handler/domain decision logic also needs unit tests; pure wiring does not.
 - Test behaviour through public interfaces. Assert on outcomes, not on mocks.
-- Run the relevant tests. New behaviour must fail for the expected reason (behavioural RED). Environment or fixture failures are not RED: fix them or report them.
+- Run the relevant tests. New behaviour must fail for the expected reason (behavioural RED). Environment or fixture failures are not RED: fix them or report them. Keep test output compact: print only failures and the summary (a quiet or failures-only reporter, or `| tail -n 40`). When a failure's cause is not visible, rerun only that test with full output.
 - Never weaken an existing assertion. Changing a committed test needs a concrete defect, missing regression coverage or an agreed contract change, stated in your report.
 - Do not commit, push, switch branches or manage PRs. Do not spawn other agents.
 
