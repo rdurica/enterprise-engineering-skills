@@ -9,8 +9,8 @@ Keep the analysis easy to scan. Current State and Change each use one paragraph 
 - Backticks are for paths, commands, HTTP routes and literal values. Class, command, DTO and event names in prose stay plain text.
 - Put data shapes in fenced blueprint blocks.
 - Frontend stays short when it is involved; it is not the focus.
+- `## Affected Areas` is a short bullet map of where the change lands, not a second Architecture. It always includes a Mermaid diagram of the behaviour.
 - `## API Contracts` is omitted when there is no API.
-- Summary always includes a Mermaid diagram of the behaviour.
 
 ### Mermaid highlighting
 
@@ -40,12 +40,6 @@ Name shared seams between units so `/implement` can safely parallelize disjoint 
 
 <analysis-template>
 
-## Summary
-
-- {what changes and **why**}
-- {key changes - one to three bullets}
-- {Mermaid of the behaviour, affected parts in orange, with a legend — always}
-
 ## Current State
 
 {2–4 short sentences: how the relevant behaviour works today and what problem
@@ -55,6 +49,19 @@ or limitation motivates the change. No technical inventory or extra bullets.}
 
 {2–4 short sentences: how that behaviour will work after the change and what
 the user will experience differently. Keep technical details in Architecture.}
+
+## Affected Areas
+
+{a high-level map of where the change lands: one bullet per area — module,
+service, app or screen — with a few words on what changes there. Use the same
+names as the Architecture units. No classes, paths or data shapes; those stay
+in Architecture. Below the bullets, a Mermaid of the behaviour across these
+areas, affected parts in orange, with a legend — always, even for a bug.
+
+Example:
+- Billing — new plan-change rule with proration
+- Groups API — endpoint for the owner to change the plan
+- Admin UI — plan picker on the group detail page}
 
 ## Architecture
 
@@ -115,4 +122,4 @@ fold each one into the right section and delete the item.}
 
 </analysis-template>
 
-**Bug:** Summary, Current State, Change, Acceptance. Architecture and API Contracts only when they apply; FAQ optional.
+**Bug:** Current State, Change, Affected Areas, Acceptance. Architecture and API Contracts only when they apply; FAQ optional.

@@ -2,7 +2,7 @@
 name: analyze
 description: >-
   Turn the current conversation into a published analysis — current state,
-  change, architecture, API contracts, acceptance. Use after /align or when
+  change, affected areas, architecture, API contracts, acceptance. Use after /align or when
   the user wants to create, write, or publish an analysis.
 disable-model-invocation: true
 ---
@@ -13,7 +13,7 @@ Synthesize the align session and the codebase into a published analysis. Do not 
 
 Write for a human who was not in the align session. They should read the analysis once and be able to explain the change without opening the diff.
 
-Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
+Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
 Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`. Run `/setup` in the target repo if they are missing.
 
