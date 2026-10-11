@@ -24,6 +24,7 @@ flowchart TD
     Align(["<b>you · /align, then /analyze</b><br/>agree on the change"])
     Review(["<b>you · review</b><br/>then run /implement #N"])
     Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
+    Modify(["<b>you · /analyze-modify</b><br/>revise an existing analysis"])
 
     subgraph Auto["Automatic · /implement continues into /verify"]
         direction TB
@@ -44,6 +45,7 @@ flowchart TD
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
 
     Align -- "published analysis" --> Review -- "approved analysis" --> testWriter
+    Modify -- "revised analysis" --> Review
     Bug --> testWriter
     ux -- "delivered" --> Ready
     Auto -. "blocked" .-> Attention
@@ -52,7 +54,7 @@ flowchart TD
     classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Align,Review,Bug human
+    class Align,Review,Bug,Modify human
     class testWriter,implementer,functional,codeReview,ux agent
     class Ready ready
     class Attention blocked
@@ -72,6 +74,8 @@ flowchart TD
 
 A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/implement`.
 
+To **change an existing analysis** — before `/implement`, or after it when a change request arrives — run **`/analyze-modify #N`** with what should be different. Claude checks the analysis, ADRs and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked, `## Revisions` at the end records the modification, and `/implement #N` continues on the same branch with only the unchecked items.
+
 ## Agents
 
 | Agent | Used by | What it does | Model |
@@ -83,7 +87,7 @@ A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
-`/align`, `/analyze` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium.
+`/align`, `/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium.
 
 - **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
 - **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.

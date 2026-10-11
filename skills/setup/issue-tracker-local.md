@@ -65,6 +65,14 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 3. Create `docs/agents/analysis/NNN-<slug>.md` (no Status line)
 4. Include `## Delivery` with Ticket, Kind and branch `feature/<ticket>-<short-slug>` (ticket falls back to `NNN`)
 
+### `/analyze-modify` — revise analysis
+
+| Operation | Action |
+|-----------|--------|
+| Fetch analysis | `docs/agents/analysis/NNN-<slug>.md`, or `docs/agents/analysis/done/NNN-<slug>.md` |
+| Update | Rewrite the file in place; keep ID, slug and `## Delivery` |
+| Revised after verify | `mv` the file from `done/` back to `docs/agents/analysis/` and append the revision under `## Comments` |
+
 ### `/implement` — fetch by number or slug
 
 | Operation | Action |

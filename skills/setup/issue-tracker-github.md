@@ -38,7 +38,7 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 | `analysis` | `/analyze` | This issue is an analysis |
 | `ready-for-agent` | human, after validating the analysis | Auto-trigger may start `/implement`. Agent never adds this. Happy path: user runs `/implement` after review |
 | `in-progress` | `/implement` | Agent is working |
-| `needs-attention` | `/verify` (fail) or `/implement` (blocked by open FAQ) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
+| `needs-attention` | `/verify` (fail), `/implement` (blocked by open FAQ) or `/analyze-modify` (delivered work revised) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
 | `ready-to-review` | `/verify` (green) | Verified delivery ready for human review; publishing-enabled agent-owned delivery also has a ready PR |
 
 `/implement` drops `ready-for-agent` and `needs-attention` when it sets `in-progress`. A green `/verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. Human-owned delivery does not require a PR. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
@@ -82,6 +82,19 @@ gh issue edit <number> -R <owner/repo> --body-file <analysis-file-with-delivery>
 ```
 
 Do not add `ready-for-agent`.
+
+### `/analyze-modify` — revise analysis
+
+Same `-R` rule as `/analyze`. Write the full revised body to a temporary file.
+
+| Operation | Command |
+|-----------|---------|
+| Fetch analysis | `gh issue view <N> [-R …] --comments` |
+| Update body | `gh issue edit <N> [-R …] --body-file <file>` |
+| Comment | `gh issue comment <N> [-R …] --body-file <file>` (one-paragraph revision summary) |
+| Delivered work revised | `gh issue edit <N> [-R …] --remove-label ready-to-review --add-label needs-attention` (only when `ready-to-review` was set) |
+
+Do not add `ready-for-agent`. Keep `in-progress` and `needs-attention` as they are.
 
 ### `/implement` — fetch, status, comment
 

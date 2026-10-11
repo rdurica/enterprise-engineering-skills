@@ -63,6 +63,12 @@ Example:
 - Groups API — endpoint for the owner to change the plan
 - Admin UI — plan picker on the group detail page}
 
+## FAQ
+
+{optional. Unresolved questions as bullets, each naming what it belongs to —
+a section or a contract. Publishing with an open FAQ is fine. After answers:
+fold each one into the right section and delete the item.}
+
 ## Architecture
 
 {layers, data flow, decisions carried over from align or ADRs.
@@ -114,12 +120,13 @@ rejected alternative. Add other bullets only for impact, risks or rollout
 and migration steps. No repetition or statements about unchanged behaviour.
 Durable decisions belong in ADRs linked from Architecture. Omit when empty.}
 
-## FAQ
+## Revisions
 
-{optional. Unresolved questions as bullets, each naming what it belongs to —
-a section or a contract. Publishing with an open FAQ is fine. After answers:
-fold each one into the right section and delete the item.}
+{only after `/analyze-modify`; always the last section. One bullet per
+modification, oldest first: date, the modification in one sentence, the risks
+the user accepted, and — when tests are already committed — the tests that
+must change. The body above stays a single current state; history lives here.}
 
 </analysis-template>
 
-**Bug:** Current State, Change, Affected Areas, Acceptance. Architecture and API Contracts only when they apply; FAQ optional.
+**Bug:** Current State, Change, Affected Areas, Acceptance. Architecture and API Contracts only when they apply; FAQ and Revisions optional, in the same positions.

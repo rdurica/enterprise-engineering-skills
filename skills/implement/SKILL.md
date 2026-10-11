@@ -38,6 +38,8 @@ Group Acceptance items sharing code/tests into manageable **clusters**. Show the
 
 Plan tests for the entire decided scope before production work.
 
+**Revised analysis.** When the analysis has `## Revisions` and the branch already has work, plan only the unchecked Acceptance items; checked items stay done. The tests the latest revision names are an agreed contract change — correct them through `test-writer` in a separate test commit before phase B.
+
 **Small scope.** One cluster touching a handful of files needs no plan display: run one `test-writer`, then one `implementer`, and run its targeted tests directly instead of through `check-runner`. Gates and the tests-first order stay the same. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
 
 ### Execution contract
