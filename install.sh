@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Link this pack into Claude Code: ~/.claude/skills/<skill> and ~/.claude/agents/<agent>.md.
-# Re-run after adding or renaming a skill or agent; `git pull` alone updates existing links.
+# Re-run after adding, renaming or removing a skill or agent; `git pull` alone updates existing links.
 set -euo pipefail
 
 pack="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -53,5 +53,13 @@ if [[ -d "$pack/skills/personal" ]]; then
     link "$skill" "$claude_dir/skills/$(basename "$skill")"
   done
 fi
+
+# Remove dangling links into this pack, left behind by renamed or deleted skills and agents.
+for dest in "$claude_dir"/skills/* "$claude_dir"/agents/*.md; do
+  [[ -L "$dest" && ! -e "$dest" ]] || continue
+  [[ "$(readlink "$dest")" == "$pack"/* ]] || continue
+  echo "unlink  $dest"
+  (( dry_run )) || rm "$dest"
+done
 
 echo "Done. Start a new Claude Code session and check /skills and /agents."

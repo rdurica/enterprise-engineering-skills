@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and every agent into `~/.claude/agents/`. It never overwrites a different skill with the same name, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added or renamed.
+`install.sh` links every skill into `~/.claude/skills/` and every agent into `~/.claude/agents/`. It never overwrites a different skill with the same name, removes dangling links into the pack left by deleted skills or agents, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed.
 
 Then run `/setup` once in each target project.
 
@@ -119,9 +119,8 @@ Notes go on the analysis, never on the PR.
 | Tracker | GitHub issues · local Markdown in `docs/agents/analysis/` |
 | Language | `en` · `cs` for analysis prose and comments |
 | UX review | enabled · disabled |
-| Skills | `global` (this pack in `~/.claude/`) · `vendored` (copies in `.claude/skills/` and `.claude/agents/`, refreshed by `/setup`) |
 
-Project-specific rules go in `docs/agents/config/`, because `/setup` replaces vendored copies. Local-only skills go in the gitignored `skills/personal/`.
+Skills and agents are used only from the global install in `~/.claude/`; `/setup` offers to remove pipeline copies left in a project by older setups. Project-specific rules go in `docs/agents/config/`. Local-only skills go in the gitignored `skills/personal/`.
 
 ## Other skills
 

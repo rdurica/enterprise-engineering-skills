@@ -43,12 +43,6 @@ When `active: local`, see `docs/agents/config/issue-tracker.local.md` (if presen
 
 Code review itself (Phase 2) has no switch — it always runs.
 
-## Skills
-
-- skills-mode: {{SKILLS_MODE}}   <!-- global | vendored -->
-
-{{SKILLS_LOCATION}}
-
 ## Implementation orchestration
 
 1. The user starts `/align` → `/analyze` locally; conversation history produces the saved analysis.
