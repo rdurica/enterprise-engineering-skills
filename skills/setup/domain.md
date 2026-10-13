@@ -11,7 +11,7 @@ docs/adr/
   0001-use-kernel-browser-for-http-tests.md
 ```
 
-If the folder is missing, proceed silently. `/align` creates files here only for decisions with real trade-offs.
+If the folder is missing, proceed silently. The pack never creates ADRs; existing ones are read and respected.
 
 Each file: **Context**, **Decision**, **Consequences**. Filename `NNNN-slug.md` (next number after existing files).
 

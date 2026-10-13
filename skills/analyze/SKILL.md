@@ -1,31 +1,80 @@
 ---
 name: analyze
 description: >-
-  Turn the current conversation into a published analysis — current state,
-  change, affected areas, architecture, API contracts, acceptance. Use after /align or when
+  Structured alignment interview on a change, then a published analysis —
+  current state, change, affected areas, architecture, API contracts,
+  acceptance. Use when starting a feature, stress-testing a design, or when
   the user wants to create, write, or publish an analysis.
 disable-model-invocation: true
 ---
 
 # Analyze
 
-Synthesize the align session and the codebase into a published analysis. Do not interview here — that was `/align`. Do not implement — that is `/implement`.
+Reach shared understanding through an interview, then synthesize it and the codebase into a published analysis. Do not implement here — that is `/implement`.
 
-Write for a human who was not in the align session. They should read the analysis once and be able to explain the change without opening the diff.
+Write for a human who was not in the interview. They should read the analysis once and be able to explain the change without opening the diff.
 
-Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
-
-Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`. Run `/setup` in the target repo if they are missing.
+Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`. Run `/setup` in the target repo if they are missing. For a simple bug (bug fast-path in `workflow.md`) skip Phase A and write the shorter bug variant with `Kind: bug`.
 
 Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
+## Phase A — Align
+
+If the conversation already settled some decisions, interview only for the gaps.
+
+### 1. Explore
+
+If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/config/domain.md` if configured) and respect those decisions.
+
+If a question can be answered by exploring the codebase, explore instead of asking. Delegate broad searches across many files to the built-in `Explore` agent and keep only its conclusions; read the few files that decide a question yourself.
+
+### 2. Interview
+
+Use `AskUserQuestion` with a recommended option, falling back to a text question if the tool is unavailable or does not permit the request.
+
+Walk the decision tree one branch at a time:
+
+- One question at a time
+- Provide a recommended answer with each question
+- Resolve dependencies between decisions before moving on
+- Stop when every branch is resolved
+
+### 3. Runnable spikes (when needed)
+
+If a question cannot be settled in conversation, build a **throwaway spike**:
+
+- Minimal code, no tests, no polish
+- One command to run
+- State in memory only unless persistence is the question
+- Capture the verdict, then continue aligning
+- Delete or fold the decision into real code when done
+
+### 4. Checkpoint
+
+List every decision the interview resolved and put each one in a bucket:
+
+- **Further Notes** — an alternative was in play. It becomes a `## Further Notes` bullet naming the rejected alternative.
+- **Obvious** — no alternative was ever in play. Nothing to record.
+
+Do not write ADRs, and do not let a decision leave the session in no bucket at all.
+
+Show the bucketed list and ask once with `AskUserQuestion`:
+
+- **Publish** (recommended) — continue with Phase B.
+- **Refine** — return to the interview.
+- **Stop without analysis** — leave the decision list in the conversation and end. Nothing is written.
+
+Without a codebase, run steps 2–4 only — do not write local files.
+
+## Phase B — Publish
+
 All publish operations follow `docs/agents/config/issue-tracker.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
+
+Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
 Publish **even when `## FAQ` still has open questions**. The analysis has to be stored so the work can continue later. Each FAQ item names what it belongs to, and once it is answered you fold the answer into that section and delete the item. The ideal end state is no FAQ section at all.
 
-## Process
-
-1. Make sure the decisions are complete; explore the repo only to fill gaps the session left. Delegate broad searches across many files to the built-in `Explore` agent and keep only its conclusions. If `docs/adr/` exists, respect those decisions.
+1. Make sure the decisions are complete; explore the repo only to fill gaps Phase A left.
 
 2. Before drafting, read [analysis-template.md](analysis-template.md) for writing rules, section structure, Acceptance examples and the shorter bug variant. Write the analysis yourself from that template — this conversation already holds the decisions, rejected alternatives and explored code. Before publishing, check the draft against the session: every decision present, nothing invented, Current State and Change 2–4 sentences each, Mermaid highlighting per the template. Then publish it. On GitHub the only label is `analysis` — create it if it does not exist, and never add `ready-for-agent`. Locally the analysis is `docs/agents/analysis/NNN-<slug>.md` with no Status line.
 
@@ -39,7 +88,7 @@ Publish **even when `## FAQ` still has open questions**. The analysis has to be 
 - Branch: `feature/4821-group-pricing`
 ```
 
-**Ticket** is the number this work is tracked under, as a clickable link whenever you have a URL. An external tracker wins — Azure DevOps, Jira, Redmine, whatever the project uses. Take the ID or link from the align session, and ask for it when the work clearly came from a ticket but nobody named it. Without an external ticket, use the analysis's own number: on GitHub the issue itself, linked as `Ticket: [#<N>](<issue url>)`; locally the plain file number `NNN`.
+**Ticket** is the number this work is tracked under, as a clickable link whenever you have a URL. An external tracker wins — Azure DevOps, Jira, Redmine, whatever the project uses. Take the ID or link from the conversation, and ask for it when the work clearly came from a ticket but nobody named it. Without an external ticket, use the analysis's own number: on GitHub the issue itself, linked as `Ticket: [#<N>](<issue url>)`; locally the plain file number `NNN`.
 
 **Branch** is `feature/<ticket>-<short-slug>` and reuses that same number, so branch and ticket never drift apart. The slug comes from the title: lowercase, hyphenated, ASCII, around 30 characters.
 

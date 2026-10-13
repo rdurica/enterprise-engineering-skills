@@ -45,7 +45,7 @@ Code review itself (Phase 2) has no switch — it always runs.
 
 ## Implementation orchestration
 
-1. The user starts `/align` → `/analyze` locally; conversation history produces the saved analysis.
+1. The user starts `/analyze` locally; conversation history produces the saved analysis.
 2. `/implement` (Opus) orchestrates fresh `test-writer` agents, reviews RED evidence and commits tests, then delegates production code to fresh `implementer` agents (Sonnet). Checks run through `check-runner` (Haiku). Independent work runs in parallel.
 3. Parent integrates, commits and automatically runs `/verify`. See `/implement` for context, test stability and isolation rules. If hooks block the intentional RED test commit, resolve the blocker without `--no-verify`.
 
@@ -53,9 +53,9 @@ Code review itself (Phase 2) has no switch — it always runs.
 
 | Type | Pipeline | branch-owner typical |
 |------|----------|----------------------|
-| **feature** | `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship) | agent (full-agentic) or human (human-owned) |
-| **complex bug** | same as feature; `/align` if root cause unclear | agent or human |
-| **simple bug** | skip `/align`; ticket with Acceptance → `/implement` | human |
+| **feature** | `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship) | agent (full-agentic) or human (human-owned) |
+| **complex bug** | same as feature; `/analyze` interview settles an unclear root cause | agent or human |
+| **simple bug** | `/analyze` bug fast-path (no interview) or a ticket with Acceptance → `/implement` | human |
 | **trivial fix** | outside pipeline — direct fix + commit | n/a |
 
 ### Bug fast-path

@@ -21,7 +21,7 @@ You take part in only four steps. Everything after `/implement #N` is a chain of
 
 ```mermaid
 flowchart TD
-    Align(["<b>you · /align, then /analyze</b><br/>agree on the change"])
+    Analyze(["<b>you · /analyze</b><br/>agree on the change"])
     Review(["<b>you · review</b><br/>then run /implement #N"])
     Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
     Modify(["<b>you · /analyze-modify</b><br/>revise an existing analysis"])
@@ -44,7 +44,7 @@ flowchart TD
     Ready(["<b>ready-to-review</b><br/>your turn"])
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
 
-    Align -- "published analysis" --> Review -- "approved analysis" --> testWriter
+    Analyze -- "published analysis" --> Review -- "approved analysis" --> testWriter
     Modify -- "revised analysis" --> Review
     Bug --> testWriter
     ux -- "delivered" --> Ready
@@ -54,7 +54,7 @@ flowchart TD
     classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Align,Review,Bug,Modify human
+    class Analyze,Review,Bug,Modify human
     class testWriter,implementer,functional,codeReview,ux agent
     class Ready ready
     class Attention blocked
@@ -63,20 +63,19 @@ flowchart TD
 
 **Blue** = you · **orange** = agents · *italics* = the skill that runs the agent. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
 
-1. **`/align`** — you and Claude explore the code and settle decisions one question at a time. Lasting trade-offs become ADRs.
-2. **`/analyze`** — Claude turns the decisions into an analysis in the same conversation: current state, change, architecture, API contracts and Acceptance.
-3. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
+1. **`/analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
+2. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
    - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
    - `implementer` writes code against those tests until they pass.
    - `functional-reviewer` checks the result against the analysis and project rules; anything missing goes back to `implementer`.
    - `code-reviewer` reviews and fixes the code, correctness first, then craft. Its first cycle covers the whole diff; repair cycles check only what changed since; `ux-reviewer` walks the UI if UX review is enabled.
    - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
 
-4. **You review the delivery** and run **`/complete #N`**. For agent-owned delivery with an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. Human-owned delivery, or delivery without a PR, is left to you and `/complete` does nothing.
+3. **You review the delivery** and run **`/complete #N`**. For agent-owned delivery with an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. Human-owned delivery, or delivery without a PR, is left to you and `/complete` does nothing.
 
-A **simple bug** skips steps 1–2: a ticket with Acceptance goes straight to `/implement`.
+A **simple bug** skips step 1: a ticket with Acceptance goes straight to `/implement`.
 
-To **change an existing analysis** — before `/implement`, or after it when a change request arrives — run **`/analyze-modify #N`** with what should be different. Claude checks the analysis, ADRs and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked, `## Revisions` at the end records the modification, and `/implement #N` continues on the same branch with only the unchecked items.
+To **change an existing analysis** — before `/implement`, or after it when a change request arrives — run **`/analyze-modify #N`** with what should be different. Claude checks the analysis, existing ADRs and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked, `## Revisions` at the end records the modification, and `/implement #N` continues on the same branch with only the unchecked items.
 
 ## Agents
 
@@ -89,7 +88,7 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
-`/align`, `/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
+`/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
 
 - **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
 - **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.

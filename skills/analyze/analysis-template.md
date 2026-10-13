@@ -34,7 +34,7 @@ For other Mermaid types, use their supported styling to highlight the affected r
 
 Each `###` names one real project unit: a package, repo, module or bounded context, never a layer such as Controller or Repository or an invented unit. Use only the unit name in the heading; put `Path: <path>` on the first line below it. Omit subsections for a single-unit change.
 
-Name shared seams between units so `/implement` can safely parallelize disjoint paths. Link supporting ADRs by path from Architecture. Decisions `/align` assigned to the analysis rather than an ADR belong in Further Notes.
+Name shared seams between units so `/implement` can safely parallelize disjoint paths. Link existing ADRs the change relies on by path from Architecture. Decisions from the interview belong in Further Notes.
 
 ## Template
 
@@ -71,7 +71,7 @@ fold each one into the right section and delete the item.}
 
 ## Architecture
 
-{layers, data flow, decisions carried over from align or ADRs.
+{layers, data flow, decisions carried over from existing ADRs.
 One `###` per real unit, path on the line below the heading.
 When the schema changes, state the delta — tables and columns added or
 changed, nullability, defaults, indexes — plus the migration, written by
@@ -115,10 +115,10 @@ Example: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_o
 
 ## Further Notes
 
-{one bullet for each decision `/align` assigned to the analysis, including the
+{one bullet for each decision the interview settled, including the
 rejected alternative. Add other bullets only for impact, risks or rollout
 and migration steps. No repetition or statements about unchanged behaviour.
-Durable decisions belong in ADRs linked from Architecture. Omit when empty.}
+Omit when empty.}
 
 ## Revisions
 

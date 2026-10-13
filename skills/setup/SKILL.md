@@ -4,7 +4,7 @@ description: >-
   Configure a repo for the engineering skills pipeline — issue tracker, git
   workflow (branch-owner, push) and docs/adr, and checks the globally
   installed skills and agents.
-  Run before align, analyze, or implement, or again to refresh configuration.
+  Run before analyze or implement, or again to refresh configuration.
 disable-model-invocation: true
 model: sonnet
 effort: high
@@ -119,7 +119,7 @@ Upsert only the `## Agent skills` section; preserve all other sections. Append i
 Issue tracker: [GitHub | local markdown]. See `docs/agents/config/issue-tracker.md`.
 Domain docs: `docs/adr/`. See `docs/agents/config/domain.md`.
 Workflow defaults: `docs/agents/config/workflow.md` (branch-owner, push, language, work types).
-Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
+Pipeline: `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
 `/implement` (Opus) orchestrates `test-writer` agents → parent test commit → `implementer` agents → automatic `/verify` with reviewer and `check-runner` agents (Sonnet/Haiku); see the skill for detailed rules.
 Skills: the shared pack installed in `~/.claude/`; `/setup` updates project configuration, not the pack. Repo-specific additions belong in `docs/agents/config/`.
 ```
@@ -138,13 +138,13 @@ First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker:
 
 Skip this step when the current working directory **is** the pack itself (cwd contains `skills/setup/SKILL.md` and `agents/`).
 
-The pipeline is the skills `align`, `analyze`, `implement`, `verify`, `code-review`, `ux-review`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack; run the pack's `install.sh` if not. `/setup` does not pull or update the pack.
+The pipeline is the skills `analyze`, `implement`, `verify`, `code-review`, `ux-review`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack; run the pack's `install.sh` if not. `/setup` does not pull or update the pack.
 
-Project definitions take precedence over user ones with the same name, so old project copies shadow the global pack. If step 1 found any, list the exact pipeline skill folders and agent files, plus copies of `setup`, `git-release`, `monorepo-update` and retired agents (`analyst`, `committer`, `correctness-reviewer`, `craft-reviewer`, `spec-reviewer`, `standards-reviewer`), and offer their removal. Never delete without confirmation, never remove a whole skills directory or unrelated skills, and validate that every path stays inside the target repo without symlinked parents. If removal is declined, warn that the copies still shadow the global pack.
+Project definitions take precedence over user ones with the same name, so old project copies shadow the global pack. If step 1 found any, list the exact pipeline skill folders and agent files, plus copies of `setup`, `git-release`, `monorepo-update`, the retired skill `align` and retired agents (`analyst`, `committer`, `correctness-reviewer`, `craft-reviewer`, `spec-reviewer`, `standards-reviewer`), and offer their removal. Never delete without confirmation, never remove a whole skills directory or unrelated skills, and validate that every path stays inside the target repo without symlinked parents. If removal is declined, warn that the copies still shadow the global pack.
 
 ### 6. Done
 
-Setup complete. Pipeline: `/align` → `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
+Setup complete. Pipeline: `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship).
 
 Report the configuration files updated, whether the global pack resolves, and project copies removed or retained. State that the pack itself was not updated.
 
