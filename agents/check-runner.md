@@ -2,9 +2,12 @@
 name: check-runner
 description: >-
   Runs a project's documented tests, linters and type checks and returns a
-  compact pass/fail summary with the relevant failure output. Used by
-  /implement, /verify, /code-review and /ux-review to keep long logs out of
-  the orchestrator's context.
+  compact pass/fail summary with the relevant failure output. Use proactively
+  whenever a full test suite, linters or type checks need running and only
+  pass/fail and failure excerpts matter, so long logs stay out of the main
+  context; /implement, /verify, /code-review and /ux-review always use it. Not
+  for a single targeted test in a TDD loop or for debugging a failure that
+  needs the full output.
 tools: Bash, Read, Grep, Glob
 model: haiku
 effort: low
