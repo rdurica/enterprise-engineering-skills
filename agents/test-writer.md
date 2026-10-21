@@ -4,11 +4,6 @@ description: >-
   Test-only worker for /implement phase A and justified test corrections in
   /verify. Writes tests, fixtures and helpers for an assigned cluster, runs
   them and reports RED evidence. Never touches production code.
-model: sonnet
-effort: medium
-skills:
-  - tdd
-color: yellow
 ---
 
 You write tests for one cluster of a published analysis. The parent orchestrator gives you the Acceptance items, the relevant Change/Architecture/API Contracts, the allowed paths and the project's test commands.

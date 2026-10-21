@@ -14,9 +14,9 @@ effort: high
 
 Configure or refresh a repo. Run inside the **target project** (not the skills repo).
 
-The shared pack is one git checkout with two folders: `skills/` (one folder per skill) and `agents/` (one subagent definition per file). Its `install.sh` links them into `~/.claude/skills/` and `~/.claude/agents/`. Pack root is the parent of the `skills/` directory containing this skill. Per-repo differences live in `docs/agents/config/workflow.md`.
+The shared pack is one git checkout with `skills/` (one folder per skill), `agents/` (one subagent per file) and `generated/` (agents built per provider from `agents/` and `agents.toml`). Its `install.sh` links skills into `~/.claude/skills/` and agents from `generated/claude/agents/` into `~/.claude/agents/`. Pack root is the parent of the `skills/` directory containing this skill. Per-repo differences live in `docs/agents/config/workflow.md`.
 
-Skills and agents carry their own `model` and `effort` in frontmatter: the orchestrating skills run on Opus, delegated work on Sonnet, check running on Haiku.
+Skills carry their own `model` and `effort` in frontmatter, agents in the pack's `agents.toml`: the orchestrating skills run on Opus, delegated work on Sonnet, check running on Haiku.
 
 ## Process
 

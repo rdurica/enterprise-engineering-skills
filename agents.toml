@@ -1,0 +1,41 @@
+# Settings of every agent for every provider. Instructions and description live in agents/<name>.md.
+# Run scripts/build-agents after a change; it writes generated/<provider>/agents/.
+#
+# Shared keys:  readonly (no file edits), skills (read or preloaded before starting)
+# claude:       model, effort, tools, color
+# codex:        model, effort (model_reasoning_effort)
+# cursor:       model (full Cursor model ID, effort included)
+# A provider table left out means the agent is not generated for that provider.
+
+[check-runner]
+readonly = true
+claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Glob"], color = "cyan" }
+codex = { model = "gpt-6-luna", effort = "low" }
+cursor = { model = "grok-4.7-low" }
+
+[code-reviewer]
+claude = { model = "sonnet", effort = "medium", color = "red" }
+codex = { model = "gpt-5.6-terra", effort = "medium" }
+cursor = { model = "grok-4.7-medium" }
+
+[functional-reviewer]
+readonly = true
+claude = { model = "sonnet", effort = "high", tools = ["Read", "Grep", "Glob", "Bash"], color = "purple" }
+codex = { model = "gpt-5.6-terra", effort = "high" }
+cursor = { model = "grok-4.7-high" }
+
+[implementer]
+claude = { model = "sonnet", effort = "medium", color = "green" }
+codex = { model = "gpt-5.6-terra", effort = "medium" }
+cursor = { model = "grok-4.7-medium" }
+
+[test-writer]
+skills = ["tdd"]
+claude = { model = "sonnet", effort = "medium", color = "yellow" }
+codex = { model = "gpt-5.6-terra", effort = "medium" }
+cursor = { model = "grok-4.7-medium" }
+
+[ux-reviewer]
+claude = { model = "sonnet", effort = "medium", color = "pink" }
+codex = { model = "gpt-5.6-terra", effort = "medium" }
+cursor = { model = "grok-4.7-medium" }

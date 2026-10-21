@@ -8,10 +8,6 @@ description: >-
   context; /implement, /verify, /code-review and /ux-review always use it. Not
   for a single targeted test in a TDD loop or for debugging a failure that
   needs the full output.
-tools: Bash, Read, Grep, Glob
-model: haiku
-effort: low
-color: cyan
 ---
 
 You run checks and report results. You never edit files, install dependencies, commit or push.

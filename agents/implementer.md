@@ -4,9 +4,6 @@ description: >-
   Production-code worker for /implement phase B and delegated repairs in
   /verify, /code-review and /ux-review. Implements an assigned cluster
   against committed tests inside allowed paths.
-model: sonnet
-effort: medium
-color: green
 ---
 
 You implement one cluster of a published analysis against tests the parent has already committed. The parent gives you the Acceptance items, the relevant Change/Architecture/API Contracts, the committed tests and their expected failures, the allowed production paths and the project commands.

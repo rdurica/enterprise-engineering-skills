@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and every agent into `~/.claude/agents/`. It never overwrites a different skill with the same name, removes dangling links into the pack left by deleted skills or agents, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed.
 
 Then run `/setup` once in each target project.
 
@@ -97,9 +97,27 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 - **Checks in tiers.** Repairs run only the affected tests; the full suite runs at the start of `/verify` and before Ship.
 - **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus; a code-review cycle that missed an issue is rerun at high effort.
 
-Change a role by editing `model` or `effort` in its frontmatter. `CLAUDE_CODE_EFFORT_LEVEL` overrides every `effort`.
+Change a role's model or effort in `agents.toml` (see below). `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
 Agents never commit, push or open PRs; the main session does. Tests are committed before the code, and assertions are never weakened to make code pass.
+
+### Agents for each provider
+
+Each agent is written once and built for Claude Code, Codex and Cursor:
+
+- `agents/<name>.md` holds the `name`, the `description` and the instructions.
+- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`) and `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`). Leaving out a provider's table skips the agent for that provider.
+- `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and refuses a commit where it is out of date.
+
+```toml
+[check-runner]
+readonly = true
+claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Glob"], color = "cyan" }
+codex = { model = "gpt-6-luna", effort = "low" }
+cursor = { model = "grok-4.7-low" }
+```
+
+Claude preloads `skills`; Codex and Cursor get a first line telling the agent to read them. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`.
 
 ## Status
 
