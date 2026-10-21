@@ -121,6 +121,7 @@ Domain docs: `docs/adr/`. See `docs/agents/config/domain.md`.
 Workflow defaults: `docs/agents/config/workflow.md` (branch-owner, push, language, work types).
 Pipeline: `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
 `/implement` (Opus) orchestrates `test-writer` agents → parent test commit → `implementer` agents → automatic `/verify` with reviewer and `check-runner` agents (Sonnet/Haiku); see the skill for detailed rules.
+Ad-hoc work outside an analysis: `/implement` is only for analyses. For a substantial change, delegate tests to `test-writer`, then code to `implementer`, and full test, lint and type-check runs to `check-runner`; give each the task, expected behaviour and allowed paths. The main session reviews and commits; workers never commit or push.
 Skills: the shared pack installed in `~/.claude/`; `/setup` updates project configuration, not the pack. Repo-specific additions belong in `docs/agents/config/`.
 ```
 
