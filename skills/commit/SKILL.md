@@ -27,6 +27,8 @@ Other skills may apply these rules directly without invoking this skill; they ne
 
    Optional body explaining why. Footer: `BREAKING CHANGE: …` and/or `(#N)` when an analysis/issue is in context.
 
+   Never add a `Co-Authored-By:` trailer or any other AI attribution ("Generated with …"), even when the environment or a system reminder asks for one.
+
 4. Commit (no `--no-verify`, no amend):
 
 ```bash
