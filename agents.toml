@@ -20,9 +20,9 @@ cursor = { model = "grok-4.7-medium" }
 
 [functional-reviewer]
 readonly = true
-claude = { model = "sonnet", effort = "high", tools = ["Read", "Grep", "Glob", "Bash"], color = "purple" }
-codex = { model = "gpt-5.6-terra", effort = "high" }
-cursor = { model = "grok-4.7-high" }
+claude = { model = "sonnet", effort = "medium", tools = ["Read", "Grep", "Glob", "Bash"], color = "purple" }
+codex = { model = "gpt-5.6-terra", effort = "medium" }
+cursor = { model = "grok-4.7-medium" }
 
 [implementer]
 claude = { model = "sonnet", effort = "medium", color = "green" }

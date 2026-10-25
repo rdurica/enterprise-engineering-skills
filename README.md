@@ -83,7 +83,7 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 |-------|---------|--------------|-------|
 | `test-writer` | `/implement`, ad-hoc work | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
 | `implementer` | `/implement`, repairs, ad-hoc work | Writes production code against the committed tests | Sonnet, medium |
-| `functional-reviewer` | `/verify` | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, high |
+| `functional-reviewer` | `/verify` | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
 | `code-reviewer` | `/code-review` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, medium |
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills, any full check run | Runs tests, lint and type checks; returns only failures | Haiku, low |
