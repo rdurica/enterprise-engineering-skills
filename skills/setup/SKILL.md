@@ -119,7 +119,7 @@ Workflow defaults: `docs/agents/config/workflow.md` (branch-owner, push, languag
 Pipeline: `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → finalize).
 `/implement` (Opus) orchestrates `test-writer` agents → parent test commit → `implementer` agents → automatic `/verify` with reviewer and `check-runner` agents (Sonnet/Haiku); see the skill for detailed rules.
 Decisions: recorded in `## Further Notes` of each analysis, with the rejected alternative; there are no ADRs.
-Ad-hoc work outside an analysis: `/implement` is only for analyses. For a substantial change, delegate tests to `test-writer`, then code to `implementer`, and full test, lint and type-check runs to `check-runner`; give each the task, expected behaviour and allowed paths. The main session reviews and commits; workers never commit or push.
+Ad-hoc work outside an analysis goes through the `change` skill: tests by `test-writer`, code by `implementer`, checks by `check-runner`, review by `code-reviewer`. The main session reviews and commits; workers never commit or push.
 Skills: the shared pack installed in `~/.claude/`; `/setup` updates project configuration, not the pack. Repo-specific additions belong in `docs/agents/config/`.
 ```
 
@@ -136,7 +136,7 @@ First line must identify backend: `# Issue tracker: GitHub` or `# Issue tracker:
 
 Skip this step when the current working directory **is** the pack itself (cwd contains `skills/setup/SKILL.md` and `agents/`).
 
-The pipeline is the skills `analyze`, `implement`, `verify`, `code-review`, `ux-review`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack; run the pack's `install.sh` if not. `/setup` does not pull or update the pack.
+The pipeline is the skills `analyze`, `implement`, `change`, `verify`, `code-review`, `ux-review`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack; run the pack's `install.sh` if not. `/setup` does not pull or update the pack.
 
 Project definitions take precedence over user ones with the same name, so old project copies shadow the global pack. If step 1 found any, list the exact pipeline skill folders and agent files, plus copies of `setup`, `git-release`, `monorepo-update`, the retired skill `align` and retired agents (`analyst`, `committer`, `correctness-reviewer`, `craft-reviewer`, `spec-reviewer`, `standards-reviewer`), and offer their removal. Never delete without confirmation, never remove a whole skills directory or unrelated skills, and validate that every path stays inside the target repo without symlinked parents. If removal is declined, warn that the copies still shadow the global pack.
 

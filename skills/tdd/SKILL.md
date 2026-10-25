@@ -1,8 +1,10 @@
 ---
 name: tdd
 description: >-
-  Test-driven development with red-green-refactor vertical slices. Use when
-  building features or fixes test-first, or when implement delegates testing.
+  Test-driven development playbook with red-green-refactor vertical slices.
+  Read by test-writer and when the user explicitly asks for TDD; delegated
+  implementation outside an analysis goes through the change skill, analyses
+  through implement.
   For PHP backend, HTTP goes to integration-tests; handler/domain decision
   logic always gets PHPUnit unit tests (HTTP does not replace them). Always
   run the failing test (Verify RED) before writing production code.
@@ -18,13 +20,13 @@ See [tests.md](tests.md), [mocking.md](mocking.md), [refactoring.md](refactoring
 
 ## Execution modes
 
-For a **direct** invocation, use a vertical red-green-refactor loop:
+For a **direct** invocation in the main session — a small change below the `change` skill's delegation threshold, or the user asking to pair on TDD — use a vertical red-green-refactor loop:
 
 ```
 RED test1 → Verify RED → GREEN impl1 → RED test2 → Verify RED → GREEN impl2 → …
 ```
 
-Under `/implement`, follow its [Execution contract](../implement/SKILL.md#execution-contract): test-only workers first, reviewed test commits, then new implementation workers. Stay in your assigned phase and scope; return results to the parent without git/delivery operations.
+Under `/implement` or `change`, follow `/implement`'s [Execution contract](../implement/SKILL.md#execution-contract): test-only workers first, reviewed tests (committed under `/implement`), then new implementation workers. Stay in your assigned phase and scope; return results to the parent without git/delivery operations.
 
 ## Workflow
 

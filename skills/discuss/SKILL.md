@@ -2,10 +2,12 @@
 name: discuss
 description: >-
   Open-ended discussion of a question or idea: explore the context, lay out
-  the possible approaches with trade-offs and talk them through. Changes no
-  project code and creates no tickets or deliverables.
+  the possible approaches with trade-offs and talk them through. Use when the
+  user wants to weigh options, compare approaches or think a design question
+  through without asking for a change yet ("what are our options for…",
+  "should we…"). Changes no project code and creates no tickets or
+  deliverables.
 argument-hint: "[topic]"
-disable-model-invocation: true
 ---
 
 # Discuss

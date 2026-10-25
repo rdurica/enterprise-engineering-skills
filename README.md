@@ -75,6 +75,8 @@ flowchart TD
 
 A **simple bug** skips step 1: a ticket with Acceptance goes straight to `/implement`.
 
+**Work without an analysis** — "add an endpoint", "fix this bug", "refactor that module" — starts the **`change`** skill on its own when the change adds behaviour or touches more than one file. It writes a short brief, then runs `test-writer`, `implementer`, `check-runner` and `code-reviewer` the same way, and commits only when you ask. A typo or one-line fix is edited directly; a large or open-ended change gets a suggestion to run `/analyze` first.
+
 **Decisions** live only in `## Further Notes` of each analysis, each with its rejected alternative. The pack writes and reads no ADRs.
 
 To **change an existing analysis** — before `/implement`, or after it when a change request arrives — run **`/analyze-modify #N`** with what should be different. Claude checks the analysis, decisions in earlier analyses and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked, `## Revisions` at the end records the modification, and `/implement #N` continues on the same branch with only the unchecked items.
@@ -83,14 +85,14 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 
 | Agent | Used by | What it does | Model |
 |-------|---------|--------------|-------|
-| `test-writer` | `/implement`, ad-hoc work | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
-| `implementer` | `/implement`, repairs, ad-hoc work | Writes production code against the committed tests | Sonnet, medium |
+| `test-writer` | `/implement`, `change` | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
+| `implementer` | `/implement`, `change`, repairs | Writes production code against the committed tests | Sonnet, medium |
 | `functional-reviewer` | `/verify` | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
-| `code-reviewer` | `/code-review` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, medium |
+| `code-reviewer` | `/code-review`, `change` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, medium |
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills, any full check run | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
-`/analyze`, `/analyze-modify` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
+`/analyze`, `/analyze-modify`, `change`, `/discuss` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
 
 - **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
 - **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.
@@ -149,6 +151,10 @@ Skills and agents are used only from the global install in `~/.claude/`; `/setup
 
 ## Other skills
 
+Most skills run only as slash commands. Claude starts these on its own when the request fits: `change` (implementation without an analysis), `implement` (a request naming an analysis), `discuss` (weighing options), `tdd`, `integration-tests`, `commit` and `git-release`.
+
+- **`change`** — implementation without an analysis through the same agents; see [Workflow](#workflow).
+- **`/discuss`** — talk a question through with options and trade-offs; changes nothing.
 - **`/commit`** — Conventional Commits from the diff; `/commit push` also pushes.
 - **`/git-release`** — semver tag and GitHub release with a changelog.
 - **`/monorepo-update`** — bump submodules or check out an analysis branch in every delivery root.

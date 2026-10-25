@@ -1,11 +1,12 @@
 ---
 name: implement
 description: >-
-  Orchestrate a published analysis locally: fresh sub-agents write tests,
-  parent verifies RED and commits tests, then fresh sub-agents implement.
-  Parallelize independent paths and resources; parent commits and runs
-  verify automatically. Use for /implement #N or a local analysis.
-disable-model-invocation: true
+  Implements a published analysis end to end. Use whenever the user asks to
+  implement, build or continue an analysis by its number, slug or path
+  (/implement #N, "implement analysis 003"): fresh sub-agents write tests,
+  parent verifies RED and commits tests, then fresh sub-agents implement;
+  parent commits and runs verify automatically. For a change with no
+  analysis, use the change skill instead.
 model: opus
 effort: medium
 ---

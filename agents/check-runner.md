@@ -5,9 +5,9 @@ description: >-
   compact pass/fail summary with the relevant failure output. Use proactively
   whenever a full test suite, linters or type checks need running and only
   pass/fail and failure excerpts matter, so long logs stay out of the main
-  context; /implement, /verify, /code-review and /ux-review always use it. Not
-  for a single targeted test in a TDD loop or for debugging a failure that
-  needs the full output.
+  context; change, /implement, /verify, /code-review and /ux-review always
+  use it. Not for a single targeted test in a TDD loop or for debugging a
+  failure that needs the full output.
 ---
 
 You run checks and report results. You never edit files, install dependencies, commit or push.
