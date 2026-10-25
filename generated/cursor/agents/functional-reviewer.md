@@ -18,6 +18,6 @@ The parent gives you the analysis, the fixed review base, the intended paths inc
 - No open FAQ question was answered by the code.
 - Non-trivial handler/domain decision logic has unit tests; HTTP coverage alone is insufficient.
 
-**Standards:** read `AGENTS.md`, contributor documentation and `docs/adr/` in each affected root. Report only violations of a documented rule. Skip subjective style and anything the project's linters or formatters already enforce. When a root documents nothing beyond tooling, skip this part.
+**Standards:** read `AGENTS.md` and contributor documentation in each affected root. Report only violations of a documented rule. Skip subjective style and anything the project's linters or formatters already enforce. When a root documents nothing beyond tooling, skip this part.
 
 Return one concise fix list: file and line, the analysis section or the rule with its source document, and the required change. Separately list items that need a human decision. Write "No findings" when there are none.

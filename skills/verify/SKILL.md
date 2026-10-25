@@ -41,7 +41,7 @@ Exclude unrelated work. Review delivery roots only, never a monorepo container r
 Run one `functional-reviewer` agent with fresh scoped context, alongside the full documented suite through `check-runner`. Read-only review can run in parallel with checks; checks sharing mutable test resources need isolation or sequential execution.
 
 - **Spec:** full relevant analysis and diff. Check Acceptance completeness, scope vs Change/Architecture, API contracts, invented FAQ answers and test coverage. Existing unchanged tests are valid coverage. Non-trivial handler/domain decision logic needs unit tests; HTTP coverage alone is insufficient.
-- **Standards:** diff plus `AGENTS.md`, contributor standards and ADRs. Report documented violations with file, rule and required change. Skip subjective style and violations already handled by tooling.
+- **Standards:** diff plus `AGENTS.md` and contributor standards. Report documented violations with file, rule and required change. Skip subjective style and violations already handled by tooling.
 - **Local checks:** documented tests, lint/type checks and other relevant commands from each affected root’s `AGENTS.md`.
 
 The reviewer returns a concise fix list, not comments. Delegate repairs to `implementer` (or `test-writer` for justified test corrections), review and commit them, then re-run checks for the affected paths. A repair cycle starts a new `functional-reviewer` on the delta since the previous cycle's last commit, with the previous fix list; the code review that follows covers the whole diff again. Follow the Execution contract for justified test corrections and separate test commits. Max 3 Functional repair cycles; unresolved failures → Fail.

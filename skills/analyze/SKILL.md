@@ -24,7 +24,7 @@ If the conversation already settled some decisions, interview only for the gaps.
 
 ### 1. Explore
 
-If a codebase is available, read relevant code plus `docs/adr/` if it exists (see `docs/agents/config/domain.md` if configured) and respect those decisions.
+If a codebase is available, read relevant code, `AGENTS.md` and the Further Notes of related earlier analyses (active and `done/`), and respect the decisions recorded there.
 
 If a question can be answered by exploring the codebase, explore instead of asking. Delegate broad searches across many files to the built-in `Explore` agent and keep only its conclusions; read the few files that decide a question yourself.
 
@@ -56,7 +56,7 @@ List every decision the interview resolved and put each one in a bucket:
 - **Further Notes** — an alternative was in play. It becomes a `## Further Notes` bullet naming the rejected alternative.
 - **Obvious** — no alternative was ever in play. Nothing to record.
 
-Do not write ADRs, and do not let a decision leave the session in no bucket at all.
+Further Notes is the only place decisions are recorded; do not let a decision leave the session in no bucket at all.
 
 Show the bucketed list and ask once with `AskUserQuestion`:
 

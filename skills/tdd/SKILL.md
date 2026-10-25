@@ -30,8 +30,6 @@ Under `/implement`, follow its [Execution contract](../implement/SKILL.md#execut
 
 ### 1. Planning
 
-Read `docs/adr/` if it exists.
-
 When `/implement` invoked this skill, the published analysis is the plan: cover every assigned Acceptance item in your phase and permitted paths. Respect shared-resource constraints and return commands, results, coverage and blockers.
 
 Otherwise, before writing code:

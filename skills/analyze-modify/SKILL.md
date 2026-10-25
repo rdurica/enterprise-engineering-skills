@@ -2,9 +2,9 @@
 name: analyze-modify
 description: >-
   Modify an existing analysis — before or after /implement — so it stays one
-  consistent current state: explore the analysis, ADRs and code, name the risks
-  the modification brings and agree them with the user, then rewrite the
-  analysis in place. Use when a published analysis needs to change.
+  consistent current state: explore the analysis, earlier decisions and code,
+  name the risks the modification brings and agree them with the user, then
+  rewrite the analysis in place. Use when a published analysis needs to change.
 disable-model-invocation: true
 ---
 
@@ -27,13 +27,13 @@ Decide the phase:
 
 ### 2. Find inconsistencies
 
-Walk every section — Current State, Change, Affected Areas, Architecture, API Contracts, Acceptance, Further Notes — and list what the modification contradicts, makes obsolete or leaves missing. Check it against `docs/adr/` and, when implemented, against the committed tests and code. Delegate broad searches to the built-in `Explore` agent and keep only its conclusions.
+Walk every section — Current State, Change, Affected Areas, Architecture, API Contracts, Acceptance, Further Notes — and list what the modification contradicts, makes obsolete or leaves missing. Check it against the decisions in Further Notes of this and related analyses and, when implemented, against the committed tests and code. Delegate broad searches to the built-in `Explore` agent and keep only its conclusions.
 
 If the modification rewrites most of Change and Acceptance or changes the goal, stop and recommend a fresh `/analyze` instead.
 
 ### 3. Agree the risks
 
-Name each concrete risk the modification brings: a broken API contract or client compatibility, data or migration impact, committed tests or code that stop matching, a conflict with an ADR, scope growth. Put them to the user one at a time with `AskUserQuestion` and a recommended answer, as in the `/analyze` interview — accept, mitigate, or change the modification. Ask the open decisions the modification creates the same way. Explore instead of asking whenever the code can answer.
+Name each concrete risk the modification brings: a broken API contract or client compatibility, data or migration impact, committed tests or code that stop matching, a conflict with a decision in another analysis's Further Notes, scope growth. Put them to the user one at a time with `AskUserQuestion` and a recommended answer, as in the `/analyze` interview — accept, mitigate, or change the modification. Ask the open decisions the modification creates the same way. Explore instead of asking whenever the code can answer.
 
 Do not rewrite anything until every risk is agreed or parked in FAQ.
 
@@ -42,7 +42,7 @@ Do not rewrite anything until every risk is agreed or parked in FAQ.
 Follow [analysis-template.md](../analyze/analysis-template.md) for every section you touch.
 
 - Rewrite the affected sections so the whole analysis describes one current state. No "new", "changed", "originally" or strikethrough in the body.
-- An accepted risk with its mitigation is a decision: put it in Architecture or Further Notes, with the rejected alternative. Do not write or supersede ADRs; a conflict with an existing ADR is a risk to agree in step 3.
+- An accepted risk with its mitigation is a decision: put it in Further Notes with the rejected alternative, and in Architecture when it shapes the design. A conflict with a decision in another analysis is a risk to agree in step 3.
 - Acceptance: changed and new items become `- [ ]`, dropped items are deleted, untouched completed items stay `- [x]`.
 - Unresolved questions go to `## FAQ` under Affected Areas.
 - Append one bullet to `## Revisions`, the last section: date, the modification in one sentence, the risks the user accepted and, when tests are already committed, the tests that must change. `/implement` treats those tests as an agreed contract change.
