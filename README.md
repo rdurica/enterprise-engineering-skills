@@ -166,7 +166,7 @@ No configuration is required. Each setting has a built-in default (agentic mode:
 | `branch-owner` | `agent` | `agent` (agent manages branch and PR) · `human` (stays on your branch, PRs are yours) |
 | `push` | `finalize` | `finalize` (push and watch CI) · `never` (local commits only) |
 | `ux-review` | `disabled` | `enabled` · `disabled` |
-| `language` | conversation language for `/analyze` and `/analyze-modify`; the analysis language for `/implement`, `/verify` and `/complete` | `en` · `cs` for analysis prose and comments |
+| `language` | conversation language for `/analyze` and `/analyze-modify`; the analysis language for `/implement`, `/verify` and `/complete` | `en` · `cs` for analysis prose, comments and the PR Summary |
 | `tracker` | detected | `github` · `local` |
 | Monorepo | detected | `## Monorepo` section (project file only) |
 

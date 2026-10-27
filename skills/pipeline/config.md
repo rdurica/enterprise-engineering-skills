@@ -47,7 +47,7 @@ Code review itself (Phase 2) has no switch; it always runs.
 
 ### language
 
-`/analyze` writes the analysis prose in this language — title and every section body. Section headings stay English, as do identifiers, paths and HTTP contracts. `/implement` and `/verify` comments on the **analysis** (never on the PR) use the same language.
+`/analyze` writes the analysis prose in this language — title and every section body. Section headings stay English, as do identifiers, paths and HTTP contracts. `/implement` and `/verify` comments on the **analysis** (never on the PR) use the same language, and so does the content of the PR `## Summary` that `/verify` writes; the PR title and commit messages stay English.
 
 When `language` is not set at any level:
 
