@@ -65,6 +65,7 @@ When `language` is not set at any level:
 | **feature** | `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship) | agent or human |
 | **complex bug** | same as feature; `/analyze` interview settles an unclear root cause | agent or human |
 | **simple bug** | `/analyze` bug fast-path (no interview) or a ticket with Acceptance → `/implement` | human |
+| **planned change** | `/idea` → (later) `/analyze #N` → `/implement` → `/verify`; the idea is written now, the analysis when the change is due | agent or human |
 | **trivial fix** | outside pipeline — direct fix and commit | n/a |
 
 ### Bug fast-path
@@ -94,7 +95,7 @@ Example: a global `- language: cs` and a project file containing only `- ux-revi
 
 Used when neither the session nor the project file sets `tracker` or the legacy `active` (a global `tracker` or `active` is ignored). In a monorepo, detect in the container root. First match wins:
 
-1. `docs/agents/analysis/NNN-*.md` or `docs/agents/analysis/done/NNN-*.md` exists → `local`.
+1. `docs/agents/analysis/NNN-*.md`, `docs/agents/analysis/ideas/NNN-*.md` or `docs/agents/analysis/done/NNN-*.md` exists → `local`.
 2. `git remote get-url origin` points to `github.com` → `github`.
 3. Otherwise → `local`.
 

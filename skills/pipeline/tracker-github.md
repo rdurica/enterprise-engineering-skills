@@ -33,6 +33,7 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 
 | Label | Set by | Meaning |
 |-------|--------|---------|
+| `idea` | `/idea` | Idea, not yet analyzed. `/analyze #N` replaces it with `analysis`; `/implement` refuses it |
 | `analysis` | `/analyze` | This issue is an analysis |
 | `ready-for-agent` | human, after validating the analysis | Auto-trigger may start `/implement`. Agent never adds this. Happy path: user runs `/implement` after review |
 | `in-progress` | `/implement` | Agent is working |
@@ -49,7 +50,7 @@ Create a label on first use if it is missing (`gh label create <name> [-R …]`;
 
 The normal workflow starts locally when the user invokes `/implement`; the labels below support optional automation, not a requirement to claim work.
 
-**Lifecycle:** `analysis` → user reviews, then `/implement` (optional `ready-for-agent` for auto-start) → `in-progress` → `ready-to-review` → `/complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
+**Lifecycle:** `idea` → `/analyze #N` → `analysis` → user reviews, then `/implement` (optional `ready-for-agent` for auto-start) → `in-progress` → `ready-to-review` → `/complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
 
 ## Delivery section
 
@@ -61,11 +62,27 @@ After `/analyze`, prepend to issue body:
 - Ticket: [AB#4821](https://dev.azure.com/org/project/_workitems/edit/4821)
 - Kind: feature | bug | chore
 - Branch: `feature/4821-group-pricing`
+- Depends on: #41, #42               (optional)
 ```
 
 `Ticket` is the external tracker item when there is one (clickable link), otherwise this issue: `Ticket: [#<N>](<issue url>)`. `Branch` reuses that same number as `feature/<ticket>-<short-slug>`. Commits and PRs still reference the analysis issue as `#N` — that is the number GitHub autolinks.
 
+`Depends on` (optional, written by `/idea`, kept on conversion) lists issue numbers that must be closed first. A dependency is satisfied when `gh issue view <dep> [-R …] --json state` reports `CLOSED`; `ready-to-review` does not count, because the code is not on main yet.
+
 ## Skill operations
+
+### `/idea` — create and edit an idea
+
+Ensure the `idea` label exists (`gh label create idea --description "Idea, not yet analyzed"`; ignore "already exists").
+
+| Operation | Command |
+|-----------|---------|
+| Create | `gh issue create [-R …] --title "Idea: ..." --body-file <file> --label idea` |
+| Add Delivery | `gh issue edit <N> [-R …] --body-file <file-with-delivery>` (the number is known only after creating) |
+| Rewrite (`/idea #N`) | `gh issue edit <N> [-R …] --body-file <file>` |
+| List open ideas and analyses | `gh issue list [-R …] --state open --json number,title,body,labels` |
+
+Refuse `/idea #N` when the issue has the `analysis` label.
 
 ### `/analyze` — publish analysis
 
@@ -81,13 +98,19 @@ gh issue edit <number> -R <owner/repo> --body-file <analysis-file-with-delivery>
 
 Do not add `ready-for-agent`.
 
+**Converting an idea** (`/analyze #N` on an issue labelled `idea`) reuses the same issue; no new one is created. First check `Depends on` with `gh issue view <dep> [-R …] --json state`. Then write the full analysis (with the idea's `## Delivery`) to a file and:
+
+```bash
+gh issue edit <N> [-R …] --title "Analysis: ..." --body-file <analysis-file> --remove-label idea --add-label analysis
+```
+
 ### `/analyze-modify` — revise analysis
 
 Same `-R` rule as `/analyze`. Write the full revised body to a temporary file.
 
 | Operation | Command |
 |-----------|---------|
-| Fetch analysis | `gh issue view <N> [-R …] --comments` |
+| Fetch analysis | `gh issue view <N> [-R …] --comments` (refuse an issue labelled `idea`; point to `/idea #N` or `/analyze #N`) |
 | Update body | `gh issue edit <N> [-R …] --body-file <file>` |
 | Comment | `gh issue comment <N> [-R …] --body-file <file>` (one-paragraph summary headed `## Revision`; only for an implemented analysis) |
 | Update revision comment | `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<file>` (find `<id>` via `gh api repos/<owner>/<repo>/issues/<N>/comments`; used when the revision is still unchecked) |
@@ -102,6 +125,7 @@ Same `-R` rule as `/analyze` (container-root in monorepo). Fetch `#N` by number.
 | Operation | Command |
 |-----------|---------|
 | Fetch analysis/ticket | `gh issue view <N> [-R …] --comments` |
+| Refuse | An issue labelled `idea`, or with an open `Depends on` (`gh issue view <dep> [-R …] --json state` is not `CLOSED`), stops before any label changes. Checked on every run, resume included |
 | Set in-progress | `gh issue edit <N> [-R …] --remove-label ready-for-agent --remove-label needs-attention --add-label in-progress` |
 | Blocked by open FAQ | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` |
 | Update Acceptance checkboxes | `gh issue edit <N> [-R …] --body-file <file>` (checked items in `## Acceptance` and realized entries in `## Revisions`) |

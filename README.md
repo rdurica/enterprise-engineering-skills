@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed. Re-run it once after pulling the release that adds the hidden `pipeline` skill.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed. Re-run it once after pulling the release that adds the hidden `pipeline` skill, and again after pulling any release that adds a new skill such as `idea`.
 
 A project works without any configuration: the tracker and monorepo are detected and every other setting has a built-in default. Optionally create your personal defaults in the global file `~/.config/enterprise-engineering-skills/workflow.md`, either through `/setup` or by hand:
 
@@ -26,10 +26,11 @@ A project works without any configuration: the tracker and monorepo are detected
 
 ## Workflow
 
-You take part in only four steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session sits between them, reviews every handoff and makes the commits.
+You take part in only a few steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session sits between them, reviews every handoff and makes the commits.
 
 ```mermaid
 flowchart TD
+    Idea(["<b>you · /idea</b><br/>note a change for later · optional"])
     Analyze(["<b>you · /analyze</b><br/>agree on the change"])
     Review(["<b>you · review</b><br/>then run /implement #N"])
     Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
@@ -53,6 +54,7 @@ flowchart TD
     Ready(["<b>ready-to-review</b><br/>your turn"])
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
 
+    Idea -. "when due: /analyze #N" .-> Analyze
     Analyze -- "published analysis" --> Review -- "approved analysis" --> testWriter
     Modify -- "revised analysis" --> Review
     Bug --> testWriter
@@ -63,7 +65,7 @@ flowchart TD
     classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Analyze,Review,Bug,Modify human
+    class Idea,Analyze,Review,Bug,Modify human
     class testWriter,implementer,functional,codeReview,ux agent
     class Ready ready
     class Attention blocked
@@ -72,6 +74,7 @@ flowchart TD
 
 **Blue** = you · **orange** = agents · *italics* = the skill that runs the agent. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
 
+0. **`/idea`** (optional) — write a change down as a short idea: Goal, Change and optional `Depends on`. No code is read in depth and no decisions are settled; the detailed analysis comes later with **`/analyze #N`** on the same issue, once the change is due and against the code as it is then.
 1. **`/analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
 2. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
    - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
@@ -81,6 +84,8 @@ flowchart TD
    - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
 
 3. **You review the delivery** and run **`/complete #N`**. For agent-owned delivery with an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. Human-owned delivery, or delivery without a PR, is left to you and `/complete` does nothing.
+
+To **plan several follow-up changes**, write each as an idea and give it `Depends on: #41, #42` in its Delivery. `/idea` proposes dependencies from the open ideas and analyses and warns about duplicates. `/analyze #N` on an idea whose dependency is still open stops and asks whether to continue; `/implement` refuses an idea and an analysis with an unmet dependency, with no override. A dependency is met when its issue is closed (locally, its file is in `done/`).
 
 A **simple bug** skips step 1: a ticket with Acceptance goes straight to `/implement`.
 
@@ -128,6 +133,7 @@ Opus is used where decisions are made; the pipeline and its agents run on Sonnet
 | Skill | Model, effort |
 |-------|---------------|
 | `/analyze`, `/analyze-modify`, `/discuss` | Opus |
+| `/idea` | Sonnet, medium |
 | `/implement` | Sonnet, high |
 | `/verify`, `/code-review` | Opus, medium when run directly; inside `/implement` they follow its session |
 | `/ux-review`, `/git-release`, `/monorepo-update` | Sonnet, medium |
@@ -147,10 +153,11 @@ Change a role's model or effort in `agents.toml` (see [Agents for each provider]
 
 ## Status
 
-With the local tracker there is no status: an analysis in `docs/agents/analysis/` is active, and a green `/verify` moves it to `done/`. Blockers are noted under `## Comments`. On GitHub, the issue carries these labels:
+With the local tracker there is no status: an analysis in `docs/agents/analysis/` is active, an idea in `docs/agents/analysis/ideas/` is waiting for `/analyze`, and a green `/verify` moves it to `done/`. Blockers are noted under `## Comments`. On GitHub, the issue carries these labels:
 
 | Label | Meaning |
 |-------|---------|
+| `idea` | An idea not yet analyzed; `/analyze #N` converts it to `analysis`, `/implement` refuses it |
 | `in-progress` | `/implement` is running or was interrupted; rerun it to resume |
 | `needs-attention` | A blocker needs your decision; resolve it and rerun `/implement` |
 | `ready-to-review` | All gates passed; your turn to review, then `/complete` |

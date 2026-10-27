@@ -24,7 +24,7 @@ Every step shows a preview and waits for confirmation before writing or deleting
 
 Skip when the current working directory **is** the pack (it contains `skills/setup/SKILL.md` and `agents/`).
 
-The pipeline is the skills `pipeline`, `analyze`, `analyze-modify`, `implement`, `change`, `verify`, `code-review`, `ux-review`, `complete`, `monorepo-update`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack. If any is missing, offer to run the pack's `install.sh`.
+The pipeline is the skills `pipeline`, `idea`, `analyze`, `analyze-modify`, `implement`, `change`, `verify`, `code-review`, `ux-review`, `complete`, `monorepo-update`, `tdd`, `integration-tests` and `commit`, and the agents `test-writer`, `implementer`, `check-runner`, `functional-reviewer`, `code-reviewer` and `ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack. If any is missing, offer to run the pack's `install.sh`.
 
 ### 2. Global file
 
