@@ -30,53 +30,53 @@ You take part in only a few steps. Everything after `/implement #N` is a chain o
 
 ```mermaid
 flowchart TD
-    subgraph Plan["You · plan the change"]
-        direction LR
-        Idea(["<b>/idea</b><br/>note it for later · optional"])
-        Analyze(["<b>/analyze</b><br/>agree on the change"])
-        Modify(["<b>/analyze-modify</b><br/>revise an analysis"])
-        Idea -. "when due:<br/>/analyze #N" .-> Analyze
-    end
+    Idea(["<b>/idea</b><br/>note a change for later"])
+    Analyze(["<b>/analyze</b><br/>agree on the change"])
+    Modify(["<b>/analyze-modify</b><br/>revise an analysis"])
+    Ideas[("<b>ideas</b><br/>label idea · ideas/")]
+    Analyses[("<b>analyses</b><br/>label analysis")]
+    Implement(["<b>/implement #N</b><br/>after your review"])
 
-    Review(["<b>you · review</b><br/>then run /implement #N"])
-    Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
-
-    subgraph Auto["Automatic · /implement continues into /verify"]
+    subgraph Auto["automatic"]
         direction TB
-        testWriter["<b>test-writer</b><br/>writes tests that fail first<br/><i>/implement · tdd, integration-tests</i>"]
-        implementer["<b>implementer</b><br/>writes code until the tests pass<br/><i>/implement</i>"]
-        functional["<b>functional-reviewer</b><br/>match the analysis and project rules?<br/><i>/verify</i>"]
-        codeReview["<b>code-reviewer</b><br/>fixes bugs and security issues,<br/>then duplication and readability<br/><i>/code-review</i>"]
-        ux["<b>ux-reviewer</b><br/>walks the UI in a browser<br/><i>/ux-review · optional</i>"]
+        testWriter["<b>test-writer</b><br/>failing tests first"]
+        implementer["<b>implementer</b><br/>code until tests pass"]
+        functional["<b>functional-reviewer</b><br/>matches the analysis?"]
+        codeReview["<b>code-reviewer</b><br/>fixes bugs and craft"]
+        ux["<b>ux-reviewer</b><br/>walks the UI"]
 
-        testWriter -- "failing tests, committed" --> implementer
-        implementer -- "passing code, committed" --> functional
+        testWriter --> implementer --> functional --> codeReview --> ux
         functional -. "fix list" .-> implementer
-        functional -- "green" --> codeReview
-        codeReview -- "clean diff" --> ux
     end
 
-    Ready(["<b>ready-to-review</b><br/>your turn"])
+    Ready(["<b>ready-to-review</b><br/>your turn · /complete"])
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
+    Done[("<b>done</b><br/>closed · done/")]
 
-    Plan -- "published or revised analysis" --> Review -- "approved analysis" --> testWriter
-    Bug --> testWriter
-    ux -- "delivered" --> Ready
+    Idea -. "writes" .-> Ideas
+    Analyze <-. "when due" .-> Ideas
+    Analyze -- "publishes" --> Analyses
+    Modify <-- "revises" --> Analyses
+    Analyses -- "reads" --> Implement --> testWriter
+    ux --> Ready -- "merged" --> Done
     Auto -. "blocked" .-> Attention
 
     classDef human fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
     classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
+    classDef optional stroke-dasharray:5 5
+    classDef store fill:#f3f4f6,stroke:#4b5563,color:#111827
     classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Idea,Analyze,Review,Bug,Modify human
+    class Idea,Analyze,Modify,Implement human
+    class Idea,Ideas,ux optional
     class testWriter,implementer,functional,codeReview,ux agent
+    class Ideas,Analyses,Done store
     class Ready ready
     class Attention blocked
-    style Plan fill:#f9fafb,stroke:#9ca3af
     style Auto fill:#f9fafb,stroke:#9ca3af
 ```
 
-**Blue** = you · **orange** = agents · *italics* = the skill that runs the agent. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
+**Blue** = you · **orange** = agents · **grey** = where ideas and analyses are stored (GitHub issues or `docs/agents/analysis/`) · **dashed** = optional. `/implement` continues into `/verify` on its own. Every step runs tests, lint and type checks through `check-runner`, which returns only the failures.
 
 0. **`/idea`** (optional) — write a change down as a short idea: Goal, Change and optional `Depends on`. No code is read in depth and no decisions are settled; the detailed analysis comes later with **`/analyze #N`** on the same issue, once the change is due and against the code as it is then.
 1. **`/analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
