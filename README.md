@@ -30,11 +30,16 @@ You take part in only a few steps. Everything after `/implement #N` is a chain o
 
 ```mermaid
 flowchart TD
-    Idea(["<b>you · /idea</b><br/>note a change for later · optional"])
-    Analyze(["<b>you · /analyze</b><br/>agree on the change"])
+    subgraph Plan["You · plan the change"]
+        direction LR
+        Idea(["<b>/idea</b><br/>note it for later · optional"])
+        Analyze(["<b>/analyze</b><br/>agree on the change"])
+        Modify(["<b>/analyze-modify</b><br/>revise an analysis"])
+        Idea -. "when due:<br/>/analyze #N" .-> Analyze
+    end
+
     Review(["<b>you · review</b><br/>then run /implement #N"])
     Bug(["<b>simple bug</b><br/>ticket with Acceptance"])
-    Modify(["<b>you · /analyze-modify</b><br/>revise an existing analysis"])
 
     subgraph Auto["Automatic · /implement continues into /verify"]
         direction TB
@@ -54,9 +59,7 @@ flowchart TD
     Ready(["<b>ready-to-review</b><br/>your turn"])
     Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
 
-    Idea -. "when due: /analyze #N" .-> Analyze
-    Analyze -- "published analysis" --> Review -- "approved analysis" --> testWriter
-    Modify -- "revised analysis" --> Review
+    Plan -- "published or revised analysis" --> Review -- "approved analysis" --> testWriter
     Bug --> testWriter
     ux -- "delivered" --> Ready
     Auto -. "blocked" .-> Attention
@@ -69,6 +72,7 @@ flowchart TD
     class testWriter,implementer,functional,codeReview,ux agent
     class Ready ready
     class Attention blocked
+    style Plan fill:#f9fafb,stroke:#9ca3af
     style Auto fill:#f9fafb,stroke:#9ca3af
 ```
 
