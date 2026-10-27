@@ -8,11 +8,13 @@ Issues and analyses live as markdown files in `docs/agents/analysis/` — one `.
 docs/agents/analysis/
 ├── 001-<slug>.md
 ├── 002-<slug>.md
+├── ideas/
+│   └── 003-<slug>.md
 └── done/
     └── 001-<slug>.md
 ```
 
-IDs are three digits, unique across **`docs/agents/analysis/`** and **`docs/agents/analysis/done/`**. Never reuse. `001` already in either ⇒ next is `002`.
+IDs are three digits, unique across **`docs/agents/analysis/`**, **`docs/agents/analysis/ideas/`** and **`docs/agents/analysis/done/`**. Never reuse. `001` already in either ⇒ next is `002`.
 
 Bugs are the same files with `Kind: bug` — no separate `bugs/` folder.
 
@@ -21,6 +23,7 @@ Bugs are the same files with `Kind: bug` — no separate `bugs/` folder.
 Scan leading `NNN` from files:
 
 - `docs/agents/analysis/NNN-*.md`
+- `docs/agents/analysis/ideas/NNN-*.md`
 - `docs/agents/analysis/done/NNN-*.md`
 
 Next ID = `max(found) + 1`, or `001` if none. Pad to three digits.
@@ -41,6 +44,8 @@ Kind: feature | bug | chore
 <analysis body sections>
 ```
 
+The `## Delivery` may also hold `- Depends on: 001, 002` (optional): the numbers that must be in `done/` first. A dependency is satisfied when its file is in `done/`; a file still active or in `ideas/` is not.
+
 `Ticket` is the external tracker item when there is one, written as a clickable link; without one it is the plain file number `NNN`. `Branch` reuses that same number as `feature/<ticket>-<short-slug>`.
 
 ## State
@@ -48,11 +53,20 @@ Kind: feature | bug | chore
 The local tracker has **no status**. Never write a `Status:` line or track `in-progress`, `needs-attention` or `ready-to-review` in the file — those are GitHub labels only. The folder is the only state:
 
 - `docs/agents/analysis/` — active: ready to implement, in progress, interrupted or blocked. `/implement` can always run or resume it.
+- `docs/agents/analysis/ideas/` — ideas written by `/idea`, not yet analyzed. Not implementable: `/implement` and `/analyze-modify` do not treat these files as analyses.
 - `docs/agents/analysis/done/` — verified; moved there by a green `/verify`. Not implementable.
 
 When work stops on a blocker (verify fail, or open `## FAQ`), the file stays active and the reason goes under `## Comments` with a timestamp.
 
 ## Skill operations
+
+### `/idea` — create and edit an idea
+
+| Operation | Action |
+|-----------|--------|
+| Create | Compute next ID (scan above), create `docs/agents/analysis/ideas/NNN-<slug>.md` with `# Idea: <title>`, `## Delivery`, `## Goal`, `## Change` |
+| Rewrite (`/idea NNN`) | Rewrite the file in place; keep ID, slug and Delivery. Refuse a file that is an analysis |
+| List open ideas and analyses | Read `ideas/` and the active folder |
 
 ### `/analyze` — publish analysis
 
@@ -60,6 +74,8 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 2. Choose `<slug>` from the analysis title (lowercase, hyphenated)
 3. Create `docs/agents/analysis/NNN-<slug>.md` (no Status line)
 4. Include `## Delivery` with Ticket, Kind and branch `feature/<ticket>-<short-slug>` (ticket falls back to `NNN`)
+
+**Converting an idea** (`/analyze NNN` on `ideas/NNN-<slug>.md`): first check `Depends on` (each must be in `done/`). Then write the analysis with the idea's `## Delivery` and `mv` the file from `docs/agents/analysis/ideas/` to `docs/agents/analysis/` with the same `NNN` and slug; retitle it `# Analysis: <title>`.
 
 ### `/analyze-modify` — revise analysis
 
@@ -78,7 +94,7 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 | Update Acceptance checkboxes | Check off items in `## Acceptance` and the realized entries in `## Revisions` |
 | Comment | Append under `## Comments` (brief interruption/blocker note when needed — not per part) |
 
-`/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `done/`, **stop**.
+`/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `done/`, **stop**. If it is under `ideas/`, **stop** and point to `/analyze NNN`. If a `Depends on` entry is not in `done/`, **stop** and list it; this is checked on every run, resume included.
 
 ### `/verify` — comment on the analysis only
 
