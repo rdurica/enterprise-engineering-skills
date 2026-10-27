@@ -27,8 +27,8 @@ check "idea: body sections Delivery, Goal, Change and Depends on" \
   has_all $i '## Delivery' '## Goal' '## Change' 'Depends on'
 check "idea: refuses an analysis and points to /analyze-modify" has_all $i '/analyze-modify' 'refuse'
 check "idea: warns about duplicates" rx '[Dd]uplic' $i
-check "idea: local ideas/ folder" has $i 'docs/agents/analysis/ideas/'
-check "idea: next step is /analyze #N" has $i '/analyze #'
+check "idea: local ideas/ folder" has 'docs/agents/analysis/ideas/' $i
+check "idea: next step is /analyze #N" has '/analyze #' $i
 check "idea: reads config via pipeline" rx 'pipeline/config\.md' $i
 
 # 2. analyze: idea conversion
@@ -37,8 +37,8 @@ check "analyze: converts an idea in the same issue (Analysis: title, labels)" \
   has_all $a 'Analysis: ' 'idea' 'analysis'
 check "analyze: checks Depends on and asks via AskUserQuestion" has_all $a 'Depends on' 'AskUserQuestion'
 check "analyze: closed issue or done/ satisfies a dependency" rx 'closed' $a
-check "analyze: local move from ideas/" has $a 'ideas/'
-check "analyze: Goal mentioned" has $a 'Goal'
+check "analyze: local move from ideas/" has 'ideas/' $a
+check "analyze: Goal mentioned" has 'Goal' $a
 
 # 3. analysis template
 t=skills/analyze/analysis-template.md
@@ -51,7 +51,7 @@ goal_first() {
 check "template: ## Goal before ## Current State" goal_first
 bug_no_goal() { local l; l="$(grep -F '**Bug:**' $t)"; [[ -n "$l" && "$l" != *Goal* ]]; }
 check "template: bug variant has no Goal" bug_no_goal
-check "template: Delivery allows Depends on" has $t 'Depends on'
+check "template: Delivery allows Depends on" has 'Depends on' $t
 motivation_moved() {
   local cs
   cs="$(sed -n '/^## Current State/,/^## Change/p' $t)"
@@ -63,12 +63,12 @@ check "template: motivation phrase moved from Current State to Goal" motivation_
 m=skills/analyze-modify/SKILL.md
 check "analyze-modify: refuses an idea, points to /idea #N and /analyze #N" \
   has_all $m '/idea #' '/analyze #'
-check "analyze-modify: Goal among reviewed sections" has $m 'Goal'
+check "analyze-modify: Goal among reviewed sections" has 'Goal' $m
 
 # 5. implement
 im=skills/implement/SKILL.md
 check "implement: refuses an idea and points to /analyze #N" has_all $im 'idea' '/analyze #'
-check "implement: checks Depends on" has $im 'Depends on'
+check "implement: checks Depends on" has 'Depends on' $im
 check "implement: closed satisfies, ready-to-review does not" \
   has_all $im 'closed' 'ready-to-review'
 dep_every_run() { grep -E 'Depends on' $im | grep -qE '[Rr]esum|every run|each run|every start'; }
@@ -85,7 +85,7 @@ check "tracker-local: ideas/ folder, mv conversion, done/ satisfies dependency" 
   has_all $l 'docs/agents/analysis/ideas/' 'mv' 'done/' 'Depends on'
 c=skills/pipeline/config.md
 check "config: Work types has /idea path" rx '/idea.*/analyze.*/implement' $c
-check "config: tracker detection includes ideas/NNN-*.md" has $c 'ideas/NNN-'
+check "config: tracker detection includes ideas/NNN-*.md" has 'ideas/NNN-' $c
 
 # 7. functional reviewer and generated agents
 check "functional-reviewer: Goal is not judged" rx 'Goal' agents/functional-reviewer.md
