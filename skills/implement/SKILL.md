@@ -21,6 +21,8 @@ Resolve configuration per `{skills-root}/pipeline/config.md` and tracker operati
 
 Resolve the user’s analysis number or path through the configured tracker. User-invoked `/implement` needs no `ready-for-agent` label. Stop if already `ready-to-review` or archived in local `done/`. Optional auto-start requires `ready-for-agent` or `in-progress`, and must not run while `needs-attention` is set.
 
+Before setting `in-progress`, on every run including resume: an idea (label `idea`, locally a file in `ideas/`) → stop and point to `/analyze #N`; change no labels or branch. An analysis whose `Depends on` is unsatisfied (closed issue or local `done/` file is satisfied; `ready-to-review` while open is not) → stop and list the unsatisfied ones; no bypass.
+
 On GitHub set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels; the local tracker has no status. Take language and branch-owner from the resolved config; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
 
 Open FAQ: work only on decided scope; do not invent answers to unblock it.
