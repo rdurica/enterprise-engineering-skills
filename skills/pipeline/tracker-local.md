@@ -2,10 +2,6 @@
 
 Issues and analyses live as markdown files in `docs/agents/analysis/` — one `.md` per ticket, no per-ticket directories.
 
-Also read `docs/agents/config/workflow.md` for branch-owner and push defaults.
-
-Tracker configuration lives in `docs/agents/config/` (`local-path` in the workflow). Analysis paths below are relative to the repository root, not to `local-path`.
-
 ## Layout
 
 ```

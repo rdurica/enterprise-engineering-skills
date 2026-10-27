@@ -2,14 +2,12 @@
 
 Issues and analyses live as GitHub issues. Use the `gh` CLI.
 
-Also read `docs/agents/config/workflow.md` for branch-owner and push defaults.
-
 ## Which GitHub repo
 
 - **Single repo:** infer from `git remote -v` in the clone (cwd).
-- **Monorepo** (`## Monorepo` in `workflow.md`, or nested git repos / submodules): **always** the **container-root** remote — never a delivery-root (`backend`, `frontend`, …).
+- **Monorepo** (resolved configuration: `## Monorepo` or detected nested repos, see `config.md`): **always** the **container-root** remote — never a delivery-root (`backend`, `frontend`, …).
 
-Resolve container-root `owner/repo` from `git -C <container-root> remote get-url origin` (or `remote:` on `container-root` in `workflow.md` if set). Pass it on every `gh issue` call:
+Resolve container-root `owner/repo` from `git -C <container-root> remote get-url origin` (or `remote:` on `container-root` in the resolved configuration if set). Pass it on every `gh issue` call:
 
 ```bash
 gh issue create -R <owner/container-repo> ...

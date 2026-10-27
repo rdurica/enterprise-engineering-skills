@@ -15,11 +15,11 @@ effort: medium
 
 Finish implementation through Functional → code review → optional UX → Ship/Fail. `/implement` invokes this automatically; the user may also run it directly. Fix actionable findings within the analysis scope; report blockers needing a human decision.
 
-Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`, plus `docs/agents/config/verify.md` if present. Run `/setup` if configuration is missing. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
+Resolve configuration per `{skills-root}/pipeline/config.md` (`language`, `branch-owner`, `push`, `ux-review`, monorepo) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`, plus `docs/agents/config/verify.md` if present. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
 
 Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Push policy is independent of branch ownership; session no-push overrides it in Ship and Fail. No-push skips git publication, CI watches and PR changes; tracker updates remain allowed unless separately restricted.
 
-Comments go on the analysis, never the PR, in the workflow language. Status labels below apply to GitHub only; the local tracker has no status — its file stays active or moves to `done/`. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
+Comments go on the analysis, never the PR, in the resolved `language`. Status labels below apply to GitHub only; the local tracker has no status — its file stays active or moves to `done/`. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
 
 ## Scope
 
@@ -52,7 +52,7 @@ After Functional is green, check off satisfied Acceptance and follow sibling `co
 
 ## 3. UX
 
-If `ux-review: enabled`, follow sibling `ux-review/SKILL.md`; otherwise skip. Its non-UI skip is valid. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
+If the resolved `ux-review` is `enabled`, follow sibling `ux-review/SKILL.md`; otherwise skip. Its non-UI skip is valid. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
 
 After review or UX fixes, rerun checks for the affected paths before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
 
