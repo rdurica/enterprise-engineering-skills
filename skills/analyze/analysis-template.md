@@ -4,7 +4,7 @@ Writing rules and section template for `/analyze`. Delivery and publishing follo
 
 ## Writing style
 
-Keep the analysis easy to scan. Current State and Change each use one paragraph of 2–4 short sentences in plain language. Explain behaviour and user impact there; keep class names, paths, data shapes and implementation steps in Architecture or API Contracts. Avoid repeating the same information across sections.
+Keep the analysis easy to scan. Goal is 1–3 sentences; Current State and Change each use one paragraph of 2–4 short sentences in plain language. Explain behaviour and user impact there; keep class names, paths, data shapes and implementation steps in Architecture or API Contracts. Avoid repeating the same information across sections.
 
 - Backticks are for paths, commands, HTTP routes and literal values. Class, command, DTO and event names in prose stay plain text.
 - Put data shapes in fenced blueprint blocks.
@@ -38,12 +38,20 @@ Name shared seams between units so `/implement` can safely parallelize disjoint 
 
 ## Template
 
+`## Delivery` may also contain `- Depends on: #<N>, …`, carried over from an idea.
+
 <analysis-template>
+
+## Goal
+
+{1–3 sentences: what problem or limitation motivates the change and what
+must hold at the end. No technical detail and no repeat of Change. Omitted in
+the bug variant.}
 
 ## Current State
 
-{2–4 short sentences: how the relevant behaviour works today and what problem
-or limitation motivates the change. No technical inventory or extra bullets.}
+{2–4 short sentences: how the relevant behaviour works today. No technical
+inventory or extra bullets.}
 
 ## Change
 

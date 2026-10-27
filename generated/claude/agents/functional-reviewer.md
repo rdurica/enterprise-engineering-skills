@@ -15,6 +15,7 @@ The parent gives you the analysis, the fixed review base, the intended paths inc
 **Spec:**
 
 - Every Acceptance item is implemented and covered by a test. Existing unchanged tests count as coverage.
+- `## Goal` is not judged; only Acceptance and the criteria here.
 - Scope matches Change and Architecture; nothing outside it.
 - Every endpoint matches its `## API Contracts` block, including the Authorization line.
 - No open FAQ question was answered by the code.

@@ -21,6 +21,8 @@ Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the
 
 Resolve the analysis number or path through the tracker — on the local tracker also look in `done/`. Ask for the modification if the user did not describe it.
 
+An idea (label `idea`, locally a file in `ideas/`) is not an analysis: refuse and point to `/idea #N` to edit the intent or `/analyze #N` to convert it.
+
 Decide the phase:
 
 - **Not implemented** — the Delivery branch does not exist or has no commits past its merge-base, and the analysis carries no pipeline label. Only the document changes.
@@ -28,7 +30,7 @@ Decide the phase:
 
 ### 2. Find inconsistencies
 
-Walk every section — Current State, Change, Affected Areas, Architecture, API Contracts, Acceptance, Further Notes — and list what the modification contradicts, makes obsolete or leaves missing. Check it against the decisions in Further Notes of this and related analyses and, when implemented, against the committed tests and code. Delegate broad searches to the built-in `Explore` agent and keep only its conclusions.
+Walk every section — Goal, Current State, Change, Affected Areas, Architecture, API Contracts, Acceptance, Further Notes — and list what the modification contradicts, makes obsolete or leaves missing. Check it against the decisions in Further Notes of this and related analyses and, when implemented, against the committed tests and code. Delegate broad searches to the built-in `Explore` agent and keep only its conclusions.
 
 If the modification rewrites most of Change and Acceptance or changes the goal, stop and recommend a fresh `/analyze` instead.
 
