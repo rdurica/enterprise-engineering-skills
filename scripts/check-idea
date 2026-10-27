@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Verify the structurally checkable Acceptance items of issue #3 (/idea, just-in-time analysis).
+# Prints one PASS/FAIL line per check and exits 1 when any check fails.
+set -euo pipefail
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  if "$@" >/dev/null 2>&1; then echo "PASS  $desc"; else echo "FAIL  $desc"; fails=$((fails + 1)); fi
+}
+
+has() { grep -qF -- "$1" "$2"; }                 # has <text> <file>
+has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || return 1; done; }
+none() { ! grep -rqE -- "$1" "${@:2}"; }         # none <regex> <paths...>
+rx() { grep -qE -- "$1" "$2"; }                  # rx <regex> <file>
+
+# 1. idea skill
+i=skills/idea/SKILL.md
+check "idea: SKILL.md exists" test -f $i
+idea_fm() { has_all $i "disable-model-invocation: true" "model: sonnet" "effort: medium"; }
+check "idea: frontmatter (hidden from model, sonnet, medium)" idea_fm
+check "idea: title 'Idea: ' and label idea" has_all $i 'Idea: ' 'idea'
+check "idea: body sections Delivery, Goal, Change and Depends on" \
+  has_all $i '## Delivery' '## Goal' '## Change' 'Depends on'
+check "idea: refuses an analysis and points to /analyze-modify" has_all $i '/analyze-modify' 'refuse'
+check "idea: warns about duplicates" rx '[Dd]uplic' $i
+check "idea: local ideas/ folder" has $i 'docs/agents/analysis/ideas/'
+check "idea: next step is /analyze #N" has $i '/analyze #'
+check "idea: reads config via pipeline" rx 'pipeline/config\.md' $i
+
+# 2. analyze: idea conversion
+a=skills/analyze/SKILL.md
+check "analyze: converts an idea in the same issue (Analysis: title, labels)" \
+  has_all $a 'Analysis: ' 'idea' 'analysis'
+check "analyze: checks Depends on and asks via AskUserQuestion" has_all $a 'Depends on' 'AskUserQuestion'
+check "analyze: closed issue or done/ satisfies a dependency" rx 'closed' $a
+check "analyze: local move from ideas/" has $a 'ideas/'
+check "analyze: Goal mentioned" has $a 'Goal'
+
+# 3. analysis template
+t=skills/analyze/analysis-template.md
+goal_first() {
+  local g c
+  g="$(grep -nF '## Goal' $t | head -1 | cut -d: -f1)"
+  c="$(grep -nF '## Current State' $t | head -1 | cut -d: -f1)"
+  [[ -n "$g" && -n "$c" && "$g" -lt "$c" ]]
+}
+check "template: ## Goal before ## Current State" goal_first
+bug_no_goal() { local l; l="$(grep -F '**Bug:**' $t)"; [[ -n "$l" && "$l" != *Goal* ]]; }
+check "template: bug variant has no Goal" bug_no_goal
+check "template: Delivery allows Depends on" has $t 'Depends on'
+motivation_moved() {
+  local cs
+  cs="$(sed -n '/^## Current State/,/^## Change/p' $t)"
+  ! grep -q 'motivates' <<<"$cs" && grep -q 'motivates' $t
+}
+check "template: motivation phrase moved from Current State to Goal" motivation_moved
+
+# 4. analyze-modify
+m=skills/analyze-modify/SKILL.md
+check "analyze-modify: refuses an idea, points to /idea #N and /analyze #N" \
+  has_all $m '/idea #' '/analyze #'
+check "analyze-modify: Goal among reviewed sections" has $m 'Goal'
+
+# 5. implement
+im=skills/implement/SKILL.md
+check "implement: refuses an idea and points to /analyze #N" has_all $im 'idea' '/analyze #'
+check "implement: checks Depends on" has $im 'Depends on'
+check "implement: closed satisfies, ready-to-review does not" \
+  has_all $im 'closed' 'ready-to-review'
+dep_every_run() { grep -E 'Depends on' $im | grep -qE '[Rr]esum|every run|each run|every start'; }
+check "implement: dependency check on every run, including resume" dep_every_run
+check "implement: Depends on has no bypass" rx 'no (bypass|override|way)|cannot be (bypassed|overridden)|without (a )?bypass' $im
+
+# 6. pipeline docs
+g=skills/pipeline/tracker-github.md
+check "tracker-github: idea label via gh label create idea" has_all $g 'gh label create idea' '--remove-label idea' '--add-label analysis'
+check "tracker-github: dependency check via gh issue view --json state" rx 'gh issue view <dep>.*--json state' $g
+check "tracker-github: /idea operations and Idea: title" has_all $g '/idea' 'Idea: '
+l=skills/pipeline/tracker-local.md
+check "tracker-local: ideas/ folder, mv conversion, done/ satisfies dependency" \
+  has_all $l 'docs/agents/analysis/ideas/' 'mv' 'done/' 'Depends on'
+c=skills/pipeline/config.md
+check "config: Work types has /idea path" rx '/idea.*/analyze.*/implement' $c
+check "config: tracker detection includes ideas/NNN-*.md" has $c 'ideas/NNN-'
+
+# 7. functional reviewer and generated agents
+check "functional-reviewer: Goal is not judged" rx 'Goal' agents/functional-reviewer.md
+check "generated/ is in sync with agents/" scripts/build-agents --check
+
+# 8. setup
+check "setup: step 1 skill list contains idea" rx '`idea`' skills/setup/SKILL.md
+
+# 9. README
+r=README.md
+check "README: /idea in workflow and Depends on" has_all $r '/idea' 'Depends on'
+check "README: Models table row for /idea (Sonnet, medium)" rx '^\| .*`/idea`.*Sonnet, medium' $r
+check "README: Status mentions idea label and ideas/ folder" has_all $r '`idea`' 'ideas/'
+rerun_note() { grep -E 'install\.sh' $r | grep -E '`?idea`?' | grep -qiE '(re-?run|again).*(new skill|pull)|(new skill|pull).*(re-?run|again)'; }
+check "README: note to re-run install.sh after pulling a new skill" rerun_note
+
+# 10. install.sh links idea
+dry_run_lists_idea() {
+  local home out; home="$(mktemp -d)"
+  out="$(HOME="$home" ./install.sh --dry-run 2>&1)"; rm -rf "$home"
+  grep -qE '/\.claude/skills/idea( |$)' <<<"$out" && grep -qE '/\.agents/skills/idea( |$)' <<<"$out"
+}
+check "install.sh --dry-run lists idea for ~/.claude and ~/.agents skills" dry_run_lists_idea
+
+echo
+if (( fails )); then echo "$fails check(s) failed"; exit 1; fi
+echo "all checks passed"
