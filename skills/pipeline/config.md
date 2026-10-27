@@ -84,7 +84,7 @@ Explicit instructions given in the session beat every file:
 Resolve each key separately. The first level that sets the key wins; a level that does not set it is skipped.
 
 1. **Session instructions** (see Session override).
-2. **Project file** `docs/agents/config/workflow.md`, if it exists.
+2. **Project file** `docs/agents/config/workflow.md`, if it exists. A legacy `active` line sets `tracker` (see Legacy files).
 3. **Global file** `~/.config/enterprise-engineering-skills/workflow.md`, if it exists. Only `language`, `branch-owner`, `push` and `ux-review` are taken from it; `tracker` and `## Monorepo` are properties of a project and are ignored there.
 4. **Built-in default or detection** (Settings table).
 
@@ -92,7 +92,7 @@ Example: a global `- language: cs` and a project file containing only `- ux-revi
 
 ## Tracker detection
 
-Used when neither the session nor the project file sets `tracker` (a global `tracker` is ignored). In a monorepo, detect in the container root. First match wins:
+Used when neither the session nor the project file sets `tracker` or the legacy `active` (a global `tracker` or `active` is ignored). In a monorepo, detect in the container root. First match wins:
 
 1. `docs/agents/analysis/NNN-*.md` or `docs/agents/analysis/done/NNN-*.md` exists → `local`.
 2. `git remote get-url origin` points to `github.com` → `github`.
@@ -118,7 +118,7 @@ The project file and the global file share one format. Skills read only:
 - lines of the form `- <key>: <value>`, where an HTML comment after the value (`<!-- ... -->`) is stripped and surrounding whitespace trimmed;
 - the `## Monorepo` section.
 
-All other text is ignored. A file may contain any subset of keys; absent keys fall through to the next level.
+All other text is ignored, and so are lines with unknown keys (such as `local-path` from older templates). A file may contain any subset of keys; absent keys fall through to the next level.
 
 ```markdown
 # Agent workflow
