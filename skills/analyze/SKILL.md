@@ -15,7 +15,7 @@ Reach shared understanding through an interview, then synthesize it and the code
 
 Write for a human who was not in the interview. They should read the analysis once and be able to explain the change without opening the diff.
 
-Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the parent of this skill's directory; no setup step is needed) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`. For a simple bug (bug fast-path in the resolved config) skip Phase A and write the shorter bug variant with `Kind: bug`.
+Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the parent of this skill's directory; no setup step is needed) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`. For a simple bug (see "Bug fast-path" in `{skills-root}/pipeline/config.md`) skip Phase A and write the shorter bug variant with `Kind: bug`.
 
 Take `language` (`en` | `cs`) from the resolved config; if unset, use the language of the conversation and do not ask. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
