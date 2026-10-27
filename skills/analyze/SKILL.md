@@ -15,9 +15,9 @@ Reach shared understanding through an interview, then synthesize it and the code
 
 Write for a human who was not in the interview. They should read the analysis once and be able to explain the change without opening the diff.
 
-Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`. Run `/setup` in the target repo if they are missing. For a simple bug (bug fast-path in `workflow.md`) skip Phase A and write the shorter bug variant with `Kind: bug`.
+Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the parent of this skill's directory; no setup step is needed) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`. For a simple bug (bug fast-path in the resolved config) skip Phase A and write the shorter bug variant with `Kind: bug`.
 
-Read `language` from `workflow.md` (`en` | `cs`); ask if it is missing. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
+Take `language` (`en` | `cs`) from the resolved config; if unset, use the language of the conversation and do not ask. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
 ## Phase A — Align
 
@@ -69,7 +69,7 @@ Without a codebase, run steps 2–4 only — do not write local files.
 
 ## Phase B — Publish
 
-All publish operations follow `docs/agents/config/issue-tracker.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
+All publish operations follow `{skills-root}/pipeline/tracker-<tracker>.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
 
 Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
@@ -101,7 +101,7 @@ For **bugs**, set `Kind: bug` and use the shorter bug sections.
 
 ### Local tracker publish
 
-When the active backend is Local Markdown, follow the `/analyze` operations in `docs/agents/config/issue-tracker.md`:
+When the active backend is Local Markdown, follow the `/analyze` operations in `{skills-root}/pipeline/tracker-local.md`:
 
 1. Compute the next `NNN` as described there — scan `docs/agents/analysis/` and `docs/agents/analysis/done/`, never reuse an ID.
 2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
@@ -111,8 +111,8 @@ Bug fast-path — a ticket with Acceptance rather than a full analysis — uses 
 
 ### GitHub publish
 
-When the backend is GitHub, follow the `/analyze` operations in `docs/agents/config/issue-tracker.md`.
+When the backend is GitHub, follow the `/analyze` operations in `{skills-root}/pipeline/tracker-github.md`.
 
-**Monorepo:** if `workflow.md` has a `## Monorepo` section, or nested git repos exist, create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
+**Monorepo:** if the resolved config has a `## Monorepo` section (explicit or detected), create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
 
 After publishing, tell the user the next step is `/implement` on this analysis, once they have reviewed it.

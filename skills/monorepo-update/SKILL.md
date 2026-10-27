@@ -30,16 +30,16 @@ Run from the **container root** of the target project (not the skills pack).
 
 ## Prerequisites
 
-- Prefer `docs/agents/config/workflow.md` with `## Monorepo` and `delivery-roots`
-- If `## Monorepo` or `delivery-roots` is missing, fall back to `git submodule status` for delivery-root paths
-- Stop only if neither `workflow.md` nor `git submodule status` can identify delivery roots; then suggest `/setup`
+- Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the parent of this skill's directory); prefer its `## Monorepo` and `delivery-roots`
+- If `## Monorepo` or `delivery-roots` is missing, detect via `git submodule status` for delivery-root paths
+- Stop only if neither the resolved config nor `git submodule status` can identify delivery roots; then explain that no delivery root was found
 - `git` and network access
 - Mode **main**: `origin` on the container root (for push)
-- Mode **analysis**: `docs/agents/config/issue-tracker.md` to resolve the analysis
+- Mode **analysis**: `{skills-root}/pipeline/tracker-<tracker>.md` to resolve the analysis
 
 ## Step 1: Load config
 
-Read `## Monorepo` from `docs/agents/config/workflow.md` when available (same terms as `/implement`):
+Read `## Monorepo` from the resolved config when available (same terms as `/implement`):
 
 - **container-root** — monorepo wrapper (usually `.`)
 - **delivery-roots** — list of `{ path, remote }` entries
@@ -88,7 +88,7 @@ On STOP, report a per-repo table: `path`, branch, problem, suggested fix. Do not
 
 ## Step 4a: Mode main — sync delivery roots
 
-In `workflow.md` order, for each delivery root:
+In resolved-config order, for each delivery root:
 
 ```bash
 cd <path>
@@ -123,10 +123,10 @@ git push origin main
 
 ## Step 4c: Mode analysis — checkout for review
 
-1. Fetch the analysis per `docs/agents/config/issue-tracker.md` (GitHub: `#N` on the **container-root** remote; local: `docs/agents/analysis/NNN-<slug>.md`). Same resolution as `/implement`.
+1. Fetch the analysis per `{skills-root}/pipeline/tracker-<tracker>.md` (GitHub: `#N` on the **container-root** remote; local: `docs/agents/analysis/NNN-<slug>.md`). Same resolution as `/implement`.
 2. Read **`## Delivery` → Branch**. Missing analysis or Delivery branch → **STOP**.
 3. Container **stays on `main`**. Do not `git add`, commit, or push submodule pointers (that would write feature SHAs onto container `main`).
-4. In `workflow.md` order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.
+4. In resolved-config order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.
 
 ```bash
 git -C <path> fetch origin
@@ -169,7 +169,7 @@ On STOP: concrete commands to fix each blocked root.
 ## Checklist
 
 ```
-- [ ] Delivery-root config loaded from workflow.md or fallback
+- [ ] Delivery-root config resolved from config or detection
 - [ ] Mode chosen (main vs analysis)
 - [ ] Delivery roots clean; container has no changes except allowed submodule refs
 Mode main:

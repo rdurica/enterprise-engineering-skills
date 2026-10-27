@@ -11,9 +11,9 @@ effort: medium
 
 # UX review
 
-Phase 3 of `/verify` when `workflow.md` has `ux-review: enabled`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — return to `/verify` for Ship.
+Phase 3 of `/verify` when the resolved config has `ux-review: enabled`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — return to `/verify` for Ship.
 
-Read `docs/agents/config/workflow.md`. Skills root: parent of this skill directory (two levels above `SKILL.md`). Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
+Skills root: parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/pipeline/config.md`. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/commit/SKILL.md`.
 
 If the repo has an overlay, read it after this skill: `docs/agents/config/ux-review.md`. Follow [implement’s Execution contract](../implement/SKILL.md#execution-contract) for fixes, resources, and test-baseline changes, including direct `/ux-review` use.
 
@@ -48,7 +48,7 @@ UX review cycle: 1 / 3
 2. Short happy-path to reach those screens
 3. Viewports: desktop `1440x900`; mobile `390x844`, with mobile/touch emulation when the available browser tool supports it
 
-**Base URL** — from `AGENTS.md` / `docs/agents/config/domain.md`; else ask. Use any available browser automation tool capable of navigation, interaction, viewport control, screenshots, and accessible UI inspection. If the required walkthrough cannot be performed, report the missing capability and hard fail; do not claim green.
+**Base URL** — from `AGENTS.md`; else ask. Use any available browser automation tool capable of navigation, interaction, viewport control, screenshots, and accessible UI inspection. If the required walkthrough cannot be performed, report the missing capability and hard fail; do not claim green.
 
 ## One cycle
 

@@ -15,13 +15,13 @@ effort: high
 
 The main window orchestrates: read the saved analysis, plan work, delegate, review results, commit, then run `/verify` automatically. Tests come first; new implementation sub-agents work against committed tests.
 
-Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`; run `/setup` if missing. Skills root is the parent of this skill's directory. Use sibling `tdd`, `integration-tests` for PHP HTTP, and `commit` skills where relevant.
+Resolve configuration per `{skills-root}/pipeline/config.md` and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`. Skills root is the parent of this skill's directory. Use sibling `tdd`, `integration-tests` for PHP HTTP, and `commit` skills where relevant.
 
 ## 1. Start locally
 
 Resolve the user’s analysis number or path through the configured tracker. User-invoked `/implement` needs no `ready-for-agent` label. Stop if already `ready-to-review` or archived in local `done/`. Optional auto-start requires `ready-for-agent` or `in-progress`, and must not run while `needs-attention` is set.
 
-On GitHub set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels; the local tracker has no status. Read language and branch-owner from workflow; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
+On GitHub set `in-progress`, remove `ready-for-agent` and `needs-attention`, and preserve unrelated labels; the local tracker has no status. Take language and branch-owner from the resolved config; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
 
 Open FAQ: work only on decided scope; do not invent answers to unblock it.
 

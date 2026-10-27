@@ -8,7 +8,7 @@ Inspect status before work; preserve unrelated changes without staging them. If 
 
 Run every local gate in [SKILL.md](SKILL.md). Parent delegates code/test fixes and owns commits.
 
-Never comment on a PR. Green and fail notes go on the **analysis only** (`language` from `workflow.md`; headings in English). GitHub: `gh issue comment`. Local: append under `## Comments`.
+Never comment on a PR. Green and fail notes go on the **analysis only** (resolved `language`; headings in English). GitHub: `gh issue comment`. Local: append under `## Comments`.
 
 ## Ship (local gates green)
 

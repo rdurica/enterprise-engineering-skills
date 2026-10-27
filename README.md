@@ -11,9 +11,18 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed. Re-run it once after pulling the release that adds the hidden `pipeline` skill.
 
-Then run `/setup` once in each target project.
+A project works without any configuration: the tracker and monorepo are detected and every other setting has a built-in default. Optionally create your personal defaults in the global file `~/.config/enterprise-engineering-skills/workflow.md`, either through `/setup` or by hand:
+
+```markdown
+# Agent workflow
+
+- branch-owner: agent
+- push: finalize
+- language: en
+- ux-review: disabled
+```
 
 ## Workflow
 
@@ -150,17 +159,31 @@ Notes go on the analysis, never on the PR.
 
 ## Configuration
 
-`/setup` writes `docs/agents/config/` and an `## Agent skills` block in `AGENTS.md`. Re-run it any time to change settings.
+No configuration is required. Each setting has a built-in default (agentic mode: the agent manages the branch and PR, pushes at finalize and watches CI):
 
-| Setting | Options |
-|---------|---------|
-| Preset | `full-agentic` (agent manages branch and PR) · `human-owned` (stays on your branch, PRs are yours) |
-| Push | `finalize` (push and watch CI) · `never` (local commits only) |
-| Tracker | GitHub issues · local Markdown in `docs/agents/analysis/` |
-| Language | `en` · `cs` for analysis prose and comments |
-| UX review | enabled · disabled |
+| Key | Built-in value | Options |
+|-----|----------------|---------|
+| `branch-owner` | `agent` | `agent` (agent manages branch and PR) · `human` (stays on your branch, PRs are yours) |
+| `push` | `finalize` | `finalize` (push and watch CI) · `never` (local commits only) |
+| `ux-review` | `disabled` | `enabled` · `disabled` |
+| `language` | conversation language for `/analyze` and `/analyze-modify`; the analysis language for `/implement`, `/verify` and `/complete` | `en` · `cs` for analysis prose and comments |
+| `tracker` | detected | `github` · `local` |
+| Monorepo | detected | `## Monorepo` section (project file only) |
 
-Skills and agents are used only from the global install in `~/.claude/`; `/setup` offers to remove pipeline copies left in a project by older setups. Project-specific rules go in `docs/agents/config/`. Local-only skills go in the gitignored `skills/personal/`.
+Each key is resolved separately; the first level that sets it wins:
+
+1. **Session** — `/implement #N human|agent` changes only `branch-owner`; "don't push" changes only `push`.
+2. **Project** — `docs/agents/config/workflow.md`, if it exists.
+3. **Global** — `~/.config/enterprise-engineering-skills/workflow.md`, if it exists. It sets only `language`, `branch-owner`, `push` and `ux-review`; `tracker` and `## Monorepo` belong to a project and are ignored there.
+4. **Built-in value or detection.**
+
+**Tracker detection**, when neither session nor project sets it: local analyses in `docs/agents/analysis/` exist → `local`; `origin` points at github.com → `github`; otherwise `local`. In a monorepo it runs in the container root.
+
+**Monorepo detection**, when the project has no `## Monorepo` section: `git submodule status` or nested `.git` directories. The container root is `.`; the delivery roots are the submodules or nested repositories found. An explicit `## Monorepo` section replaces detection entirely.
+
+Project deviations go in `docs/agents/config/workflow.md`, which holds only the keys that differ from your global file and the built-in values; without deviations the file does not exist. Non-default settings are enabled through `/setup`, or by editing the files directly. `/setup` is optional: it checks the installation, manages the global file and project deviations, and cleans up copies left by older setups.
+
+Skills and agents are used only from the global install in `~/.claude/`; `/setup` offers to remove pipeline copies left in a project by older setups. Tracker instructions and defaults are read from the pack, so `git pull` updates them everywhere. Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-review.md` and `ux-review.md`. Local-only skills go in the gitignored `skills/personal/`.
 
 ## Other skills
 
@@ -172,3 +195,4 @@ Most skills run only as slash commands. Claude starts these on its own when the 
 - **`/git-release`** — semver tag and GitHub release with a changelog.
 - **`/monorepo-update`** — bump submodules or check out an analysis branch in every delivery root.
 - **`tdd`**, **`integration-tests`** — testing playbooks used by `test-writer`.
+- **`pipeline`** — hidden shared library (not invokable): built-in defaults, resolution order, detection and the GitHub and local tracker instructions that the pipeline skills read.

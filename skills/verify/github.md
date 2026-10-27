@@ -1,6 +1,6 @@
 # Verify — agent
 
-Parent manages delivery branches and PRs when publishing is allowed. Read `push` from workflow: `finalize` permits Ship/Fail publishing; `never` or a session no-push instruction forbids push and all PR creation/state changes. In that case finish local gates, retain commits, and explicitly report git publication/CI skipped; analysis tracker updates remain allowed unless separately forbidden. Sub-agents never push or manage PRs.
+Parent manages delivery branches and PRs when publishing is allowed. Take `push` from the resolved config (`{skills-root}/pipeline/config.md`): `finalize` permits Ship/Fail publishing; `never` or a session no-push instruction forbids push and all PR creation/state changes. In that case finish local gates, retain commits, and explicitly report git publication/CI skipped; analysis tracker updates remain allowed unless separately forbidden. Sub-agents never push or manage PRs.
 
 Never comment on the PR (`gh pr review`, `gh pr comment` forbidden). Green and fail notes go on the **analysis only**.
 
@@ -14,7 +14,7 @@ Monorepo: apply this per affected delivery root; never switch or publish the con
 
 ## Analysis comments
 
-GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monorepo). Local: append under `## Comments`. Body in `language` from workflow; headings stay English.
+GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monorepo). Local: append under `## Comments`. Body in the resolved `language`; headings stay English.
 
 ## PR body
 

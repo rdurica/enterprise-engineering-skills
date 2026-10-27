@@ -13,7 +13,7 @@ model: opus
 
 Take a published analysis and the user's description of what should be different, and leave behind an analysis that reads as if it had been written that way from the start. Do not write a changelog into the body — history goes only in `## Revisions`. Do not implement — that is `/implement`.
 
-Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md`; run `/setup` if they are missing. Write prose in the workflow `language`, as `/analyze` does.
+Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the parent of this skill's directory). Write prose in the resolved `language`, as `/analyze` does; if unset, use the language of the analysis being modified, without asking.
 
 ## Process
 
@@ -53,7 +53,7 @@ Before publishing, reread the whole analysis once: no section contradicts anothe
 
 ### 5. Publish
 
-Follow the `/analyze-modify` operations in `docs/agents/config/issue-tracker.md`.
+Follow the `/analyze-modify` operations in `{skills-root}/pipeline/tracker-<tracker>.md`.
 
 - **GitHub:** update the body, add a short comment summarising the revision. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`. Never add `ready-for-agent`.
 - **Local:** update the file. When it is in `done/`, move it back to `docs/agents/analysis/` and note the revision under `## Comments`.

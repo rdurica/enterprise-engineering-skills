@@ -20,7 +20,7 @@ Final step after the human review of a `ready-to-review` delivery. Merge is irre
 
 ## Step 1: Load config and analysis
 
-1. Read `docs/agents/config/issue-tracker.md` and `docs/agents/config/workflow.md` (`branch-owner`, `push`, `active`, `language`, `## Monorepo`).
+1. Resolve configuration per `{skills-root}/pipeline/config.md` (`branch-owner`, `push`, `tracker`, `language`, monorepo) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`; skills root is the parent of this skill's directory.
 2. Resolve the analysis like `/implement`: `#N`, `NNN` or slug. No argument → the analysis whose `## Delivery` Branch is the current branch. GitHub: `gh issue view <N> [-R <container-repo>] --json number,state,labels,body,url`. Local: `docs/agents/analysis/` or `docs/agents/analysis/done/`.
 3. Read `## Delivery` → Branch. Missing analysis or Branch → **STOP**.
 4. Delivery roots: single repo → `.`; monorepo → every `delivery-roots` path. The container root is never merged or switched to a feature branch.
@@ -57,7 +57,7 @@ On STOP report a per-root table: path, PR URL, problem, suggested fix. Do not st
 
 ## Step 3: Merge
 
-Only after every root passed Step 2. In `workflow.md` order, for each root with a PR:
+Only after every root passed Step 2. In resolved-config order, for each root with a PR:
 
 ```bash
 cd <path>
