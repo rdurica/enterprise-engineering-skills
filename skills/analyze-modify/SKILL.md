@@ -46,7 +46,10 @@ Follow [analysis-template.md](../analyze/analysis-template.md) for every section
 - An accepted risk with its mitigation is a decision: put it in Further Notes with the rejected alternative, and in Architecture when it shapes the design. A conflict with a decision in another analysis is a risk to agree in step 3.
 - Acceptance: changed and new items become `- [ ]`, dropped items are deleted, untouched completed items stay `- [x]`.
 - Unresolved questions go to `## FAQ` under Affected Areas.
-- Append one bullet to `## Revisions`, the last section: date, the modification in one sentence, the risks the user accepted and, when tests are already committed, the tests that must change. `/implement` treats those tests as an agreed contract change.
+- `## Revisions`, the last section, records only modifications to work that is already implemented, as `- [ ] <YYYY-MM-DD> — <modification in one sentence>; risks accepted…; tests to change…` (tests only when already committed). `/implement` treats those tests as an agreed contract change and checks the entry `- [x]` when realized.
+  - Not implemented: rewrite the analysis only; add no entry.
+  - An unchecked entry exists: fold the modification into it — rewrite that entry with the new date and add no bullet.
+  - Every entry is checked: add a new `- [ ]` entry.
 - Keep `## Delivery` unchanged — same ticket, same branch.
 
 Before publishing, reread the whole analysis once: no section contradicts another, nothing was invented beyond the session.
@@ -55,7 +58,7 @@ Before publishing, reread the whole analysis once: no section contradicts anothe
 
 Follow the `/analyze-modify` operations in `{skills-root}/pipeline/tracker-<tracker>.md`.
 
-- **GitHub:** update the body, add a short comment summarising the revision. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`. Never add `ready-for-agent`.
-- **Local:** update the file. When it is in `done/`, move it back to `docs/agents/analysis/` and note the revision under `## Comments`.
+- **GitHub:** update the body. Not implemented: no comment. Otherwise keep one comment per revision, headed `## Revision` (heading always English, content in the resolved `language`): add it for a new entry, or edit the comment of the unchecked entry in place instead of adding another. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`. Never add `ready-for-agent`.
+- **Local:** update the file. When it is in `done/`, move it back to `docs/agents/analysis/`. For a revision, note it under `## Comments` as `## Revision`, updating the existing note when the entry is unchecked.
 
 Tell the user the next step is `/implement` on the same analysis, which continues on the existing branch.

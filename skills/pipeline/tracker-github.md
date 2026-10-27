@@ -89,7 +89,8 @@ Same `-R` rule as `/analyze`. Write the full revised body to a temporary file.
 |-----------|---------|
 | Fetch analysis | `gh issue view <N> [-R …] --comments` |
 | Update body | `gh issue edit <N> [-R …] --body-file <file>` |
-| Comment | `gh issue comment <N> [-R …] --body-file <file>` (one-paragraph revision summary) |
+| Comment | `gh issue comment <N> [-R …] --body-file <file>` (one-paragraph summary headed `## Revision`; only for an implemented analysis) |
+| Update revision comment | `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<file>` (find `<id>` via `gh api repos/<owner>/<repo>/issues/<N>/comments`; used when the revision is still unchecked) |
 | Delivered work revised | `gh issue edit <N> [-R …] --remove-label ready-to-review --add-label needs-attention` (only when `ready-to-review` was set) |
 
 Do not add `ready-for-agent`. Keep `in-progress` and `needs-attention` as they are.
@@ -103,7 +104,7 @@ Same `-R` rule as `/analyze` (container-root in monorepo). Fetch `#N` by number.
 | Fetch analysis/ticket | `gh issue view <N> [-R …] --comments` |
 | Set in-progress | `gh issue edit <N> [-R …] --remove-label ready-for-agent --remove-label needs-attention --add-label in-progress` |
 | Blocked by open FAQ | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` |
-| Update Acceptance checkboxes | `gh issue edit <N> [-R …] --body-file <file>` (checked items in `## Acceptance`) |
+| Update Acceptance checkboxes | `gh issue edit <N> [-R …] --body-file <file>` (checked items in `## Acceptance` and realized entries in `## Revisions`) |
 | Comment | `gh issue comment <N> [-R …] --body-file <file>` (brief interruption/blocker note when needed — not per part) |
 
 Do not add `ready-for-agent`.

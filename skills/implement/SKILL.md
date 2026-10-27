@@ -39,7 +39,7 @@ Group Acceptance items sharing code/tests into manageable **clusters**. Show the
 
 Plan tests for the entire decided scope before production work.
 
-**Revised analysis.** When the analysis has `## Revisions` and the branch already has work, plan only the unchecked Acceptance items; checked items stay done. The tests the latest revision names are an agreed contract change — correct them through `test-writer` in a separate test commit before phase B.
+**Revised analysis.** When the analysis has `## Revisions` and the branch already has work, plan only the unchecked Acceptance items; checked items stay done. Plan against all unchecked revisions, not just the last; a revision that changed no Acceptance item or test is planned from its own text. The tests those revisions name are an agreed contract change — correct them through `test-writer` in a separate test commit before phase B.
 
 **Small scope.** One cluster touching a handful of files needs no plan display: run one `test-writer`, then one `implementer`. Gates and the tests-first order stay the same. On resume, inspect git and the tests already present; reuse completed work rather than trusting checkboxes alone.
 
@@ -84,7 +84,7 @@ Parent reviews coverage and results, fixes test issues through workers, then com
 
 Start new `implementer` agents per cluster with contracts, committed tests, expected failures and permitted production paths. They implement against the stable tests. Schedule consumers after providers when needed.
 
-When a wave joins, review changes and run relevant checks through `check-runner`; delegate substantial repairs. Commit production changes using the appropriate `feat`/`fix` type. Check off only Acceptance behaviour verified as complete, without per-cluster tracker comments.
+When a wave joins, review changes and run relevant checks through `check-runner`; delegate substantial repairs. Commit production changes using the appropriate `feat`/`fix` type. Check off only Acceptance behaviour verified as complete, without per-cluster tracker comments. In the same step — before `/verify` — check off (`- [x]`) each revision whose work is done: the tests it names are committed, if any, and the Acceptance items it changed are checked, if any.
 
 ## 5. Verify and resume
 

@@ -122,10 +122,11 @@ Omit when empty.}
 
 ## Revisions
 
-{only after `/analyze-modify`; always the last section. One bullet per
-modification, oldest first: date, the modification in one sentence, the risks
-the user accepted, and — when tests are already committed — the tests that
-must change. The body above stays a single current state; history lives here.}
+{only after `/analyze-modify`; always the last section. One checkbox per
+modification, oldest first: `- [ ] <YYYY-MM-DD> — <modification in one sentence>;
+risks accepted…; tests to change…` (tests only when already committed).
+`/implement` checks it `- [x]` once the modification is realized. The body above
+stays a single current state; history lives here.}
 
 </analysis-template>
 
