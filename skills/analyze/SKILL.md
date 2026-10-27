@@ -19,6 +19,12 @@ Resolve configuration per `{skills-root}/pipeline/config.md` (skills root is the
 
 Take `language` (`en` | `cs`) from the resolved config; if unset, use the language of the conversation and do not ask. Everything you write in prose goes in that language: the title, every section body, and the comments on the ticket. Section headings stay English, and so do identifiers, paths, HTTP contracts and commit messages. Branch slugs are always ASCII and hyphenated, transliterated when the title is not.
 
+## Idea conversion
+
+`/analyze #N` on an idea (label `idea`, locally a file in `ideas/`) converts it. First check its `Depends on` per the tracker doc: a dependency is satisfied when the GitHub issue is closed, locally when the file is in `done/`. For each unsatisfied one show number, title and state, explain that the analysis would be written against a state that is still going to change, and ask with `AskUserQuestion` whether to continue anyway (recommend waiting). On refusal stop; the issue or file stays unchanged.
+
+Phase A then runs in full with the idea's Goal and Change as the starting point (Change may be refined). Phase B rewrites the same ticket instead of creating one — see "Converting an idea".
+
 ## Phase A — Align
 
 If the conversation already settled some decisions, interview only for the gaps.
@@ -71,7 +77,7 @@ Without a codebase, run steps 2–4 only — do not write local files.
 
 All publish operations follow `{skills-root}/pipeline/tracker-<tracker>.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
 
-Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
+Start the analysis with a `## Goal` of 1–3 sentences (why the change exists, what must hold at the end; no bug variant). Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
 Publish **even when `## FAQ` still has open questions**. The analysis has to be stored so the work can continue later. Each FAQ item names what it belongs to, and once it is answered you fold the answer into that section and delete the item. The ideal end state is no FAQ section at all.
 
@@ -97,13 +103,17 @@ Commits and the PR keep referencing the GitHub analysis issue as `#N`, because t
 
 For **bugs**, set `Kind: bug` and use the shorter bug sections.
 
+## Converting an idea
+
+Do not create a new ticket. Rewrite the body of the same one: title `Idea: …` becomes `Analysis: …`, label `idea` is replaced by `analysis`, `## Delivery` is kept as is including `Depends on` (Kind may be refined). Locally `mv` the file from `docs/agents/analysis/ideas/` to `docs/agents/analysis/` with the same `NNN` and slug. Operations are in `{skills-root}/pipeline/tracker-<tracker>.md`.
+
 ## Publishing
 
 ### Local tracker publish
 
 When the active backend is Local Markdown, follow the `/analyze` operations in `{skills-root}/pipeline/tracker-local.md`:
 
-1. Compute the next `NNN` as described there — scan `docs/agents/analysis/` and `docs/agents/analysis/done/`, never reuse an ID.
+1. Compute the next `NNN` as described there — scan `docs/agents/analysis/`, `docs/agents/analysis/ideas/` and `docs/agents/analysis/done/`, never reuse an ID.
 2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
 3. Create `docs/agents/analysis/NNN-<slug>.md` with Kind, Delivery (branch `feature/<ticket>-<short-slug>`, where the ticket falls back to `NNN`) and the analysis body. No Status line.
 
