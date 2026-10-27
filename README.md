@@ -173,7 +173,7 @@ No configuration is required. Each setting has a built-in default (agentic mode:
 | `branch-owner` | `agent` | `agent` (agent manages branch and PR) · `human` (stays on your branch, PRs are yours) |
 | `push` | `finalize` | `finalize` (push and watch CI) · `never` (local commits only) |
 | `ux-review` | `disabled` | `enabled` · `disabled` |
-| `language` | conversation language for `/analyze` and `/analyze-modify`; the analysis language for `/implement`, `/verify` and `/complete` | `en` · `cs` for analysis prose, comments and the PR Summary |
+| `language` | conversation language for `/idea`, `/analyze` and `/analyze-modify`; the analysis language for `/implement`, `/verify` and `/complete` | `en` · `cs` for analysis prose, comments and the PR Summary |
 | `tracker` | detected | `github` · `local` |
 | Monorepo | detected | `## Monorepo` section (project file only) |
 
@@ -184,7 +184,7 @@ Each key is resolved separately; the first level that sets it wins:
 3. **Global** — `~/.config/enterprise-engineering-skills/workflow.md`, if it exists. It sets only `language`, `branch-owner`, `push` and `ux-review`; `tracker` and `## Monorepo` belong to a project and are ignored there.
 4. **Built-in value or detection.**
 
-**Tracker detection**, when neither session nor project sets it: local analyses in `docs/agents/analysis/` exist → `local`; `origin` points at github.com → `github`; otherwise `local`. In a monorepo it runs in the container root.
+**Tracker detection**, when neither session nor project sets it: local analyses or ideas in `docs/agents/analysis/` (including `ideas/`) exist → `local`; `origin` points at github.com → `github`; otherwise `local`. In a monorepo it runs in the container root.
 
 **Monorepo detection**, when the project has no `## Monorepo` section: `git submodule status` or nested `.git` directories. The container root is `.`; the delivery roots are the submodules or nested repositories found. An explicit `## Monorepo` section replaces detection entirely.
 
