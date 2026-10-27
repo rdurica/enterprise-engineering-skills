@@ -4,7 +4,7 @@ description: >-
   Structured alignment interview on a change, then a published analysis —
   current state, change, affected areas, architecture, API contracts,
   acceptance. Use when starting a feature, stress-testing a design, or when
-  the user wants to create, write, or publish an analysis.
+  the user wants to create, write, or publish an analysis. `/analyze #N` on an idea converts it into an analysis in place.
 disable-model-invocation: true
 model: opus
 ---
