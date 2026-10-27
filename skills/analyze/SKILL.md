@@ -6,6 +6,7 @@ description: >-
   acceptance. Use when starting a feature, stress-testing a design, or when
   the user wants to create, write, or publish an analysis.
 disable-model-invocation: true
+model: opus
 ---
 
 # Analyze

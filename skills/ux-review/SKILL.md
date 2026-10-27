@@ -5,7 +5,7 @@ description: >-
   then re-check local tooling. Phase 3 of /verify when ux-review is enabled, or
   run /ux-review directly after implementation.
 disable-model-invocation: true
-model: opus
+model: sonnet
 effort: medium
 ---
 

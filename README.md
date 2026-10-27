@@ -17,7 +17,7 @@ Then run `/setup` once in each target project.
 
 ## Workflow
 
-You take part in only four steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session (Opus) sits between them, reviews every handoff and makes the commits.
+You take part in only four steps. Everything after `/implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session sits between them, reviews every handoff and makes the commits.
 
 ```mermaid
 flowchart TD
@@ -92,17 +92,6 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
 | `check-runner` | all pipeline skills, any full check run | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
-`/analyze`, `/analyze-modify`, `change`, `/discuss` and `/commit` set no model or effort: they are your conversation, so they use whatever you have selected. The pipeline skills (`/implement`, `/verify`, `/code-review`, `/ux-review`) run on **Opus, medium** and only plan, review and commit. `/setup` runs on Sonnet high, `/git-release` and `/monorepo-update` on Sonnet medium, `/complete` on Haiku low.
-
-- **Cheap models live in agents, not in the main session.** Switching models mid-conversation throws away the prompt cache, so the main session stays on Opus.
-- **Logs stay out of Opus.** Test and lint output goes through `check-runner`, which returns only the failures.
-- **Opus reads summaries.** The main session reviews worker reports and `git diff --stat`, and opens full diffs only where something looks wrong.
-- **Full review once, deltas after.** Repair cycles review only what changed since the previous cycle; the first code-review cycle covers the whole diff.
-- **Checks in tiers.** Repairs run only the affected tests; the full suite runs at the start of `/verify` and before Ship.
-- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus; a code-review cycle that missed an issue is rerun at high effort.
-
-Change a role's model or effort in `agents.toml` (see below). `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
-
 Agents never commit, push or open PRs; the main session does. Tests are committed before the code, and assertions are never weakened to make code pass.
 
 ### Agents for each provider
@@ -122,6 +111,30 @@ cursor = { model = "grok-4.7-low" }
 ```
 
 Claude preloads `skills`; Codex and Cursor get a first line telling the agent to read them. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`.
+
+## Models
+
+Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — `change`, debugging, questions — is mostly judgment and costs little.
+
+| Skill | Model, effort |
+|-------|---------------|
+| `/analyze`, `/analyze-modify`, `/discuss` | Opus |
+| `/implement` | Sonnet, high |
+| `/verify`, `/code-review` | Opus, medium when run directly; inside `/implement` they follow its session |
+| `/ux-review`, `/git-release`, `/monorepo-update` | Sonnet, medium |
+| `/setup` | Sonnet, high |
+| `/commit`, `/complete` | Haiku, low |
+| `change` | your selected model |
+
+- **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
+- **One task per conversation.** Switching models mid-conversation throws away the prompt cache, so start each `/analyze` and each `/implement` in a fresh conversation.
+- **Logs stay out of the main session.** Test and lint output goes through `check-runner`, which returns only the failures.
+- **The main session reads summaries.** It reviews worker reports and `git diff --stat`, and opens full diffs only where something looks wrong.
+- **Full review once, deltas after.** Repair cycles review only what changed since the previous cycle; the first code-review cycle covers the whole diff.
+- **Checks in tiers.** Repairs run only the affected tests; the full suite runs at the start of `/verify` and before Ship.
+- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus; a code-review cycle that missed an issue is rerun at high effort.
+
+Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)). `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
 ## Status
 

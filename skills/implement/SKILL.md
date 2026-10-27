@@ -7,8 +7,8 @@ description: >-
   parent verifies RED and commits tests, then fresh sub-agents implement;
   parent commits and runs verify automatically. For a change with no
   analysis, use the change skill instead.
-model: opus
-effort: medium
+model: sonnet
+effort: high
 ---
 
 # Implement
@@ -58,7 +58,7 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `test-writer` | Phase A tests, justified test corrections | sonnet / medium |
 | `implementer` | Phase B production code, delegated repairs | sonnet / medium |
 | `check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
-| `functional-reviewer` | Functional review in `/verify` (spec and standards) | sonnet / high |
+| `functional-reviewer` | Functional review in `/verify` (spec and standards) | sonnet / medium |
 | `code-reviewer` | `/code-review` pass | sonnet / medium |
 | `ux-reviewer` | `/ux-review` passes | sonnet / medium |
 

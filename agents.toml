@@ -15,27 +15,27 @@ cursor = { model = "grok-4.7-low" }
 
 [code-reviewer]
 claude = { model = "sonnet", effort = "medium", color = "red" }
-codex = { model = "gpt-5.6-terra", effort = "medium" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 
 [functional-reviewer]
 readonly = true
 claude = { model = "sonnet", effort = "medium", tools = ["Read", "Grep", "Glob", "Bash"], color = "purple" }
-codex = { model = "gpt-5.6-terra", effort = "medium" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 
 [implementer]
 claude = { model = "sonnet", effort = "medium", color = "green" }
-codex = { model = "gpt-5.6-terra", effort = "medium" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 
 [test-writer]
 skills = ["tdd"]
 claude = { model = "sonnet", effort = "medium", color = "yellow" }
-codex = { model = "gpt-5.6-terra", effort = "medium" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 
 [ux-reviewer]
 claude = { model = "sonnet", effort = "medium", color = "pink" }
-codex = { model = "gpt-5.6-terra", effort = "medium" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }

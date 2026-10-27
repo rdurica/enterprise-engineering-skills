@@ -8,6 +8,7 @@ description: >-
   "should we…"). Changes no project code and creates no tickets or
   deliverables.
 argument-hint: "[topic]"
+model: opus
 ---
 
 # Discuss

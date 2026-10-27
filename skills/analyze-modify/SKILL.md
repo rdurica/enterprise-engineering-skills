@@ -6,6 +6,7 @@ description: >-
   name the risks the modification brings and agree them with the user, then
   rewrite the analysis in place. Use when a published analysis needs to change.
 disable-model-invocation: true
+model: opus
 ---
 
 # Analyze modify

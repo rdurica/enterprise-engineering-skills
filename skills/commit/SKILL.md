@@ -5,6 +5,8 @@ description: >-
   optionally push them. Use whenever changes need to be committed, a commit
   message written, or a commit pushed. Never opens a PR.
 argument-hint: "[push] [paths or scope hint]"
+model: haiku
+effort: low
 ---
 
 # Commit
