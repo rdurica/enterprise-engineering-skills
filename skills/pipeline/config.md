@@ -9,7 +9,7 @@ The single description of pipeline settings. Every skill that needs a setting re
 | `branch-owner` | `agent` \| `human` | `agent` |
 | `push` | `finalize` \| `never` | `finalize` |
 | `ux-review` | `enabled` \| `disabled` | `disabled` |
-| `language` | `en` \| `cs` | none (see Language) |
+| `language` | `en` \| `cs` | none (see language) |
 | `tracker` | `github` \| `local` | detected (see Tracker detection) |
 | Monorepo | `## Monorepo` section | detected (see Monorepo detection) |
 
