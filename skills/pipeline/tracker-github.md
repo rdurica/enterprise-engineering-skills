@@ -24,7 +24,7 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 - **Create:** `gh issue create [-R …] --title "..." --body-file <file> --label "..."`
 - **Read:** `gh issue view <number> [-R …] --comments`
 - **Edit body:** `gh issue edit <number> [-R …] --body-file <file>`
-- **List:** `gh issue list [-R …] --state open --json number,title,body,labels`
+- **List:** `gh issue list [-R …] --state open --limit 200 --json number,title,body,labels`
 - **Comment:** `gh issue comment <number> [-R …] --body-file <file>`
 - **Labels:** `gh issue edit <number> [-R …] --add-label "..."` / `--remove-label "..."`
 - **Close:** `gh issue close <number> [-R …] --comment "..."`
@@ -80,7 +80,7 @@ Ensure the `idea` label exists (`gh label create idea --description "Idea, not y
 | Create | `gh issue create [-R …] --title "Idea: ..." --body-file <file> --label idea` |
 | Add Delivery | `gh issue edit <N> [-R …] --body-file <file-with-delivery>` (the number is known only after creating) |
 | Rewrite (`/idea #N`) | `gh issue edit <N> [-R …] --body-file <file>` |
-| List open ideas and analyses | `gh issue list [-R …] --state open --json number,title,body,labels` |
+| List open ideas and analyses | `gh issue list [-R …] --state open --limit 200 --json number,title,body,labels` |
 
 Refuse `/idea #N` when the issue has the `analysis` label.
 
