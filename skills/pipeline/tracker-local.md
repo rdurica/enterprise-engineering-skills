@@ -67,7 +67,7 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 |-----------|--------|
 | Fetch analysis | `docs/agents/analysis/NNN-<slug>.md`, or `docs/agents/analysis/done/NNN-<slug>.md` |
 | Update | Rewrite the file in place; keep ID, slug and `## Delivery` |
-| Revised after verify | `mv` the file from `done/` back to `docs/agents/analysis/` and append the revision under `## Comments` |
+| Revised after verify | `mv` the file from `done/` back to `docs/agents/analysis/` and note the revision under `## Comments` as `## Revision`; for a still unchecked revision update that note instead of appending |
 
 ### `/implement` — fetch by number or slug
 
@@ -75,7 +75,7 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 |-----------|--------|
 | Fetch analysis | `docs/agents/analysis/NNN-<slug>.md` |
 | Blocked by open FAQ | Append the open question under `## Comments` |
-| Update Acceptance checkboxes | Check off items in `## Acceptance` |
+| Update Acceptance checkboxes | Check off items in `## Acceptance` and the realized entries in `## Revisions` |
 | Comment | Append under `## Comments` (brief interruption/blocker note when needed — not per part) |
 
 `/implement 001`, `/implement #1`, or `/implement <slug>` resolve the same way. If the only match is under `done/`, **stop**.
