@@ -47,7 +47,7 @@ Fetch the idea and rewrite Goal, Change or `Depends on` in place; keep the numbe
 {2–4 sentences: the intent and how behaviour changes; no classes, paths or contracts}
 ```
 
-Nothing else: no Current State, Affected Areas, Architecture, API Contracts, Acceptance or Further Notes. `Ticket` and `Branch` follow the rules in `/analyze` step 3 of Phase B; on GitHub the issue number is known only after creating, so add `## Delivery` by editing the body right after.
+Nothing else: no Current State, Affected Areas, Architecture, API Contracts, Acceptance or Further Notes. `Ticket` and `Branch` follow the rules in `/analyze` Phase B, step 3; on GitHub the issue number is known only after creating, so add `## Delivery` by editing the body right after.
 
 ## Finish
 
