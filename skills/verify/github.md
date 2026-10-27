@@ -18,7 +18,7 @@ GitHub: `gh issue comment` on the analysis issue (`-R` container-root in a monor
 
 ## PR body
 
-Title references analysis `#N`. Supply the body explicitly (overrides a repo PR template), using a structured tool argument or `--body-file`. Copy `## Acceptance` from the analysis; do not invent a separate Test plan. Check only items whose tests actually ran and passed here; skipped or untested items remain unchecked.
+Title is English Conventional Commits like the commit (`type(scope): … (#N)`), referencing analysis `#N`. Supply the body explicitly (overrides a repo PR template), using a structured tool argument or `--body-file`. Body is the analysis link and `## Summary` (English heading, content in the resolved `language`). The PR has no `## Acceptance` or separate Test plan; Acceptance is checked off only in the analysis.
 
 ```markdown
 Implements #<N>.
@@ -26,11 +26,6 @@ Implements #<N>.
 ## Summary
 
 - {1–3 bullets describing final Change / commits}
-
-## Acceptance
-
-- [x] {tested and passed item}
-- [ ] {skipped or untested item}
 ```
 
 ## CI
@@ -46,7 +41,7 @@ If publishing is disabled: finalize local analysis as below, report SHA(s) and �
 When publishing is allowed, per affected delivery root with changes:
 
 1. Check remote destination, then push the Delivery branch explicitly (`git push -u origin <branch>`). Never force-push. If no remote or no PR-capable remote exists, preserve local results and report the publication blocker; do not claim published completion.
-2. Create a **draft** PR if none exists; update an existing PR's body to reflect final scope and tested Acceptance. Never target the container root.
+2. Create a **draft** PR if none exists; update an existing PR's title and Summary to reflect final scope. Never target the container root.
 3. Check CI above, including PR-triggered checks. Red or unresolved → repair or Fail.
 4. After green CI, mark the draft PR ready; an already ready PR remains ready. Collect URLs.
 
