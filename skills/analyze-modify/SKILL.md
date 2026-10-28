@@ -60,7 +60,7 @@ Before publishing, reread the whole analysis once: no section contradicts anothe
 
 Follow the `/analyze-modify` operations in `{skills-root}/pipeline/tracker-<tracker>.md`.
 
-- **GitHub:** update the body. Not implemented: no comment. Otherwise keep one comment per revision, headed `## Revision` (heading always English, content in the resolved `language`): add it for a new entry, or edit the comment of the unchecked entry in place instead of adding another. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`. Never add `ready-for-agent`.
+- **GitHub:** update the body. Not implemented: no comment. Otherwise keep one comment per revision, headed `## Revision` (heading always English, content in the resolved `language`): add it for a new entry, or edit the comment of the unchecked entry in place instead of adding another. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`.
 - **Local:** update the file. When it is in `done/`, move it back to `docs/agents/analysis/`. For a revision, note it under `## Comments` as `## Revision`, updating the existing note when the entry is unchecked.
 
 Tell the user the next step is `/implement` on the same analysis, which continues on the existing branch.

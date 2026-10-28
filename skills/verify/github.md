@@ -47,7 +47,7 @@ When publishing is allowed, per affected delivery root with changes:
 
 Finalize only after all applicable gates are green (or publishing explicitly disabled):
 
-- GitHub analysis: remove `in-progress`, `needs-attention`, `ready-for-agent`; add `ready-to-review`, preserve the existing tracker kind label (`analysis` or bug).
+- GitHub analysis: remove `in-progress` and `needs-attention`; add `ready-to-review`, preserve the existing tracker kind label (`analysis` or bug).
 - Local: move to `docs/agents/analysis/done/NNN-<slug>.md` (no status).
 
 Comment on the analysis with gate evidence, published SHA(s), CI outcome, PR URLs or explicit local-only outcome. Monorepo pointer bumps remain for the user after delivery PRs merge.

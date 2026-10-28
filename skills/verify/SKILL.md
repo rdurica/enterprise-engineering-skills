@@ -17,9 +17,9 @@ Finish implementation through Functional → code review → optional UX → Shi
 
 Resolve configuration per `{skills-root}/pipeline/config.md` (`language`, `branch-owner`, `push`, `ux-review`, monorepo) and tracker operations per `{skills-root}/pipeline/tracker-<tracker>.md`, plus `docs/agents/config/verify.md` if present. Skills root is the parent of this skill's directory. Follow sibling `implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups.
 
-Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Push policy is independent of branch ownership; session no-push overrides it in Ship and Fail. No-push skips git publication, CI watches and PR changes; tracker updates remain allowed unless separately restricted.
+Choose delivery instructions by branch-owner: [human.md](human.md) or [github.md](github.md). For a monorepo also read [monorepo.md](monorepo.md). Publishing follows the resolved `push`.
 
-Comments go on the analysis, never the PR, in the resolved `language`. Status labels below apply to GitHub only; the local tracker has no status — its file stays active or moves to `done/`. `ready-to-review` means verified work is ready for the human; it does not require a PR on human-owned or local-only delivery.
+Comments go on the analysis, never the PR, in the resolved `language`. Status changes use the `/verify` operations of the tracker file.
 
 ## Scope
 
@@ -62,5 +62,5 @@ Ensure the intended verified work is committed before Ship, including correct un
 
 Follow the selected delivery path for push, CI and PR handling. CI fixes go through the same delegated repair and local-check loop; do not create another tracking protocol or reset exhausted gate budgets. Stop after 3 unsuccessful CI repairs or when external checks/publication cannot complete, and report the blocker honestly.
 
-- **Green:** mark `ready-to-review`; local tracker moves to `done/`. Preserve unrelated labels. Briefly record checks, current/published commit, CI outcome and PR URL when applicable. Explicitly state skipped publication/CI.
-- **Fail:** replace `in-progress` with `needs-attention`, remove `ready-to-review`, retain local work and do not archive. Name the failing gate, attempted fixes and remaining blocker. Agent-owned may provide a draft PR if publishing is allowed; human-owned never manages PRs.
+- **Green:** apply the tracker's Green operation. Briefly record checks, current/published commit, CI outcome and PR URL when applicable. Explicitly state skipped publication/CI.
+- **Fail:** apply the tracker's Fail operation and retain local work. Name the failing gate, attempted fixes and remaining blocker. Agent-owned may provide a draft PR if publishing is allowed; human-owned never manages PRs.

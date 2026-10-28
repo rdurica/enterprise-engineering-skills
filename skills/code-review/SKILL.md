@@ -20,16 +20,6 @@ Functional asks whether the diff matches the analysis and the documented standar
 
 Skills root is the parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/pipeline/config.md`; commit via `{skills-root}/commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/code-review.md`. Follow [implement’s Execution contract](../implement/SKILL.md#execution-contract) for delegation, resource isolation, and test-baseline changes, including direct `/code-review` use.
 
-## Gate (max 3 cycles)
-
-```
-Code review cycle: 1 / 3
-- [ ] Reviewer returned
-- [ ] Fixes committed (if any)
-- [ ] Local pipeline re-checked green after the fixes
-- [ ] Blocked findings listed (if any)
-```
-
 ## What to look for
 
 Only things Spec and Standards do not already cover:
@@ -82,8 +72,5 @@ Rerun tests/tooling for the affected paths through `check-runner` after fixes. I
 - Fixes landed but the reviewers still have work → next cycle, up to 3.
 - Anything Blocked, or still not clean after 3 cycles → stop and return to `/verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. Do not Ship.
 
-## Rules
+Functional and UX keep their own three cycles. Every finding ends as a commit or as a Blocked item — never as a comment.
 
-- Max **3** code review cycles; Functional and UX keep their own three
-- Parent orchestrates and commits; the reviewer handles substantial work
-- Every finding ends as a commit or as a Blocked item — never as a comment
