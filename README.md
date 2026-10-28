@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links into the pack left by deleted skills or agents, sets `core.hooksPath` to `.githooks` in the pack checkout, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script only when a skill or agent is added, renamed or removed. Re-run it once after pulling the release that adds the hidden `pipeline` skill, and again after pulling any release that adds a new skill such as `idea`.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed.
 
 A project works without any configuration: the tracker and monorepo are detected and every other setting has a built-in default. Optionally create your personal defaults in the global file `~/.config/enterprise-engineering-skills/workflow.md`, either through `/setup` or by hand:
 
@@ -80,12 +80,7 @@ flowchart TD
 
 0. **`/idea`** (optional) — write a change down as a short idea: Goal, Change and optional `Depends on`. No code is read in depth and no decisions are settled; the detailed analysis comes later with **`/analyze #N`** on the same issue, once the change is due and against the code as it is then.
 1. **`/analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
-2. **You review it** and run **`/implement #N`** (or a local analysis path). From here it runs on its own:
-   - `test-writer` writes tests for each slice of the change and proves they fail; they are committed before any code.
-   - `implementer` writes code against those tests until they pass.
-   - `functional-reviewer` checks the result against the analysis and project rules; anything missing goes back to `implementer`.
-   - `code-reviewer` reviews and fixes the code, correctness first, then craft. Its first cycle covers the whole diff; repair cycles check only what changed since; `ux-reviewer` walks the UI if UX review is enabled.
-   - The result is delivered as `ready-to-review`, or stops as `needs-attention` when a decision is yours.
+2. **You review it** and run **`/implement #N`** (or a local analysis path). The agents in the diagram take over: tests first, committed before any code, then the code, the functional review against the analysis, the code review and, if enabled, the UX review. It ends as `ready-to-review`, or as `needs-attention` when a decision is yours.
 
 3. **You review the delivery** and run **`/complete #N`**. For agent-owned delivery with an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. Human-owned delivery, or delivery without a PR, is left to you and `/complete` does nothing.
 
@@ -147,11 +142,8 @@ Opus is used where decisions are made; the pipeline and its agents run on Sonnet
 
 - **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
 - **One task per conversation.** Switching models mid-conversation throws away the prompt cache, so start each `/analyze` and each `/implement` in a fresh conversation.
-- **Logs stay out of the main session.** Test and lint output goes through `check-runner`, which returns only the failures.
-- **The main session reads summaries.** It reviews worker reports and `git diff --stat`, and opens full diffs only where something looks wrong.
-- **Full review once, deltas after.** Repair cycles review only what changed since the previous cycle; the first code-review cycle covers the whole diff.
-- **Checks in tiers.** Repairs run only the affected tests; the full suite runs at the start of `/verify` and before Ship.
-- **Escalate on evidence.** A cluster that fails twice is retried with higher effort, then on Opus; a code-review cycle that missed an issue is rerun at high effort.
+
+How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the Execution contract of [`implement`](skills/implement/SKILL.md#execution-contract).
 
 Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)). `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
@@ -181,20 +173,9 @@ No configuration is required. Each setting has a built-in default (agentic mode:
 | `tracker` | detected | `github` · `local` |
 | Monorepo | detected | `## Monorepo` section (project file only) |
 
-Each key is resolved separately; the first level that sets it wins:
+Each key is resolved separately and the first level that sets it wins: session (`/implement #N human|agent`, "don't push") → project file `docs/agents/config/workflow.md` → global file → built-in value or detection. The project file holds only deviations and is the only place for `tracker` and `## Monorepo`. Detection and the file format are described in [`pipeline/config.md`](skills/pipeline/config.md). `/setup` is optional: it checks the installation and writes the global file or project deviations.
 
-1. **Session** — `/implement #N human|agent` changes only `branch-owner`; "don't push" changes only `push`.
-2. **Project** — `docs/agents/config/workflow.md`, if it exists.
-3. **Global** — `~/.config/enterprise-engineering-skills/workflow.md`, if it exists. It sets only `language`, `branch-owner`, `push` and `ux-review`; `tracker` and `## Monorepo` belong to a project and are ignored there.
-4. **Built-in value or detection.**
-
-**Tracker detection**, when neither session nor project sets it: local analyses or ideas in `docs/agents/analysis/` (including `ideas/`) exist → `local`; `origin` points at github.com → `github`; otherwise `local`. In a monorepo it runs in the container root.
-
-**Monorepo detection**, when the project has no `## Monorepo` section: `git submodule status` or nested `.git` directories. The container root is `.`; the delivery roots are the submodules or nested repositories found. An explicit `## Monorepo` section replaces detection entirely.
-
-Project deviations go in `docs/agents/config/workflow.md`, which holds only the keys that differ from your global file and the built-in values; without deviations the file does not exist. Non-default settings are enabled through `/setup`, or by editing the files directly. `/setup` is optional: it checks the installation, manages the global file and project deviations, and cleans up copies left by older setups.
-
-Skills and agents are used only from the global install in `~/.claude/`; `/setup` offers to remove pipeline copies left in a project by older setups. Tracker instructions and defaults are read from the pack, so `git pull` updates them everywhere. Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-review.md` and `ux-review.md`. Local-only skills go in the gitignored `skills/personal/`.
+Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-review.md` and `ux-review.md`. Local-only skills go in the gitignored `skills/personal/`.
 
 ## Other skills
 
