@@ -84,7 +84,6 @@ l=skills/pipeline/tracker-local.md
 check "tracker-local: ideas/ folder, mv conversion, done/ satisfies dependency" \
   has_all $l 'docs/agents/analysis/ideas/' 'mv' 'done/' 'Depends on'
 c=skills/pipeline/config.md
-check "config: Work types has /idea path" rx '/idea.*/analyze.*/implement' $c
 check "config: tracker detection includes ideas/NNN-*.md" has 'ideas/NNN-' $c
 
 # 7. functional reviewer and generated agents
@@ -99,8 +98,6 @@ r=README.md
 check "README: /idea in workflow and Depends on" has_all $r '/idea' 'Depends on'
 check "README: Models table row for /idea (Sonnet, medium)" rx '^\| .*`/idea`.*Sonnet, medium' $r
 check "README: Status mentions idea label and ideas/ folder" has_all $r '`idea`' 'ideas/'
-rerun_note() { grep -E 'install\.sh' $r | grep -E '`?idea`?' | grep -qiE '(re-?run|again).*(new skill|pull)|(new skill|pull).*(re-?run|again)'; }
-check "README: note to re-run install.sh after pulling a new skill" rerun_note
 
 # 10. install.sh links idea
 dry_run_lists_idea() {

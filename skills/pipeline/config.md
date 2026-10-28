@@ -54,25 +54,6 @@ When `language` is not set at any level:
 - `/idea`, `/analyze` and `/analyze-modify` use the language of the conversation (`/analyze-modify`: the language of the analysis being modified) and do not ask.
 - `/implement`, `/verify` and `/complete` use the language of the analysis.
 
-### Statuses
-
-`/verify` green: `ready-to-review`, with a ready PR for agent-owned delivery when publishing is enabled. `/verify` fail: `needs-attention` (replaces `in-progress`) and a fail note; agent-owned delivery may publish a draft PR when publishing is enabled. Human-owned never manages PRs. Preserve unrelated tracker labels. These statuses are GitHub labels; the local tracker has none — a verified file moves to `done/`, a blocked one stays active with a comment.
-
-### Work types
-
-| Type | Pipeline | branch-owner typical |
-|------|----------|----------------------|
-| **feature** | `/analyze` → `/implement` → `/verify` (functional → code review [→ ux] → ship) | agent or human |
-| **complex bug** | same as feature; `/analyze` interview settles an unclear root cause | agent or human |
-| **simple bug** | `/analyze` bug fast-path (no interview) or a ticket with Acceptance → `/implement` | human |
-| **planned change** | `/idea` → (later) `/analyze #N` → `/implement` → `/verify`; the idea is written now, the analysis when the change is due | agent or human |
-| **trivial fix** | outside pipeline — direct fix and commit | n/a |
-
-### Bug fast-path
-
-1. Create a bug issue (GitHub with the `analysis` label omitted, or `docs/agents/analysis/NNN-slug.md` with `Kind: bug`; next ID shared with `docs/agents/analysis/done/`) with Acceptance.
-2. `/implement #issue` implements Acceptance from the ticket body, then runs `/verify`. User-invoked `/implement` does not need `ready-for-agent`.
-
 ### Session override
 
 Explicit instructions given in the session beat every file:
@@ -85,7 +66,7 @@ Explicit instructions given in the session beat every file:
 Resolve each key separately. The first level that sets the key wins; a level that does not set it is skipped.
 
 1. **Session instructions** (see Session override).
-2. **Project file** `docs/agents/config/workflow.md`, if it exists. A legacy `active` line sets `tracker` (see Legacy files).
+2. **Project file** `docs/agents/config/workflow.md`, if it exists.
 3. **Global file** `~/.config/enterprise-engineering-skills/workflow.md`, if it exists. Only `language`, `branch-owner`, `push` and `ux-review` are taken from it; `tracker` and `## Monorepo` are properties of a project and are ignored there.
 4. **Built-in default or detection** (Settings table).
 
@@ -93,7 +74,7 @@ Example: a global `- language: cs` and a project file containing only `- ux-revi
 
 ## Tracker detection
 
-Used when neither the session nor the project file sets `tracker` or the legacy `active` (a global `tracker` or `active` is ignored). In a monorepo, detect in the container root. First match wins:
+Used when neither the session nor the project file sets `tracker` (a global `tracker` is ignored). In a monorepo, detect in the container root. First match wins:
 
 1. `docs/agents/analysis/NNN-*.md`, `docs/agents/analysis/ideas/NNN-*.md` or `docs/agents/analysis/done/NNN-*.md` exists → `local`.
 2. `git remote get-url origin` points to `github.com` → `github`.
@@ -119,7 +100,7 @@ The project file and the global file share one format. Skills read only:
 - lines of the form `- <key>: <value>`, where an HTML comment after the value (`<!-- ... -->`) is stripped and surrounding whitespace trimmed;
 - the `## Monorepo` section.
 
-All other text is ignored, and so are lines with unknown keys (such as `local-path` from older templates). A file may contain any subset of keys; absent keys fall through to the next level.
+All other text is ignored, and so are lines with unknown keys. A file may contain any subset of keys; absent keys fall through to the next level.
 
 ```markdown
 # Agent workflow
@@ -139,12 +120,3 @@ All other text is ignored, and so are lines with unknown keys (such as `local-pa
 ```
 
 Project files contain only deviations from the global file and the built-in defaults.
-
-## Legacy files
-
-Older projects keep working without changes:
-
-- `active` is an alias for `tracker`. If both are present, `tracker` wins.
-- A `Preset:` line and all prose from older templates are ignored.
-- Old project copies of tracker instructions (`issue-tracker*.md` in `docs/agents/config/`) and the old domain file there are not read; tracker instructions always come from the pack.
-- The project overlays `docs/agents/config/verify.md`, `code-review.md` and `ux-review.md` are unchanged and still read by their skills.

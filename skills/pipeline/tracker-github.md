@@ -35,22 +35,17 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 |-------|--------|---------|
 | `idea` | `/idea` | Idea, not yet analyzed. `/analyze #N` replaces it with `analysis`; `/implement` refuses it |
 | `analysis` | `/analyze` | This issue is an analysis |
-| `ready-for-agent` | human, after validating the analysis | Auto-trigger may start `/implement`. Agent never adds this. Happy path: user runs `/implement` after review |
 | `in-progress` | `/implement` | Agent is working |
 | `needs-attention` | `/verify` (fail), `/implement` (blocked by open FAQ) or `/analyze-modify` (delivered work revised) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
 | `ready-to-review` | `/verify` (green) | Verified delivery ready for human review; publishing-enabled agent-owned delivery also has a ready PR. `/complete` removes it when it merges the PR and closes the issue |
 
-`/implement` drops `ready-for-agent` and `needs-attention` when it sets `in-progress`. A green `/verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. Human-owned delivery does not require a PR. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
+`/implement` drops `needs-attention` when it sets `in-progress`. A green `/verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. Human-owned delivery does not require a PR. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
 
-User invoked `/implement` → run it (do not require `ready-for-agent`). Stop if `ready-to-review`. `needs-attention` does **not** stop it — that is the resume path.
-
-Auto-start without the user → only if `ready-for-agent` or already `in-progress`. **Never** when `needs-attention` is set, even with `ready-for-agent` — a human has to act first.
+`/implement` stops if `ready-to-review`. `needs-attention` does **not** stop it — that is the resume path.
 
 Create a label on first use if it is missing (`gh label create <name> [-R …]`; ignore "already exists").
 
-The normal workflow starts locally when the user invokes `/implement`; the labels below support optional automation, not a requirement to claim work.
-
-**Lifecycle:** `idea` → `/analyze #N` → `analysis` → user reviews, then `/implement` (optional `ready-for-agent` for auto-start) → `in-progress` → `ready-to-review` → `/complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
+**Lifecycle:** `idea` → `/analyze #N` → `analysis` → user reviews, then `/implement` → `in-progress` → `ready-to-review` → `/complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/implement`.
 
 ## Delivery section
 
@@ -96,8 +91,6 @@ gh issue create -R <owner/repo> --title "Analysis: ..." --body-file <analysis-fi
 gh issue edit <number> -R <owner/repo> --body-file <analysis-file-with-delivery>
 ```
 
-Do not add `ready-for-agent`.
-
 **Converting an idea** (`/analyze #N` on an issue labelled `idea`) reuses the same issue; no new one is created. First check `Depends on` with `gh issue view <dep> [-R …] --json state`. Then write the full analysis (with the idea's `## Delivery`) to a file and:
 
 ```bash
@@ -116,7 +109,7 @@ Same `-R` rule as `/analyze`. Write the full revised body to a temporary file.
 | Update revision comment | `gh api -X PATCH repos/<owner>/<repo>/issues/comments/<id> -F body=@<file>` (find `<id>` via `gh api repos/<owner>/<repo>/issues/<N>/comments`; used when the revision is still unchecked) |
 | Delivered work revised | `gh issue edit <N> [-R …] --remove-label ready-to-review --add-label needs-attention` (only when `ready-to-review` was set) |
 
-Do not add `ready-for-agent`. Keep `in-progress` and `needs-attention` as they are.
+Keep `in-progress` and `needs-attention` as they are.
 
 ### `/implement` — fetch, status, comment
 
@@ -126,19 +119,17 @@ Same `-R` rule as `/analyze` (container-root in monorepo). Fetch `#N` by number.
 |-----------|---------|
 | Fetch analysis/ticket | `gh issue view <N> [-R …] --comments` |
 | Refuse | An issue labelled `idea`, or with an open `Depends on` (`gh issue view <dep> [-R …] --json state` is not `CLOSED`), stops before any label changes. Checked on every run, resume included |
-| Set in-progress | `gh issue edit <N> [-R …] --remove-label ready-for-agent --remove-label needs-attention --add-label in-progress` |
+| Set in-progress | `gh issue edit <N> [-R …] --remove-label needs-attention --add-label in-progress` |
 | Blocked by open FAQ | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` |
 | Update Acceptance checkboxes | `gh issue edit <N> [-R …] --body-file <file>` (checked items in `## Acceptance` and realized entries in `## Revisions`) |
 | Comment | `gh issue comment <N> [-R …] --body-file <file>` (brief interruption/blocker note when needed — not per part) |
-
-Do not add `ready-for-agent`.
 
 ### `/verify` — comment on the analysis only (never on the PR)
 
 | Operation | Command |
 |-----------|---------|
-| Green | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --remove-label ready-for-agent --add-label ready-to-review` then `gh issue comment` (verified SHA, local gates, push/CI outcome, PR URLs when applicable). Preserve unrelated labels |
-| Fail | `gh issue edit <N> [-R …] --remove-label in-progress --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs when applicable). Human-owned never manages PRs; agent-owned draft PR delivery follows push policy and session restrictions |
+| Green | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --add-label ready-to-review` then `gh issue comment` (verified SHA, local gates, push/CI outcome, PR URLs when applicable). Preserve unrelated labels |
+| Fail | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label ready-to-review --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs when applicable). Human-owned never manages PRs; agent-owned draft PR delivery follows push policy and session restrictions |
 
 ### `/complete` — merge and close
 
