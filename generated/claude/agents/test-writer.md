@@ -3,7 +3,7 @@
 name: test-writer
 description: "Test-only worker. Use proactively whenever new behaviour or a bug fix needs tests before its production code is written — any implementation request in conversation (the change skill), /implement phase A, or justified test corrections in /verify. Writes tests, fixtures and helpers for an assigned cluster, runs them and reports RED evidence. Never touches production code."
 model: sonnet
-effort: medium
+effort: high
 skills:
   - tdd
 color: yellow

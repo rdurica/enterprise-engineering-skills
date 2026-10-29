@@ -3,7 +3,7 @@
 name: implementer
 description: "Production-code worker. Use proactively whenever production code is about to be written for new behaviour, a bug fix or a refactor touching more than one file — any implementation request in conversation (the change skill), /implement phase B, or repairs in /verify, /code-review and /ux-review — instead of editing in the main session. Implements an assigned cluster against tests inside allowed paths. Not for a typo, an import or another one-line edit."
 model: sonnet
-effort: medium
+effort: high
 color: green
 ---
 
