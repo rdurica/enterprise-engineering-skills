@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build provider agents from agents/<name>.md (description, instructions) and agents.toml (settings).
 
-Writes generated/claude/agents/<name>.md, generated/codex/agents/<name>.toml and
-generated/cursor/agents/<name>.md. With --check, writes nothing and exits 1 when generated/ is stale.
+Writes generated/claude/agents/<name>.md, generated/codex/agents/<name>.toml,
+generated/cursor/agents/<name>.md and generated/opencode/agents/<name>.md. With --check, writes nothing and exits 1 when generated/ is stale.
 """
 import json
 import re
@@ -15,6 +15,7 @@ outputs = {
     "claude": ("agents", ".md"),
     "codex": ("agents", ".toml"),
     "cursor": ("agents", ".md"),
+    "opencode": ("agents", ".md"),
 }
 
 
@@ -85,7 +86,19 @@ def render_cursor(name, description, instructions, shared, cfg):
     return "\n".join(out) + "\n"
 
 
-renderers = {"claude": render_claude, "codex": render_codex, "cursor": render_cursor}
+def render_opencode(name, description, instructions, shared, cfg):
+    # opencode names the agent after its file, so no name key.
+    out = ["---", header(name), f"description: {q(description)}", "mode: subagent"]
+    for key in ("model", "variant"):
+        if key in cfg:
+            out.append(f"{key}: {cfg[key]}")
+    if shared.get("readonly"):
+        out += ["permission:", "  edit: deny"]
+    out += ["---", "", read_first(shared.get("skills"), instructions)]
+    return "\n".join(out) + "\n"
+
+
+renderers = {"claude": render_claude, "codex": render_codex, "cursor": render_cursor, "opencode": render_opencode}
 
 
 def build():
