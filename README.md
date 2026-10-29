@@ -98,8 +98,8 @@ To **change an existing analysis** — before `/implement`, or after it when a c
 
 | Agent | Used by | What it does | Model |
 |-------|---------|--------------|-------|
-| `test-writer` | `/implement`, `change` | Writes tests for one slice of the change and proves they fail | Sonnet, medium |
-| `implementer` | `/implement`, `change`, repairs | Writes production code against the committed tests | Sonnet, medium |
+| `test-writer` | `/implement`, `change` | Writes tests for one slice of the change and proves they fail | Sonnet, high |
+| `implementer` | `/implement`, `change`, repairs | Writes production code against the committed tests | Sonnet, high |
 | `functional-reviewer` | `/verify` | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
 | `code-reviewer` | `/code-review`, `change` | Fixes bugs and security issues, then leftovers, duplication and readability | Sonnet, medium |
 | `ux-reviewer` | `/ux-review` | Walks the affected screens in a browser; checks accessibility | Sonnet, medium |
