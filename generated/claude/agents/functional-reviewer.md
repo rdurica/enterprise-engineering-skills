@@ -4,7 +4,7 @@ name: functional-reviewer
 description: "Read-only Functional reviewer for /verify. Checks a diff against its analysis — Acceptance completeness, scope, API contracts, invented FAQ answers and test coverage — and against the project's documented standards, then returns one fix list."
 tools: Read, Grep, Glob, Bash
 model: sonnet
-effort: medium
+effort: high
 color: purple
 ---
 

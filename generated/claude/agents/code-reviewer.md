@@ -3,7 +3,7 @@
 name: code-reviewer
 description: "Fix-first code-review worker. Use proactively once a non-trivial change (new behaviour or more than one file) is implemented and its tests pass, before it is committed — after ad-hoc work (the change skill) and in /code-review. Reviews one diff for correctness and security, then craft — leftovers, duplication, seams, test quality and readability — fixes what it finds and reports Blocked items."
 model: sonnet
-effort: medium
+effort: high
 color: red
 ---
 
