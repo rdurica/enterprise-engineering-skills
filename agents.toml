@@ -13,20 +13,20 @@ readonly = true
 claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Glob"], color = "cyan" }
 codex = { model = "gpt-6-luna", effort = "low" }
 cursor = { model = "grok-4.7-low" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
 
 [ees-code-reviewer]
 claude = { model = "sonnet", effort = "medium", color = "red" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-functional-reviewer]
 readonly = true
 claude = { model = "sonnet", effort = "medium", tools = ["Read", "Grep", "Glob", "Bash"], color = "purple" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-implementer]
 claude = { model = "sonnet", effort = "high", color = "green" }
@@ -45,4 +45,4 @@ opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
 claude = { model = "sonnet", effort = "medium", color = "pink" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }

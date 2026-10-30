@@ -3,7 +3,7 @@
 description: "Read-only Functional reviewer for /ees-verify. Checks a diff against its analysis — Acceptance completeness, scope, API contracts, invented FAQ answers and test coverage — and against the project's documented standards, then returns one fix list."
 mode: subagent
 model: opencode-go/deepseek-v4.1-flash
-variant: max
+variant: high
 permission:
   edit: deny
 ---

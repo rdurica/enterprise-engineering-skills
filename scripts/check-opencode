@@ -100,8 +100,8 @@ sys.exit(0 if eval(sys.argv[2]) else 1)' "$1" "$2"
 # The fragment config/opencode.json must contain (Architecture, Install).
 export FRAG='{"model":"claude-agent/opus","small_model":"opencode-go/deepseek-v4.1-flash","agent":{
   "build":{"model":"claude-agent/opus"},"plan":{"model":"claude-agent/opus"},
-  "general":{"model":"opencode-go/deepseek-v4.1-flash","variant":"max"},
-  "explore":{"model":"opencode-go/deepseek-v4.1-flash","variant":"max"},
+  "general":{"model":"opencode-go/deepseek-v4.1-flash","variant":"low"},
+  "explore":{"model":"opencode-go/deepseek-v4.1-flash","variant":"low"},
   "compaction":{"model":"opencode-go/deepseek-v4.1-flash"},"title":{"model":"opencode-go/deepseek-v4.1-flash"},
   "summary":{"model":"opencode-go/deepseek-v4.1-flash"}}}'
 
@@ -155,9 +155,11 @@ all_modes_models() {
 variants() {
   local n
   six_files || return 1
-  fm "$oc/ees-check-runner.md" | gq '^variant' && return 1
-  for n in "${agent_names[@]}"; do
-    [[ "$n" == ees-check-runner ]] && continue
+  fm "$oc/ees-check-runner.md" | gq -xF "variant: low" || return 1
+  for n in ees-code-reviewer ees-functional-reviewer ees-ux-reviewer; do
+    fm "$oc/$n.md" | gq -xF "variant: high" || return 1
+  done
+  for n in ees-implementer ees-test-writer; do
     fm "$oc/$n.md" | gq -xF "variant: max" || return 1
   done
   return 0
@@ -190,7 +192,7 @@ committed_opencode_in_sync() { # the committed generated/opencode matches what b
 
 check "[1] build-agents writes generated/opencode/agents/ with six files, each mode: subagent and model $flash" all_modes_models
 check "[1] the six opencode agent files are committed in generated/ and in sync with build-agents" committed_opencode_in_sync
-check "[2] ees-check-runner.md has no variant line; the other five have variant: max" variants
+check "[2] variants: check-runner low, reviewers high, implementers max" variants
 check "[3] ees-check-runner and ees-functional-reviewer have permission: edit: deny; the other four have no permission" permissions
 check "[4] opencode agents have no name key; ees-test-writer body starts by reading the ees-tdd skill" no_name_and_read_first
 
@@ -398,12 +400,20 @@ readme_models_values() {
   local m; m="$(models)"
   grep -qF 'claude-agent/opus' <<<"$m" && grep -qF "$flash" <<<"$m" && grep -qi 'variant' <<<"$m"
 }
+readme_variants() {
+  local m; m="$(models)"
+  grep -F '| `ees-test-writer`, `ees-implementer` |' <<<"$m" | gq -F 'variant `max`' &&
+    grep -F '| `ees-functional-reviewer`, `ees-code-reviewer`, `ees-ux-reviewer` |' <<<"$m" | gq -F 'variant `high`' &&
+    grep -F '| `ees-check-runner` |' <<<"$m" | gq -F 'variant `low`' &&
+    grep -F '| `general`, `explore` (built-in) |' <<<"$m" | gq -F 'variant `low`'
+}
 readme_assumptions() { local m; m="$(models)"; grep -qF '2.1.248' <<<"$m" && grep -qF 'claude auth login' <<<"$m" && grep -qF 'AGENTS.md' <<<"$m"; }
 check "[20] README Models: table with Claude Code and opencode columns" readme_header
 check "[20] README Models: a row for every skill" readme_skills
 check "[20] README Models: a row for every pack agent" readme_agents
 check "[20] README Models: a row for the built-in opencode agents general, explore, compaction, title, summary" readme_builtins
 check "[20] README Models: claude-agent/opus, $flash and variants" readme_models_values
+check "[20] README Models: implementers max, reviewers high, runners low" readme_variants
 check "[20] README Models: Claude Code >= 2.1.248, claude auth login, opencode reads AGENTS.md not CLAUDE.md" readme_assumptions
 
 # ---------------------------------------------------------------- extra checks of the Architecture section

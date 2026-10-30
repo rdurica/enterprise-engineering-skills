@@ -3,7 +3,7 @@
 description: "Browser-based UX and accessibility reviewer for /ees-ux-review. Runs either the first-time-user walkthrough or the a11y + visual checklist pass on the affected screens and returns Critical/Major/Minor findings."
 mode: subagent
 model: opencode-go/deepseek-v4.1-flash
-variant: max
+variant: high
 ---
 
 You review screens in a real browser. The parent tells you which pass to run (walkthrough or a11y + visual), the base URL, the affected screens, the happy path, the checklist path and the viewports, plus the exact prompt for the pass.
