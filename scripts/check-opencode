@@ -1,0 +1,413 @@
+#!/usr/bin/env bash
+# Verify the Acceptance items of issue #7 (opencode harness). Check labels [1]..[20] map to the
+# 20 Acceptance items in order; [x..] labels are extra checks of the Architecture section.
+# Prints one PASS/FAIL line per check and exits 1 when any check fails.
+#
+# Behavioural checks run in a sandbox: a mktemp dir used as HOME, XDG_CONFIG_HOME, CLAUDE_CONFIG_DIR,
+# CODEX_HOME and the opencode data/cache/state dirs, so ~/.config/opencode, ~/.claude, ~/.codex and
+# ~/.cursor are never touched. agents.toml is only modified in a copy of the working tree.
+set -euo pipefail
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  if "$@" >/dev/null 2>&1; then echo "PASS  $desc"; else echo "FAIL  $desc"; fails=$((fails + 1)); fi
+}
+
+has() { grep -qF -- "$1" "$2"; }                 # has <text> <file>
+has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || return 1; done; }
+rx() { grep -qE -- "$1" "$2"; }                  # rx <regex> <file>
+rxi() { grep -qEi -- "$1" "$2"; }                # rx, case-insensitive
+gq() { grep "$@" >/dev/null; }                    # grep -q for pipelines: reads all input, no SIGPIPE under pipefail
+
+# region <file> <start-regex> <end-regex>: lines from the first start match up to (excluding) the next end match.
+region() {
+  START="$2" END="$3" awk 'BEGIN { s = ENVIRON["START"]; e = ENVIRON["END"] }
+    !on && $0 ~ s { on = 1; print; next }
+    on && e != "" && $0 ~ e { exit }
+    on { print }' "$1"
+}
+# near <anchor-ere> <partner-ere> <window> (stdin): an anchor line has a partner (case-insensitive)
+# on itself or within the next <window> lines.
+near() {
+  A="$1" P="$2" W="$3" awk 'BEGIN { a = ENVIRON["A"]; p = ENVIRON["P"]; w = ENVIRON["W"] + 0 }
+    { L[NR] = $0 }
+    END { for (i = 1; i <= NR; i++) if (L[i] ~ a) for (j = i; j <= i + w && j <= NR; j++) if (tolower(L[j]) ~ p) f = 1
+          exit !f }'
+}
+# ordered <ere>... (stdin): first-match line numbers of the patterns strictly increase.
+ordered() {
+  local text; text="$(cat)"
+  local prev=0 pat n
+  for pat in "$@"; do
+    n="$(grep -nE -- "$pat" <<<"$text" | head -1 | cut -d: -f1 || true)"
+    [[ -n "$n" && "$n" -gt "$prev" ]] || return 1
+    prev="$n"
+  done
+}
+word() { printf '(^|[^A-Za-z])%s([^A-Za-z]|$)' "$1"; }   # whole-word ERE
+
+# ---------------------------------------------------------------- sandbox
+
+sb="$(mktemp -d)"
+cleanup() {
+  local d
+  for d in "$sb"/*/; do stop_service "${d%/}"; done
+  rm -rf "$sb"
+}
+trap cleanup EXIT
+
+# with_env <scenario-dir> <command...>: run with every config location pointing into the sandbox.
+with_env() {
+  local d="$1"; shift
+  timeout 180 env HOME="$d/home" XDG_CONFIG_HOME="$d/xdg" XDG_DATA_HOME="$d/data" XDG_CACHE_HOME="$d/cache" \
+    XDG_STATE_HOME="$d/state" CLAUDE_CONFIG_DIR="$d/claude" CODEX_HOME="$d/codex" "$@"
+}
+
+# opencode talks to a background service on a fixed port, shared with a running opencode desktop app.
+# A sandbox gets its own port (stored in the sandbox config) and the service is stopped after each run.
+stop_service() {
+  [[ -f "$1/xdg/opencode/service.json" ]] && command -v opencode >/dev/null || return 0
+  with_env "$1" opencode service stop >/dev/null 2>&1 || true
+}
+
+new_scenario() { # new_scenario <name> -> path
+  local d="$sb/$1"
+  mkdir -p "$d"/{home,xdg/opencode/agents,data,cache,state,claude,codex}
+  if command -v opencode >/dev/null; then
+    with_env "$d" opencode service set port "$(python3 -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')" \
+      >/dev/null 2>&1 || true
+  fi
+  echo "$d"
+}
+
+# run_install <scenario-dir> [install.sh args]: combined output in <dir>/out, exit code in <dir>/rc.
+run_install() {
+  local d="$1"; shift
+  { with_env "$d" "$pack/install.sh" "$@" >"$d/out" 2>&1 && echo 0 >"$d/rc"; } || echo $? >"$d/rc"
+  stop_service "$d"
+}
+
+# pyj <json-file> <python-expr>: true when the expression is truthy. c = the file, o = $ORIG, f = $FRAG.
+pyj() {
+  python3 -I -c '
+import json, os, sys
+c = json.load(open(sys.argv[1]))
+o = json.load(open(os.environ["ORIG"])) if os.environ.get("ORIG") else None
+f = json.loads(os.environ["FRAG"])
+sys.exit(0 if eval(sys.argv[2]) else 1)' "$1" "$2"
+}
+
+# The fragment config/opencode.json must contain (Architecture, Install).
+export FRAG='{"model":"claude-agent/opus","small_model":"opencode-go/deepseek-v4.1-flash","agent":{
+  "build":{"model":"claude-agent/opus"},"plan":{"model":"claude-agent/opus"},
+  "general":{"model":"opencode-go/deepseek-v4.1-flash","variant":"max"},
+  "explore":{"model":"opencode-go/deepseek-v4.1-flash","variant":"max"},
+  "compaction":{"model":"opencode-go/deepseek-v4.1-flash"},"title":{"model":"opencode-go/deepseek-v4.1-flash"},
+  "summary":{"model":"opencode-go/deepseek-v4.1-flash"}}}'
+
+mapfile -t agent_names < <(for f in agents/*.md; do basename "$f" .md; done)
+flash="opencode-go/deepseek-v4.1-flash"
+
+# User config used by the merge scenarios: agent.build on deepseek with a variant, keys the pack must keep,
+# and a subagent without a model.
+write_user_config() {
+  cat >"$1" <<'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/glm-5",
+  "mcp": {"srv": {"type": "local", "command": ["echo", "hi"], "enabled": false}},
+  "permission": {"bash": "ask", "edit": "allow"},
+  "plugin": ["./plugins/noop.js"],
+  "agent": {
+    "build": {"model": "opencode-go/deepseek-v4.1-flash", "variant": "max", "temperature": 0.3},
+    "backend": {"mode": "subagent", "description": "mine", "prompt": "be backend"}
+  }
+}
+EOF
+}
+
+# ---------------------------------------------------------------- build-agents on a copy of the tree
+
+copy_tree() { mkdir -p "$1" && tar --exclude=./.git -cf - . | tar -xf - -C "$1"; }
+
+# 1-4: regenerate opencode output from scratch in a copy.
+gen="$sb/gen"; copy_tree "$gen"
+rm -rf "$gen/generated/opencode"
+"$gen/scripts/build-agents" >"$gen/build.out" 2>&1 || true
+oc="$gen/generated/opencode/agents"
+
+fm() { awk '/^---$/ { n++; next } n == 1' "$1"; }       # frontmatter lines
+body() { awk '/^---$/ { n++; next } n >= 2' "$1"; }     # body lines
+
+six_files() {
+  local n
+  [[ "$(ls "$oc"/*.md 2>/dev/null | wc -l)" == 6 ]] || return 1
+  for n in "${agent_names[@]}"; do [[ -f "$oc/$n.md" ]] || return 1; done
+}
+all_modes_models() {
+  local n
+  six_files || return 1
+  for n in "${agent_names[@]}"; do
+    fm "$oc/$n.md" | gq -xF "mode: subagent" || return 1
+    fm "$oc/$n.md" | gq -xF "model: $flash" || return 1
+  done
+}
+variants() {
+  local n
+  six_files || return 1
+  fm "$oc/check-runner.md" | gq '^variant' && return 1
+  for n in "${agent_names[@]}"; do
+    [[ "$n" == check-runner ]] && continue
+    fm "$oc/$n.md" | gq -xF "variant: max" || return 1
+  done
+  return 0
+}
+permissions() {
+  local n
+  six_files || return 1
+  for n in "${agent_names[@]}"; do
+    if [[ "$n" == check-runner || "$n" == functional-reviewer ]]; then
+      fm "$oc/$n.md" | gq -xF "permission:" || return 1
+      fm "$oc/$n.md" | gq -xF "  edit: deny" || return 1
+    else
+      fm "$oc/$n.md" | gq 'permission' && return 1
+    fi
+  done
+  return 0
+}
+no_name_and_read_first() {
+  local n first
+  six_files || return 1
+  for n in "${agent_names[@]}"; do
+    fm "$oc/$n.md" | gq '^name:' && return 1
+  done
+  first="$(body "$oc/test-writer.md" | grep -v '^$' | head -1)"
+  grep -qE '[Rr]ead.*`tdd`' <<<"$first"
+}
+committed_opencode_in_sync() { # the committed generated/opencode matches what build-agents produces
+  six_files && diff -r "$oc" generated/opencode/agents && scripts/build-agents --check
+}
+
+check "[1] build-agents writes generated/opencode/agents/ with six files, each mode: subagent and model $flash" all_modes_models
+check "[1] the six opencode agent files are committed in generated/ and in sync with build-agents" committed_opencode_in_sync
+check "[2] check-runner.md has no variant line; the other five have variant: max" variants
+check "[3] check-runner and functional-reviewer have permission: edit: deny; the other four have no permission" permissions
+check "[4] opencode agents have no name key; test-writer body starts by reading the tdd skill" no_name_and_read_first
+
+# 5: stale detection on a copy with a changed agents.toml.
+stale="$sb/stale"; copy_tree "$stale"
+stale_check() {
+  local rc=0 out n
+  "$stale/scripts/build-agents" --check >/dev/null 2>&1 || return 1          # copy starts in sync
+  sed -i "s#deepseek-v4\.1-flash#deepseek-v4.1-flash-changed#g" "$stale/agents.toml"
+  out="$("$stale/scripts/build-agents" --check 2>&1)" || rc=$?
+  [[ "$rc" == 1 ]] || return 1
+  for n in "${agent_names[@]}"; do
+    grep -qxF "stale   generated/opencode/agents/$n.md" <<<"$out" || return 1
+  done
+}
+check "[5] changed agents.toml without regenerating: build-agents --check exits 1 and prints stale generated/opencode/agents/<name>.md" stale_check
+
+# ---------------------------------------------------------------- install.sh scenarios
+
+have_opencode() { command -v opencode >/dev/null; }
+check "[harness] opencode is installed (needed by the install scenarios)" have_opencode
+
+# A: fresh sandbox, no opencode.json, dangling links from the earlier spike, XDG_CONFIG_HOME != $HOME/.config.
+A="$(new_scenario A)"
+for n in "${agent_names[@]}"; do ln -sfn "$pack/generated/opencode/agents/$n.md" "$A/xdg/opencode/agents/$n.md"; done
+run_install "$A"
+
+debug_agents_flash() {
+  have_opencode || return 1
+  with_env "$A" opencode debug agents --standalone 2>/dev/null | python3 -I -c '
+import json, sys
+agents = {a["id"]: a for a in json.load(sys.stdin)}
+for n in sys.argv[1:]:
+    m = agents.get(n, {}).get("model")
+    if not m or m.get("providerID") != "opencode-go" or m.get("id") != "deepseek-v4.1-flash":
+        sys.exit(1)' "${agent_names[@]}"
+}
+links_resolve() {
+  local n l
+  for n in "${agent_names[@]}"; do
+    l="$A/xdg/opencode/agents/$n.md"
+    [[ -L "$l" && -e "$l" && "$(readlink -f "$l")" == "$pack/generated/opencode/agents/$n.md" ]] || return 1
+    grep -qE "^(relink|ok) +$l" "$A/out" || return 1
+  done
+}
+xdg_respected() { # the links land in $XDG_CONFIG_HOME/opencode/agents/ and nothing under $HOME/.config/opencode
+  local n
+  for n in "${agent_names[@]}"; do grep -qE "^(link|relink|ok) +$A/xdg/opencode/agents/$n\.md" "$A/out" || return 1; done
+  [[ ! -e "$A/home/.config/opencode" ]]
+}
+fresh_config_created() {
+  pyj "$A/xdg/opencode/opencode.json" \
+    'c.get("$schema") == "https://opencode.ai/config.json" and all(c.get(k) == v for k, v in f.items())'
+}
+check "[6] after install.sh, opencode debug agents lists all six pack agents on opencode-go/deepseek-v4.1-flash, none without a model" debug_agents_flash
+check "[7] dangling links in opencode/agents/ become relink/ok lines and point to existing generated files" links_resolve
+check "[7] with XDG_CONFIG_HOME set, agents are linked into \$XDG_CONFIG_HOME/opencode/agents/ only" xdg_respected
+check "[13] missing opencode.json with opencode installed: install.sh creates it with \$schema and the whole fragment" fresh_config_created
+
+# B: existing user config, first and second run.
+B="$(new_scenario B)"
+cfg="$B/xdg/opencode/opencode.json"
+write_user_config "$cfg"; cp "$cfg" "$B/orig.json"
+run_install "$B"
+cp "$cfg" "$B/after1.json"; cp "$cfg.bak" "$B/after1.bak" 2>/dev/null || true
+run_install "$B"
+
+export ORIG="$B/orig.json"
+build_overridden() {
+  pyj "$B/after1.json" \
+    'c.get("model") == "claude-agent/opus" and c["agent"]["build"]["model"] == "claude-agent/opus" and "variant" not in c["agent"]["build"]'
+}
+other_keys_kept() {
+  pyj "$B/after1.json" \
+    'c.get("model") == "claude-agent/opus" and all(c[k] == o[k] for k in ("mcp", "permission", "plugin")) and c["agent"]["backend"] == o["agent"]["backend"] and c["agent"]["build"].get("temperature") == 0.3'
+}
+bak_then_idempotent() {
+  cmp -s "$B/orig.json" "$B/after1.bak" || return 1                  # first run: .bak holds the original
+  cmp -s "$B/after1.json" "$cfg" || return 1                         # second run: file unchanged
+  cmp -s "$B/after1.bak" "$cfg.bak" || return 1                      # second run: .bak not overwritten
+  ! cmp -s "$B/orig.json" "$cfg" || return 1                         # the first run did change the file
+  grep -qE '^ok +.*opencode\.json' "$B/out"
+}
+warn_backend() {
+  grep -qF 'warn    agent backend has no model and inherits the session model' "$B/out" || return 1
+  ! grep -qE 'warn +agent build ' "$B/out"
+}
+check "[8] agent.build deepseek+variant is replaced: agent.build.model and model are claude-agent/opus, no variant" build_overridden
+check "[9] mcp, permission, plugin, custom agent backend and other agent.build fields are unchanged" other_keys_kept
+check "[10] first run writes opencode.json.bak with the original; second run prints ok, changes neither file" bak_then_idempotent
+check "[15] subagent backend without a model prints the warn line; primary build (with a model) does not" warn_backend
+
+# C: --dry-run.
+C="$(new_scenario C)"
+write_user_config "$C/xdg/opencode/opencode.json"; cp "$C/xdg/opencode/opencode.json" "$C/orig.json"
+run_install "$C" --dry-run
+dry_run_ok() {
+  grep -qE "agent\.build\.model: $flash -> claude-agent/opus" "$C/out" || return 1
+  grep -qE '(^|[[:space:]])model: opencode-go/glm-5 -> claude-agent/opus' "$C/out" || return 1
+  cmp -s "$C/orig.json" "$C/xdg/opencode/opencode.json" && [[ ! -e "$C/xdg/opencode/opencode.json.bak" ]]
+}
+check "[11] install.sh --dry-run prints '<key>: <old> -> <new>' lines and leaves opencode.json without .bak untouched" dry_run_ok
+
+# D: JSONC.
+D="$(new_scenario D)"
+printf '{\n  // my comment\n  "model": "x/y",\n  "agent": {}\n}\n' >"$D/xdg/opencode/opencode.json"
+cp "$D/xdg/opencode/opencode.json" "$D/orig.json"
+run_install "$D"
+jsonc_warns() {
+  [[ "$(cat "$D/rc")" == 0 ]] || return 1
+  grep -qF 'config/opencode.json' "$D/out" && grep -qi 'by hand' "$D/out" || return 1
+  cmp -s "$D/orig.json" "$D/xdg/opencode/opencode.json" && [[ ! -e "$D/xdg/opencode/opencode.json.bak" ]]
+}
+check "[12] opencode.json with // comment: warning with path to config/opencode.json, file unchanged, exit 0" jsonc_warns
+
+# E: opencode not on PATH.
+E="$(new_scenario E)"
+nobin="$sb/nobin"; mkdir -p "$nobin"
+for t in bash env python3 git dirname readlink ln mkdir rm cat grep head sed mktemp cp date basename sort wc tr cut find; do
+  command -v "$t" >/dev/null && ln -sf "$(command -v "$t")" "$nobin/$t"
+done
+{ with_env "$E" env PATH="$nobin" "$pack/install.sh" >"$E/out" 2>&1 && echo 0 >"$E/rc"; } || echo $? >"$E/rc"
+no_opencode_on_path() { ! PATH="$nobin" command -v opencode; }
+no_opencode_ok() {
+  local n l
+  [[ "$(cat "$E/rc")" == 0 ]] || return 1
+  for n in "${agent_names[@]}"; do
+    l="$E/xdg/opencode/agents/$n.md"
+    [[ -L "$l" && -e "$l" ]] || return 1
+  done
+  [[ ! -e "$E/xdg/opencode/opencode.json" ]]
+}
+check "[harness] restricted PATH really hides opencode" no_opencode_on_path
+check "[14] without opencode on PATH: agents linked, no opencode.json created, exit 0" no_opencode_ok
+
+# ---------------------------------------------------------------- documentation
+
+t=skills/analyze/analysis-template.md
+tmpl_region() { region $t '^### Architecture subsections' ''; }
+fields_ordered() { tmpl_region | ordered "$(word 'Path:')" "$(word Files)" "$(word Follow)" "$(word Seams)"; }
+omit_rules() {
+  tmpl_region | near "$(word Follow)" 'omit|skip|leave out|drop' 3 && tmpl_region | near "$(word Seams)" 'omit|skip|leave out|drop' 3
+}
+single_unit() {
+  tmpl_region | near 'single[- ]unit|one unit' 'directly under|right under|no `###`|without a `###`|without `###`|no heading|without (a )?heading|no `###` heading' 3
+}
+no_code_bodies() { tmpl_region | gq -i 'code bod' && tmpl_region | gq -i 'pseudocode' && tmpl_region | gq -Ei 'step[- ]by[- ]step'; }
+check "[16] analysis-template.md names the fields Path:, Files, Follow, Seams in this order" fields_ordered
+check "[16] analysis-template.md says when Follow and Seams are omitted" omit_rules
+check "[16] analysis-template.md describes the single-unit variant without a ### heading" single_unit
+check "[16] analysis-template.md bans code bodies, pseudocode and step-by-step procedures" no_code_bodies
+
+a=skills/analyze/SKILL.md
+phase_b() { region $a '^## Phase B' ''; }
+analyze_arch_agent() { phase_b | grep -E 'Architecture' | grep -E 'implementing|implementer' | gq -Ei 'interview|context'; }
+analyze_header_humans() { phase_b | grep -E 'header|Goal' | gq -Ei 'human|people|person|reader'; }
+check "[17] analyze SKILL.md Phase B: Architecture is written for an implementing agent without interview context" analyze_arch_agent
+check "[17] analyze SKILL.md Phase B: the header (Goal to Affected Areas) is for people" analyze_header_humans
+
+im=skills/implement/SKILL.md
+contract() { region $im '^### Execution contract' '^## '; }
+impl_verbatim() { contract | grep -i 'verbatim' | gq 'Architecture'; }
+impl_files_guide() { contract | grep -E "$(word Files)" | grep -i 'guide' | gq -i 'allowed paths'; }
+check "[18] implement SKILL.md: worker receives the Architecture units verbatim" impl_verbatim
+check "[18] implement SKILL.md: Files is a guide, not the allowed paths" impl_files_guide
+
+escalation() { region $im 'Escalation' '^#'; }
+impl_escalation() {
+  local e; e="$(escalation)"
+  grep -qi 'opencode' <<<"$e" && grep -qi 'parent' <<<"$e" && grep -qi 'blocked' <<<"$e" &&
+    grep -qEi 'model (switch|parameter|override)|switch(ing)? (the |a )?model|(cannot|can.t|unable to|no way to|does not) (switch|set|change|override|select|take)|no `?model`? param' <<<"$e"
+}
+check "[19] implement SKILL.md Escalation: without a model switch (opencode) the parent takes the cluster after the second failure or marks it blocked" impl_escalation
+
+r=README.md
+models() { region $r '^## Models' '^## Status'; }
+row() { models | gq -E "^\|[^|]*\`/?$1\`[^|]*\|[^|]+\|[^|]+\|"; }   # row <name>: a table row with >= 3 cells naming it
+all_rows() { local n; for n in "$@"; do row "$n" || return 1; done; }
+readme_header() { models | grep -E '^\|' | grep -i 'Claude Code' | gq -i 'opencode'; }
+readme_skills() { all_rows analyze analyze-modify discuss idea implement verify code-review ux-review git-release monorepo-update setup commit complete change; }
+readme_agents() { all_rows test-writer implementer functional-reviewer code-reviewer ux-reviewer check-runner; }
+readme_builtins() { all_rows general explore compaction title summary; }
+readme_models_values() {
+  local m; m="$(models)"
+  grep -qF 'claude-agent/opus' <<<"$m" && grep -qF "$flash" <<<"$m" && grep -qi 'variant' <<<"$m"
+}
+readme_assumptions() { local m; m="$(models)"; grep -qF '2.1.248' <<<"$m" && grep -qF 'claude auth login' <<<"$m" && grep -qF 'AGENTS.md' <<<"$m"; }
+check "[20] README Models: table with Claude Code and opencode columns" readme_header
+check "[20] README Models: a row for every skill" readme_skills
+check "[20] README Models: a row for every pack agent" readme_agents
+check "[20] README Models: a row for the built-in opencode agents general, explore, compaction, title, summary" readme_builtins
+check "[20] README Models: claude-agent/opus, $flash and variants" readme_models_values
+check "[20] README Models: Claude Code >= 2.1.248, claude auth login, opencode reads AGENTS.md not CLAUDE.md" readme_assumptions
+
+# ---------------------------------------------------------------- extra checks of the Architecture section
+
+quick_start() { region $r '^## Quick start' '^## '; }
+providers() { region $r '^### Agents for each provider' '^## '; }
+readme_quick_start() { local q; q="$(quick_start)"; grep -qF '.config/opencode' <<<"$q" && grep -qF '.bak' <<<"$q" && grep -qF 'dry-run' <<<"$q"; }
+readme_providers() { local p; p="$(providers)"; grep -qF 'opencode' <<<"$p" && grep -qF 'edit: deny' <<<"$p" && grep -qF '@analyze' <<<"$p"; }
+toml_documented() { head -12 agents.toml | gq -E '^# opencode:'; }
+toml_tables() { [[ "$(grep -c '^opencode = ' agents.toml)" == 6 && "$(grep -c "model = \"$flash\"" agents.toml)" -ge 6 ]]; }
+install_header() { head -8 install.sh | gq -i 'opencode'; }
+implement_table() { contract | gq -F 'Claude model' && contract | gq -F 'agents.toml'; }
+reviewer_opencode() { escalation | grep -E 'code-reviewer' | gq -i 'opencode'; }
+check "[x1] README Quick start: opencode agents dir, opencode.json merge, .bak, --dry-run" readme_quick_start
+check "[x2] README Agents for each provider: opencode table, edit: deny, @analyze" readme_providers
+check "[x3] agents.toml: header documents opencode and every agent has an opencode table on $flash" toml_documented
+check "[x3] agents.toml: six opencode tables with model $flash" toml_tables
+check "[x4] install.sh header mentions opencode" install_header
+check "[x5] implement SKILL.md: Agents table column is Claude model / effort and points to agents.toml" implement_table
+check "[x6] implement SKILL.md Escalation: code-reviewer in opencode keeps the same agent with a sharper brief" reviewer_opencode
+
+echo
+if (( fails )); then echo "$fails check(s) failed"; exit 1; fi
+echo "all checks passed"
