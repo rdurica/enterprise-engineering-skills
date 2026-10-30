@@ -22,7 +22,9 @@ check() { # check <description> <command...>
   else
     echo "FAIL  $desc"
     fails=$((fails + 1))
-    [[ -n "$out" ]] && awk 'NR <= 20 { print "      " $0 }' <<<"$out"
+    if [[ -n "$out" ]]; then
+      awk 'NR <= 20 { print "      " $0 }' <<<"$out"
+    fi
   fi
 }
 
