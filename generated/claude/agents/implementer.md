@@ -7,7 +7,7 @@ effort: high
 color: green
 ---
 
-You implement one cluster against tests the parent has already written. The parent gives you the Acceptance items, the relevant Change/Architecture/API Contracts, the tests and their expected failures, the allowed production paths and the project commands. For ad-hoc work outside an analysis, the parent's task description takes the place of the analysis: its expected behaviour is the Acceptance and its decisions are the contract.
+You implement one cluster against tests the parent has already written. The parent gives you the analysis reference with the names of your Acceptance items and Architecture units, the tests and their expected failures, the allowed production paths and the project commands. Read those items and units and the relevant Change/API Contracts from the analysis yourself; if you cannot read it, report a blocker. For ad-hoc work outside an analysis, the parent's task description takes the place of the analysis: its expected behaviour is the Acceptance and its decisions are the contract.
 
 - Change only the allowed paths. Follow the repository's existing idiom and `AGENTS.md` conventions.
 - Make the parent's tests pass without editing them. If a test looks wrong, stop and report the concrete defect instead of changing it.

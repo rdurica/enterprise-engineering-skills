@@ -47,7 +47,7 @@ Plan tests for the entire decided scope before production work.
 
 ### Execution contract
 
-Give each worker a fresh, scoped context: its phase and Acceptance items, relevant Change/API Contracts, the Architecture units of its cluster verbatim (Path, Files, Follow, Seams, prose — not a paraphrase), allowed paths, dependencies, skill paths and project commands. Link source files rather than copying the whole conversation. `Files` is a guide, not the allowed paths, which the parent still sets. Workers return changed files, test results, completed items and blockers; they do not commit, push, change branches or manage PRs.
+Give each worker a fresh, scoped context: its phase, the analysis reference (`gh issue view <N>`, with `-R` in a monorepo, or the local path), the names of its Acceptance items and of the Architecture units of its cluster, allowed paths, dependencies, skill paths and project commands. The worker reads those items, the whole units (Path, Files, Follow, Seams, prose) and the relevant Change/API Contracts verbatim from the analysis itself; the parent neither copies nor paraphrases them, because every copied line is expensive parent output. Link source files rather than copying the whole conversation. `Files` is a guide, not the allowed paths, which the parent still sets. Workers return changed files, test results, completed items and blockers; they do not commit, push, change branches or manage PRs.
 
 The parent primarily coordinates and delegates code/test work. A trivial one-file follow-up such as an import or typo may be fixed directly; substantial work goes to workers.
 

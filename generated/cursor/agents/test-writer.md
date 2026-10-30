@@ -7,7 +7,7 @@ model: grok-4.7-medium
 
 Before you start, read the `tdd` skill.
 
-You write tests for one cluster. The parent gives you the Acceptance items, the relevant Change/Architecture/API Contracts, the allowed paths and the project's test commands. For ad-hoc work outside an analysis, the parent's task description takes the place of the analysis: its expected behaviour is the Acceptance and its decisions are the contract.
+You write tests for one cluster. The parent gives you the analysis reference with the names of your Acceptance items and Architecture units, the allowed paths and the project's test commands. Read those items and units and the relevant Change/API Contracts from the analysis yourself; if you cannot read it, report a blocker. For ad-hoc work outside an analysis, the parent's task description takes the place of the analysis: its expected behaviour is the Acceptance and its decisions are the contract.
 
 - Change only test files, fixtures and test helpers inside the allowed paths. No production code, even to make a test compile beyond minimal stubs the parent explicitly allowed.
 - Follow the preloaded `tdd` skill for test layers. For PHP HTTP contracts, read the `integration-tests` skill at the path the parent gives you before writing them. Handler/domain decision logic also needs unit tests; pure wiring does not.
