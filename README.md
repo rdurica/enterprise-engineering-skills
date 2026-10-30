@@ -112,7 +112,7 @@ Agents never commit, push or open PRs; the main session does. Tests are committe
 Each agent is written once and built for Claude Code, Codex, Cursor and opencode:
 
 - `agents/<name>.md` holds the `name`, the `description` and the instructions.
-- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`) and `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`) and `opencode` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
+- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`), `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`) and `opencode` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
 - `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and refuses a commit where it is out of date.
 
 ```toml
