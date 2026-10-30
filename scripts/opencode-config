@@ -101,7 +101,13 @@ def main():
             opencode_dir.mkdir(parents=True, exist_ok=True)
             if path.is_file():
                 (opencode_dir / "opencode.json.bak").write_bytes(path.read_bytes())
-            path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            # Write beside the target and rename, so an interrupted run never leaves a truncated config.
+            target = path.resolve()
+            tmp = target.with_name(target.name + ".tmp")
+            tmp.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            if target.is_file():
+                tmp.chmod(target.stat().st_mode & 0o7777)
+            os.replace(tmp, target)
     warn_inheriting_models()
 
 
