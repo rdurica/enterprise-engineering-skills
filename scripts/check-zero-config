@@ -17,40 +17,40 @@ has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || ret
 none() { ! grep -rqE -- "$1" "${@:2}"; }         # none <regex> <paths...>
 
 # 1. pipeline skill
-p=skills/pipeline
+p=skills/ees-pipeline
 frontmatter_ok() { has "user-invocable: false" $p/SKILL.md && has "disable-model-invocation: true" $p/SKILL.md; }
 check "pipeline: SKILL.md with hidden frontmatter" frontmatter_ok
 check "pipeline: tracker-github.md, tracker-local.md, config.md exist" \
   test -f $p/tracker-github.md -a -f $p/tracker-local.md -a -f $p/config.md
-check "pipeline/config.md: defaults, global path, Monorepo section" \
+check "ees-pipeline/config.md: defaults, global path, Monorepo section" \
   has_all $p/config.md "branch-owner: agent" "push: finalize" "ux-review: disabled" \
   "~/.config/enterprise-engineering-skills/workflow.md" "## Monorepo"
 
 # 2. setup reduced to SKILL.md, old files gone
-only_skill_md() { [[ "$(ls skills/setup)" == "SKILL.md" ]]; }
+only_skill_md() { [[ "$(ls skills/ees-setup)" == "SKILL.md" ]]; }
 check "setup: contains only SKILL.md" only_skill_md
 no_old_files() { [[ -z "$(find skills \( -name 'workflow.md.template' -o -name 'workflow-presets.md' -o -name 'issue-tracker-*.md' \))" ]]; }
 check "skills/: no template, presets or issue-tracker-*.md" no_old_files
 
 # 3. no stale references outside setup
-others=$(find skills -mindepth 1 -maxdepth 1 -type d ! -name setup)
+others=$(find skills -mindepth 1 -maxdepth 1 -type d ! -name ees-setup)
 # shellcheck disable=SC2086
-check "skills/ (excl. setup): no /setup, issue-tracker config path or domain.md" \
-  none '/setup|docs/agents/config/issue-tracker|domain\.md' $others
+check "skills/ (excl. ees-setup): no /ees-setup, issue-tracker config path or domain.md" \
+  none '/ees-setup|docs/agents/config/issue-tracker|domain\.md' $others
 
 # 4. stale model claims
-check "pack: no '/implement (Opus)' or 'orchestrating skills run on Opus'" \
-  none '/implement \(Opus\)|orchestrating skills run on Opus' skills agents README.md generated agents.toml
+check "pack: no '/ees-implement (Opus)' or 'orchestrating skills run on Opus'" \
+  none '/ees-implement \(Opus\)|orchestrating skills run on Opus' skills agents README.md generated agents.toml
 
 # 5. config-reading skills point at the pipeline
-refs_pipeline() { grep -rqE 'pipeline/config\.md|\{skills-root\}/pipeline/' "$1"; }
-for s in analyze analyze-modify implement verify code-review ux-review complete monorepo-update; do
-  check "skills/$s/SKILL.md references pipeline/config.md" refs_pipeline skills/$s/SKILL.md
+refs_pipeline() { grep -rqE 'ees-pipeline/config\.md|\{skills-root\}/ees-pipeline/' "$1"; }
+for s in ees-analyze ees-analyze-modify ees-implement ees-verify ees-code-review ees-ux-review ees-complete ees-monorepo-update; do
+  check "skills/$s/SKILL.md references ees-pipeline/config.md" refs_pipeline skills/$s/SKILL.md
 done
 
 # 6. README
-quick_start_no_setup() { ! sed -n '/^## Quick start/,/^## /p' README.md | grep -qE 'run `?/setup`? once'; }
-check "README: Quick start has no mandatory /setup" quick_start_no_setup
+quick_start_no_setup() { ! sed -n '/^## Quick start/,/^## /p' README.md | grep -qE 'run `?/ees-setup`? once'; }
+check "README: Quick start has no mandatory /ees-setup" quick_start_no_setup
 check "README: Configuration documents defaults and global file" \
   has_all README.md "branch-owner: agent" "push: finalize" "ux-review: disabled" \
   "~/.config/enterprise-engineering-skills/workflow.md"
@@ -60,9 +60,9 @@ check "README: no 'Preset' and no 'Both'" none 'Preset|Both' README.md
 dry_run_lists_pipeline() {
   local home out; home="$(mktemp -d)"
   out="$(HOME="$home" ./install.sh --dry-run 2>&1)"; rm -rf "$home"
-  grep -qE '/\.claude/skills/pipeline( |$)' <<<"$out" && grep -qE '/\.agents/skills/pipeline( |$)' <<<"$out"
+  grep -qE '/\.claude/skills/ees-pipeline( |$)' <<<"$out" && grep -qE '/\.agents/skills/ees-pipeline( |$)' <<<"$out"
 }
-check "install.sh --dry-run lists pipeline for ~/.claude and ~/.agents skills" dry_run_lists_pipeline
+check "install.sh --dry-run lists ees-pipeline for ~/.claude and ~/.agents skills" dry_run_lists_pipeline
 
 echo
 if (( fails )); then echo "$fails check(s) failed"; exit 1; fi

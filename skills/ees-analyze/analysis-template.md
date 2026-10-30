@@ -1,0 +1,167 @@
+# Analysis template
+
+Writing rules and section template for `/ees-analyze`. Delivery and publishing follow [SKILL.md](SKILL.md).
+
+## Writing style
+
+Keep the analysis easy to scan. Goal is 1–3 sentences; Current State and Change each use one paragraph of 2–4 short sentences in plain language. Explain behaviour and user impact there; keep class names, paths, data shapes and implementation steps in Architecture or API Contracts. Avoid repeating the same information across sections.
+
+- Backticks are for paths, commands, HTTP routes and literal values. Class, command, DTO and event names in prose stay plain text.
+- Put data shapes in fenced blueprint blocks.
+- Frontend stays short when it is involved; it is not the focus.
+- `## Affected Areas` is a short bullet map of where the change lands, not a second Architecture. It always includes a Mermaid diagram of the behaviour.
+- `## API Contracts` is omitted when there is no API.
+
+### Mermaid highlighting
+
+Every diagram must highlight the processes, nodes or regions being changed or added in orange; keep surrounding context neutral. Highlight only parts affected by this change, including in current-state diagrams. Add a short legend below each diagram in the analysis language: “Orange = changed or new part.”
+
+For flowcharts, use the shared `changed` class with an orange fill and a strong border:
+
+```mermaid
+flowchart LR
+    A[Request] --> B[Validation] --> C[Result]
+    classDef default fill:#f3f4f6,stroke:#6b7280,color:#111827
+    classDef changed fill:#ffedd5,stroke:#c2410c,stroke-width:3px,color:#7c2d12
+    class B changed
+```
+
+Orange = changed or new part.
+
+For other Mermaid types, use their supported styling to highlight the affected region in orange. If the type cannot highlight the affected part, use a flowchart instead.
+
+### Architecture subsections
+
+Each `###` names one real project unit: a package, repo, module or bounded context, never a layer such as Controller or Repository or an invented unit. Use only the unit name in the heading; put `Path: <path>` on the first line below it. A single-unit change has no `###` heading: the fields stand directly under `## Architecture`.
+
+Fields per unit, in this order, each a label on its own line with bullets below:
+
+- `Path:` as above.
+- `Files`: one bullet per file, `` `path` `` (relative to Path or the repo root) — new | changed, briefly what and which symbols. A guide, not a boundary: the worker may touch other files when the work requires it.
+- `Follow`: the existing file or symbol the change should imitate, and in what. Omit when no such pattern exists.
+- `Seams`: the contract with another unit (call, data, event) and which unit must be done first. Omit for a change within one unit.
+- Prose below the fields: data flow, schema delta, migration and inherited decisions.
+
+Name exact files, symbols and the existing pattern. No code bodies, pseudocode or step-by-step procedures; signatures and data shapes go in blueprint blocks.
+
+Name shared seams between units so `/ees-implement` can safely parallelize disjoint paths. When the change relies on a decision from an earlier analysis, link that analysis from Architecture. Decisions from the interview belong in Further Notes.
+
+## Template
+
+`## Delivery` may also contain `- Depends on: #<N>, …`, carried over from an idea.
+
+<analysis-template>
+
+## Goal
+
+{1–3 sentences: what problem or limitation motivates the change and what
+must hold at the end. No technical detail and no repeat of Change. Omitted in
+the bug variant.}
+
+## Current State
+
+{2–4 short sentences: how the relevant behaviour works today. No technical
+inventory or extra bullets.}
+
+## Change
+
+{2–4 short sentences: how that behaviour will work after the change and what
+the user will experience differently. Keep technical details in Architecture.}
+
+## Affected Areas
+
+{a high-level map of where the change lands: one bullet per area — module,
+service, app or screen — with a few words on what changes there. Use the same
+names as the Architecture units. No classes, paths or data shapes; those stay
+in Architecture. Below the bullets, a Mermaid of the behaviour across these
+areas, affected parts in orange, with a legend — always, even for a bug.
+
+Example:
+- Billing — new plan-change rule with proration
+- Groups API — endpoint for the owner to change the plan
+- Admin UI — plan picker on the group detail page}
+
+## FAQ
+
+{optional. Unresolved questions as bullets, each naming what it belongs to —
+a section or a contract. Publishing with an open FAQ is fine. After answers:
+fold each one into the right section and delete the item.}
+
+## Architecture
+
+{per unit: `Path:`, `Files`, `Follow`, `Seams`, then prose with data flow and
+decisions carried over from earlier analyses. One `###` per real unit; a
+single-unit change has no heading.
+When the schema changes, state the delta — tables and columns added or
+changed, nullability, defaults, indexes — plus the migration, written by
+hand, with the backfill and the rollback whenever existing rows are touched.
+
+Example:
+
+### Billing
+Path: `src/Billing`
+
+Files
+- `Plan/PlanChanger.php`: new — applies a plan change with proration
+- `Plan/Plan.php`: changed — `changeTo()` guards downgrades
+
+Follow
+- `Subscription/Renewer.php`: transaction and event dispatch
+
+Seams
+- Groups API calls `PlanChanger::change()`; Billing is done first}
+
+## API Contracts
+
+{one block per endpoint; omit the whole section when there is no API.
+Authorization is mandatory in every block — who may call it, and the status
+and error code everyone else gets.}
+
+```
+POST /api/groups/{uuid}/plan
+
+Authorization
+- group owner only; any other member 403 insufficient_permissions
+
+Request
+- string: planCode
+- bool: prorate
+
+Response 200
+- string: planCode
+- string: effectiveFrom (ISO-8601)
+
+Errors
+- 409 plan_downgrade_blocked
+- 404 group_not_found
+```
+
+## Acceptance
+
+{`- [ ]` list: one observable behaviour and one seam per item, with a concrete
+input or trigger and expected result. Cover happy, error and boundary paths.
+Each API endpoint needs a denied-caller item with its authorization status
+and error code. Reference API contracts instead of repeating payloads.
+Keep items separate for TDD clustering and verify; no implementation tasks
+or test-writing checkboxes.
+
+Example: - [ ] POST /orders with an out-of-stock item → 409, body `code: out_of_stock`, no order row}
+
+## Further Notes
+
+{the only record of decisions: one bullet for each decision the interview
+settled, including the rejected alternative. Add other bullets only for impact, risks or rollout
+and migration steps. No repetition or statements about unchanged behaviour.
+Omit when empty.}
+
+## Revisions
+
+{only after `/ees-analyze-modify`; always the last section. One checkbox per
+modification, oldest first: `- [ ] <YYYY-MM-DD> — <modification in one sentence>;
+risks accepted…; tests to change…` (tests only when already committed).
+`/ees-implement` checks it `- [x]` once the modification is realized. The body above
+stays a single current state; history lives here.}
+
+</analysis-template>
+
+**Bug:** Current State, Change, Affected Areas, Acceptance. Architecture and API Contracts only when they apply; FAQ and Revisions optional, in the same positions.
