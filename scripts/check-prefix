@@ -4,8 +4,9 @@
 # prefixed names. The pack root comes from this script's location, never from git, so the guard also
 # runs on a copied tree. Prints one PASS/FAIL line per check and exits 1 when any check fails.
 #
-# The self-test copies the tree (without .git), adds skills/foo and a [foo] table, and expects the
-# copied guard to fail. CHECK_PREFIX_NO_SELF_TEST=1 skips that copy so it does not recurse.
+# The self-tests copy the tree (without .git): one adds skills/foo and a [foo] table and expects the
+# copied guard to fail, the other adds skills/personal/my-skill and expects it to stay green.
+# CHECK_PREFIX_NO_SELF_TEST=1 skips both copies so they do not recurse.
 set -euo pipefail
 shopt -s nullglob
 
@@ -173,10 +174,11 @@ generated_prefixed() { # all four providers have agents/ with only ees-* files
 
 # ---------------------------------------------------------------- unprefixed references
 
-# Files scanned for leftover unprefixed identifiers: README, skills, agents and the existing check
-# scripts. scripts/check-prefix is the guard itself (its name lists are data, not references).
+# Files scanned for leftover unprefixed identifiers: README, skills (except personal/), agents and
+# the existing check scripts. scripts/check-prefix is the guard itself (its name lists are data, not
+# references).
 scan_files() {
-  find README.md skills agents -type f -print
+  find README.md skills agents -type f ! -path 'skills/personal/*' -print
   find scripts -maxdepth 1 -type f -name 'check-*' ! -name 'check-prefix' -print
 }
 
@@ -212,7 +214,7 @@ docs_not_prefixed_docs() { # docs/ees does not exist, in content or as a path
   local -a files=()
   [[ -e "$needle" ]] && { echo "path exists: $needle"; bad=1; }
   mapfile -t files < <(find README.md skills agents scripts generated config agents.toml install.sh .githooks \
-    -type f ! -path 'scripts/check-prefix' -print)
+    -type f ! -path 'scripts/check-prefix' ! -path 'skills/personal/*' -print)
   if [[ ${#files[@]} -gt 0 ]]; then
     hits="$(grep -nHF -- "$needle" "${files[@]}" 2>/dev/null || true)"
     if [[ -n "$hits" ]]; then
@@ -223,31 +225,60 @@ docs_not_prefixed_docs() { # docs/ees does not exist, in content or as a path
   return "$bad"
 }
 
+readme_migration_note() { # README tells users to re-run install.sh after a rename
+  local needle missing=()
+  for needle in 'run `install.sh` again' 'start a new session' 'dangling' 'cleanup'; do
+    grep -qF -- "$needle" README.md || missing+=("$needle")
+  done
+  if (( ${#missing[@]} )); then
+    printf 'README.md must contain the migration note; missing: %s\n' "${missing[@]}"
+    return 1
+  fi
+}
+
 # ---------------------------------------------------------------- install.sh --dry-run
 
 sandbox="$(mktemp -d)"
 cleanup() { rm -rf "$sandbox"; }
 trap cleanup EXIT
 
-install_names() { # link/relink/ok lines for skills and agents name only ees-*
+install_plan() { # run install.sh --dry-run once in a sandbox seeded with old dangling links
+  local marker="$sandbox/install.ok" out_file="$sandbox/install.out" rc=0
+  [[ -f "$marker" ]] && return 0
   local home="$sandbox/home" claude="$sandbox/claude" xdg="$sandbox/xdg" codex="$sandbox/codex"
-  mkdir -p "$home" "$claude" "$xdg" "$codex" "$sandbox/data" "$sandbox/cache" "$sandbox/state"
-  local out rc=0 line action dest base bad=0 skills=0 agents=0
-  out="$(HOME="$home" XDG_CONFIG_HOME="$xdg" XDG_DATA_HOME="$sandbox/data" \
+  mkdir -p "$home" "$claude/skills" "$claude/agents" "$xdg" "$codex" \
+    "$sandbox/data" "$sandbox/cache" "$sandbox/state"
+  # Links left behind by the renamed skill and agent: cleanup must unlink both.
+  ln -sfn "$pack/skills/analyze" "$claude/skills/analyze"
+  ln -sfn "$pack/generated/claude/agents/test-writer.md" "$claude/agents/test-writer.md"
+  HOME="$home" XDG_CONFIG_HOME="$xdg" XDG_DATA_HOME="$sandbox/data" \
     XDG_CACHE_HOME="$sandbox/cache" XDG_STATE_HOME="$sandbox/state" \
-    CLAUDE_CONFIG_DIR="$claude" CODEX_HOME="$codex" "$pack/install.sh" --dry-run 2>&1)" || rc=$?
+    CLAUDE_CONFIG_DIR="$claude" CODEX_HOME="$codex" \
+    "$pack/install.sh" --dry-run >"$out_file" 2>&1 || rc=$?
   if (( rc != 0 )); then
     echo "install.sh --dry-run exited with $rc"
-    awk 'NR <= 10' <<<"$out"
+    awk 'NR <= 10' "$out_file"
     return 1
   fi
+  : >"$marker"
+}
+
+install_names() { # link/relink/ok lines for skills and agents name only ees-*, personal/ excepted
+  install_plan || return 1
+  local line action dest arrow src source base bad=0 skills=0 agents=0
   while IFS= read -r line; do
-    read -r action dest _ <<<"$line"
+    read -r action dest arrow src _ <<<"$line"
     case "$action" in
       link|relink|ok) ;;
       *) continue ;;
     esac
     [[ -n "${dest:-}" ]] || continue
+    source="${src:-}"
+    if [[ -z "$source" && -L "$dest" ]]; then
+      source="$(readlink -f "$dest" 2>/dev/null || true)"
+    fi
+    # skills/personal/ is installed unprefixed on purpose.
+    [[ "$source" == "$pack/skills/personal/"* ]] && continue
     if [[ "$dest" == */skills/* ]]; then
       skills=$((skills + 1))
       base="$(basename "$dest")"
@@ -257,9 +288,35 @@ install_names() { # link/relink/ok lines for skills and agents name only ees-*
       base="$(basename "$dest")"
       [[ "$base" == "$prefix"* ]] || { echo "$action names an unprefixed agent: $dest"; bad=1; }
     fi
-  done <<<"$out"
+  done <"$sandbox/install.out"
   (( skills > 0 )) || { echo "install.sh --dry-run printed no skill link/relink/ok line"; bad=1; }
   (( agents > 0 )) || { echo "install.sh --dry-run printed no agent link/relink/ok line"; bad=1; }
+  return "$bad"
+}
+
+install_migration() { # old dangling names are unlinked and the new ees-* names linked
+  install_plan || return 1
+  local line action dest arrow src bad=0
+  local old_skill="$sandbox/claude/skills/analyze" old_agent="$sandbox/claude/agents/test-writer.md"
+  local new_skill="$sandbox/claude/skills/ees-analyze" new_agent="$sandbox/claude/agents/ees-test-writer.md"
+  local unlinked_skill=0 unlinked_agent=0 linked_skill=0 linked_agent=0
+  while IFS= read -r line; do
+    read -r action dest arrow src _ <<<"$line"
+    case "$action" in
+      unlink)
+        [[ "${dest:-}" == "$old_skill" ]] && unlinked_skill=1
+        [[ "${dest:-}" == "$old_agent" ]] && unlinked_agent=1
+        ;;
+      link|relink)
+        [[ "${dest:-}" == "$new_skill" ]] && linked_skill=1
+        [[ "${dest:-}" == "$new_agent" ]] && linked_agent=1
+        ;;
+    esac
+  done <"$sandbox/install.out"
+  (( unlinked_skill )) || { echo "install.sh --dry-run did not unlink the old skill link: $old_skill"; bad=1; }
+  (( unlinked_agent )) || { echo "install.sh --dry-run did not unlink the old agent link: $old_agent"; bad=1; }
+  (( linked_skill )) || { echo "install.sh --dry-run did not plan the new skill link: $new_skill"; bad=1; }
+  (( linked_agent )) || { echo "install.sh --dry-run did not plan the new agent link: $new_agent"; bad=1; }
   return "$bad"
 }
 
@@ -292,6 +349,29 @@ self_test() { # a copy with skills/foo and a [foo] table must fail the copied gu
   }
 }
 
+personal_skill_test() { # a copy with skills/personal/my-skill must stay green
+  local tmp out rc=0
+  tmp="$(mktemp -d)"
+  copy_tree "$tmp"
+  mkdir -p "$tmp/skills/personal/my-skill"
+  # Personal skills are exempt: their name, references and docs/ees mentions are not the pack's.
+  printf '%s\n' '---' 'name: my-skill' '---' '' \
+    'Personal skill; may reference /analyze and docs/ees/example.md.' \
+    >"$tmp/skills/personal/my-skill/SKILL.md"
+  out="$(CHECK_PREFIX_NO_SELF_TEST=1 "$tmp/scripts/check-prefix" 2>&1)" || rc=$?
+  rm -rf "$tmp"
+  if (( rc != 0 )); then
+    echo "the copied check-prefix rejected a supported personal skill (exit $rc)"
+    awk 'NR <= 30' <<<"$out"
+    return 1
+  fi
+  grep -qF 'all checks passed' <<<"$out" || {
+    echo "the copied check-prefix exited 0, but did not report all checks passed"
+    awk 'NR <= 20' <<<"$out"
+    return 1
+  }
+}
+
 # ---------------------------------------------------------------- checks
 
 check "skills/: every directory except personal/ has the ees- prefix" skills_prefixed
@@ -306,11 +386,14 @@ check "generated/: scripts/build-agents --check is green" "$pack/scripts/build-a
 check "docs: no unprefixed skill identifiers in README, skills, agents, scripts/check-*" skills_refs
 check "docs: no unprefixed agent identifiers in README, skills, agents, scripts/check-*" agents_refs
 check "docs: no docs/ees path or reference" docs_not_prefixed_docs
+check "README: migration note to re-run install.sh and start a new session" readme_migration_note
 check "install.sh --dry-run: skill and agent lines name only ees-*" install_names
+check "install.sh --dry-run: old links unlinked and new ees-* links planned" install_migration
 if [[ "${CHECK_PREFIX_NO_SELF_TEST:-0}" == 1 ]]; then
   echo "SKIP  self-test: disabled by CHECK_PREFIX_NO_SELF_TEST"
 else
   check "self-test: a copy with skills/foo and [foo] fails" self_test
+  check "self-test: a copy with skills/personal/my-skill stays green" personal_skill_test
 fi
 
 echo
