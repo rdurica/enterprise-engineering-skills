@@ -155,9 +155,9 @@ all_modes_models() {
 variants() {
   local n
   six_files || return 1
-  fm "$oc/check-runner.md" | gq '^variant' && return 1
+  fm "$oc/ees-check-runner.md" | gq '^variant' && return 1
   for n in "${agent_names[@]}"; do
-    [[ "$n" == check-runner ]] && continue
+    [[ "$n" == ees-check-runner ]] && continue
     fm "$oc/$n.md" | gq -xF "variant: max" || return 1
   done
   return 0
@@ -166,7 +166,7 @@ permissions() {
   local n
   six_files || return 1
   for n in "${agent_names[@]}"; do
-    if [[ "$n" == check-runner || "$n" == functional-reviewer ]]; then
+    if [[ "$n" == ees-check-runner || "$n" == ees-functional-reviewer ]]; then
       fm "$oc/$n.md" | gq -xF "permission:" || return 1
       fm "$oc/$n.md" | gq -xF "  edit: deny" || return 1
     else
@@ -181,8 +181,8 @@ no_name_and_read_first() {
   for n in "${agent_names[@]}"; do
     fm "$oc/$n.md" | gq '^name:' && return 1
   done
-  first="$(body "$oc/test-writer.md" | grep -v '^$' | head -1)"
-  grep -qE '[Rr]ead.*`tdd`' <<<"$first"
+  first="$(body "$oc/ees-test-writer.md" | grep -v '^$' | head -1)"
+  grep -qE '[Rr]ead.*`ees-tdd`' <<<"$first"
 }
 committed_opencode_in_sync() { # the committed generated/opencode matches what build-agents produces
   six_files && diff -r "$oc" generated/opencode/agents && scripts/build-agents --check
@@ -190,9 +190,9 @@ committed_opencode_in_sync() { # the committed generated/opencode matches what b
 
 check "[1] build-agents writes generated/opencode/agents/ with six files, each mode: subagent and model $flash" all_modes_models
 check "[1] the six opencode agent files are committed in generated/ and in sync with build-agents" committed_opencode_in_sync
-check "[2] check-runner.md has no variant line; the other five have variant: max" variants
-check "[3] check-runner and functional-reviewer have permission: edit: deny; the other four have no permission" permissions
-check "[4] opencode agents have no name key; test-writer body starts by reading the tdd skill" no_name_and_read_first
+check "[2] ees-check-runner.md has no variant line; the other five have variant: max" variants
+check "[3] ees-check-runner and ees-functional-reviewer have permission: edit: deny; the other four have no permission" permissions
+check "[4] opencode agents have no name key; ees-test-writer body starts by reading the ees-tdd skill" no_name_and_read_first
 
 # 5: stale detection on a copy with a changed agents.toml.
 stale="$sb/stale"; copy_tree "$stale"
@@ -347,7 +347,7 @@ check "[14] without opencode on PATH: agents linked, no opencode.json created, e
 
 # ---------------------------------------------------------------- documentation
 
-t=skills/analyze/analysis-template.md
+t=skills/ees-analyze/analysis-template.md
 tmpl_region() { region $t '^### Architecture subsections' ''; }
 fields_ordered() { tmpl_region | ordered "$(word 'Path:')" "$(word Files)" "$(word Follow)" "$(word Seams)"; }
 omit_rules() {
@@ -362,20 +362,20 @@ check "[16] analysis-template.md says when Follow and Seams are omitted" omit_ru
 check "[16] analysis-template.md describes the single-unit variant without a ### heading" single_unit
 check "[16] analysis-template.md bans code bodies, pseudocode and step-by-step procedures" no_code_bodies
 
-a=skills/analyze/SKILL.md
+a=skills/ees-analyze/SKILL.md
 phase_b() { region $a '^## Phase B' ''; }
 analyze_arch_agent() { phase_b | grep -E 'Architecture' | grep -E 'implementing|implementer' | gq -Ei 'interview|context'; }
 analyze_header_humans() { phase_b | grep -E 'header|Goal' | gq -Ei 'human|people|person|reader'; }
 check "[17] analyze SKILL.md Phase B: Architecture is written for an implementing agent without interview context" analyze_arch_agent
 check "[17] analyze SKILL.md Phase B: the header (Goal to Affected Areas) is for people" analyze_header_humans
 
-im=skills/implement/SKILL.md
+im=skills/ees-implement/SKILL.md
 contract() { region $im '^### Execution contract' '^## '; }
 impl_verbatim() { contract | grep -i 'verbatim' | grep 'Architecture' | gq -E 'worker reads .*parent neither copies'; }
-workers_read() { gq -F 'from the analysis yourself' agents/implementer.md && gq -F 'from the analysis yourself' agents/test-writer.md; }
+workers_read() { gq -F 'from the analysis yourself' agents/ees-implementer.md && gq -F 'from the analysis yourself' agents/ees-test-writer.md; }
 impl_files_guide() { contract | grep -E "$(word Files)" | grep -i 'guide' | gq -i 'allowed paths'; }
 check "[18] implement SKILL.md: worker reads the Architecture units verbatim from the analysis, the parent does not copy them" impl_verbatim
-check "[18] implementer and test-writer read their part of the analysis themselves" workers_read
+check "[18] ees-implementer and ees-test-writer read their part of the analysis themselves" workers_read
 check "[18] implement SKILL.md: Files is a guide, not the allowed paths" impl_files_guide
 
 escalation() { region $im 'Escalation' '^#'; }
@@ -391,8 +391,8 @@ models() { region $r '^## Models' '^## Status'; }
 row() { models | gq -E "^\|[^|]*\`/?$1\`[^|]*\|[^|]+\|[^|]+\|"; }   # row <name>: a table row with >= 3 cells naming it
 all_rows() { local n; for n in "$@"; do row "$n" || return 1; done; }
 readme_header() { models | grep -E '^\|' | grep -i 'Claude Code' | gq -i 'opencode'; }
-readme_skills() { all_rows analyze analyze-modify discuss idea implement verify code-review ux-review git-release monorepo-update setup commit complete change; }
-readme_agents() { all_rows test-writer implementer functional-reviewer code-reviewer ux-reviewer check-runner; }
+readme_skills() { all_rows ees-analyze ees-analyze-modify ees-discuss ees-idea ees-implement ees-verify ees-code-review ees-ux-review ees-git-release ees-monorepo-update ees-setup ees-commit ees-complete ees-change; }
+readme_agents() { all_rows ees-test-writer ees-implementer ees-functional-reviewer ees-code-reviewer ees-ux-reviewer ees-check-runner; }
 readme_builtins() { all_rows general explore compaction title summary; }
 readme_models_values() {
   local m; m="$(models)"
@@ -411,14 +411,14 @@ check "[20] README Models: Claude Code >= 2.1.248, claude auth login, opencode r
 quick_start() { region $r '^## Quick start' '^## '; }
 providers() { region $r '^### Agents for each provider' '^## '; }
 readme_quick_start() { local q; q="$(quick_start)"; grep -qF '.config/opencode' <<<"$q" && grep -qF '.bak' <<<"$q" && grep -qF 'dry-run' <<<"$q"; }
-readme_providers() { local p; p="$(providers)"; grep -qF 'opencode' <<<"$p" && grep -qF 'edit: deny' <<<"$p" && grep -qF '@analyze' <<<"$p"; }
+readme_providers() { local p; p="$(providers)"; grep -qF 'opencode' <<<"$p" && grep -qF 'edit: deny' <<<"$p" && grep -qF '@ees-analyze' <<<"$p"; }
 toml_documented() { head -12 agents.toml | gq -E '^# opencode:'; }
 toml_tables() { [[ "$(grep -c '^opencode = ' agents.toml)" == 6 && "$(grep -c "model = \"$flash\"" agents.toml)" -ge 6 ]]; }
 install_header() { head -8 install.sh | gq -i 'opencode'; }
 implement_table() { contract | gq -F 'Claude model' && contract | gq -F 'agents.toml'; }
-reviewer_opencode() { escalation | grep -E 'code-reviewer' | gq -i 'opencode'; }
+reviewer_opencode() { escalation | grep -E 'ees-code-reviewer' | gq -i 'opencode'; }
 check "[x1] README Quick start: opencode agents dir, opencode.json merge, .bak, --dry-run" readme_quick_start
-check "[x2] README Agents for each provider: opencode table, edit: deny, @analyze" readme_providers
+check "[x2] README Agents for each provider: opencode table, edit: deny, @ees-analyze" readme_providers
 check "[x3] agents.toml: header documents opencode and every agent has an opencode table on $flash" toml_documented
 check "[x3] agents.toml: six opencode tables with model $flash" toml_tables
 check "[x4] install.sh header mentions opencode" install_header

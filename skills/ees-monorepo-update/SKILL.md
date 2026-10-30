@@ -1,0 +1,184 @@
+---
+name: ees-monorepo-update
+description: >-
+  Syncs monorepo delivery roots: no args checks out main and bumps submodule
+  pointers; an analysis number (#N / 123 / 001) checks out that analysis
+  Delivery branch in every delivery root for human review. Use when the user
+  runs /ees-monorepo-update, passes an analysis number, or asks to bump submodules
+  / set up checkout for review.
+disable-model-invocation: true
+model: sonnet
+effort: medium
+---
+
+# Monorepo update
+
+Two modes. Complements `/ees-implement` — agents never commit pointer bumps during implementation.
+
+Run from the **container root** of the target project (not the skills pack).
+
+| Invocation | Mode | What happens |
+|------------|------|----------------|
+| `/ees-monorepo-update` (no id) | **main** | Each delivery root → `main` + pull; container commits and pushes submodule pointer bumps |
+| `/ees-monorepo-update 123`, `#123`, or `001` | **analysis** | Fetch analysis `## Delivery` branch; **every** delivery root → that branch. No container commit |
+
+## When to use
+
+- After sub-repo PRs merge to `main` → mode **main**
+- Before human review of an analysis, so every delivery root is on the right branch → mode **analysis**
+- User runs `/ees-monorepo-update` with or without an analysis number
+
+## Prerequisites
+
+- Resolve configuration per `{skills-root}/ees-pipeline/config.md` (skills root is the parent of this skill's directory); prefer its `## Monorepo` and `delivery-roots`
+- If `## Monorepo` or `delivery-roots` is missing, detect via `git submodule status` for delivery-root paths
+- Stop only if neither the resolved config nor `git submodule status` can identify delivery roots; then explain that no delivery root was found
+- `git` and network access
+- Mode **main**: `origin` on the container root (for push)
+- Mode **analysis**: `{skills-root}/ees-pipeline/tracker-<tracker>.md` to resolve the analysis
+
+## Step 1: Load config
+
+Read `## Monorepo` from the resolved config when available (same terms as `/ees-implement`):
+
+- **container-root** — monorepo wrapper (usually `.`)
+- **delivery-roots** — list of `{ path, remote }` entries
+
+If the file, section, or paths are missing, fall back to `git submodule status` for paths.
+
+Record each delivery-root HEAD before sync (`git -C <path> rev-parse HEAD`) for the final report.
+
+## Step 2: Choose mode
+
+- User passed an analysis id (`123`, `#123`, `001`, or a slug that resolves like `/ees-implement`) → **analysis**
+- Otherwise → **main**
+
+## Step 3: Preflight (mandatory — all roots)
+
+For the container root and **each** delivery root:
+
+```bash
+cd <path>
+git status -sb
+git branch --show-current
+```
+
+For the container root, also inspect porcelain status:
+
+```bash
+git status --porcelain --untracked-files=all
+```
+
+**STOP** if any delivery root has:
+
+- Uncommitted changes (tracked or untracked outside `.gitignore`)
+- Merge or rebase in progress
+
+A delivery root being on a feature branch, ahead of `origin/main`, or behind `origin/main` is not a blocker by itself. If the delivery root is clean, continue and switch it in the mode step.
+
+**STOP** if the container root has:
+
+- Merge or rebase in progress
+- Uncommitted changes outside the delivery-root submodule paths
+- Untracked files outside the delivery-root submodule paths
+
+Submodule pointer changes for delivery-root paths are allowed on the container root. Mode **main** stages, commits, and pushes them. Mode **analysis** leaves them dirty — do not commit.
+
+On STOP, report a per-repo table: `path`, branch, problem, suggested fix. Do not stash, discard, or force anything.
+
+## Step 4a: Mode main — sync delivery roots
+
+In resolved-config order, for each delivery root:
+
+```bash
+cd <path>
+git checkout main
+git pull
+```
+
+On failure (dirty tree, missing `main`, diverged branch, conflict, network error) → **STOP**. Do not commit on the container root.
+
+## Step 4b: Mode main — bump container root
+
+```bash
+cd <container-root>
+git checkout main
+git pull
+git add <submodule-paths>   # paths from delivery-roots
+git status
+```
+
+If `git diff --cached` is empty → report **submodules already up to date** and finish (no empty commit).
+
+Otherwise:
+
+```bash
+git commit -m "$(cat <<'EOF'
+chore: bump submodules to latest main
+
+EOF
+)"
+git push origin main
+```
+
+## Step 4c: Mode analysis — checkout for review
+
+1. Fetch the analysis per `{skills-root}/ees-pipeline/tracker-<tracker>.md` (GitHub: `#N` on the **container-root** remote; local: `docs/agents/analysis/NNN-<slug>.md`). Same resolution as `/ees-implement`.
+2. Read **`## Delivery` → Branch**. Missing analysis or Delivery branch → **STOP**.
+3. Container **stays on `main`**. Do not `git add`, commit, or push submodule pointers (that would write feature SHAs onto container `main`).
+4. In resolved-config order, **every** delivery root — fetch first, then checkout the Delivery branch. Do not skip a root; do not fall back to `main`.
+
+```bash
+git -C <path> fetch origin
+```
+
+If neither `origin/<branch>` nor local `<branch>` exists → **STOP**. Do not create the branch. Report which roots are missing it. Do not checkout the remaining roots until every root has the branch.
+
+Then, for each delivery root:
+
+```bash
+git -C <path> checkout <branch>
+```
+
+Pull: tracking branch → `git pull`; else if `origin/<branch>` exists → `git pull origin <branch>`; else leave the local checkout.
+
+On failure (dirty tree, missing ref, diverged branch, conflict, network error) → **STOP**.
+
+## Step 5: Report
+
+Respond in the user's language.
+
+**Both modes:** each delivery root: previous SHA → new SHA (`git -C <path> rev-parse HEAD`), current branch.
+
+**Mode main:** container commit hash and push status, or noop if pointers unchanged.
+
+**Mode analysis:** each delivery root is on the Delivery branch. PR URL per root when one exists (`gh pr view` / `gh pr list --head <branch>` on that remote). State that container submodule pointers are expected dirty and must not be committed; they are for local review only.
+
+On STOP: concrete commands to fix each blocked root.
+
+## Forbidden
+
+- Edit code in delivery roots — checkout and pull only
+- Commit or push in delivery roots
+- Use `git pull --rebase`
+- Force-push
+- Auto-stash — user fixes dirty trees manually
+- Mode **main**: commit anything on the container root except submodule pointer updates
+- Mode **analysis**: any commit or push on the container root; creating a Delivery branch that does not exist
+
+## Checklist
+
+```
+- [ ] Delivery-root config resolved from config or detection
+- [ ] Mode chosen (main vs analysis)
+- [ ] Delivery roots clean; container has no changes except allowed submodule refs
+Mode main:
+- [ ] Each delivery root checked out to main and pulled
+- [ ] Container pulled; submodule paths staged
+- [ ] Commit + push (or noop if already up to date)
+Mode analysis:
+- [ ] Analysis and Delivery branch loaded
+- [ ] Every delivery root on the Delivery branch
+- [ ] No container commit/push
+- [ ] Per-repo SHA / branch / PR URL report delivered
+```

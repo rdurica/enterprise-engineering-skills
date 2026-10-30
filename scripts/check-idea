@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify the structurally checkable Acceptance items of issue #3 (/idea, just-in-time analysis).
+# Verify the structurally checkable Acceptance items of issue #3 (/ees-idea, just-in-time analysis).
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
 set -euo pipefail
 
@@ -18,21 +18,21 @@ none() { ! grep -rqE -- "$1" "${@:2}"; }         # none <regex> <paths...>
 rx() { grep -qE -- "$1" "$2"; }                  # rx <regex> <file>
 
 # 1. idea skill
-i=skills/idea/SKILL.md
+i=skills/ees-idea/SKILL.md
 check "idea: SKILL.md exists" test -f $i
 idea_fm() { has_all $i "disable-model-invocation: true" "model: sonnet" "effort: medium"; }
 check "idea: frontmatter (hidden from model, sonnet, medium)" idea_fm
 check "idea: title 'Idea: ' and label idea" has_all $i 'Idea: ' 'idea'
 check "idea: body sections Delivery, Goal, Change and Depends on" \
   has_all $i '## Delivery' '## Goal' '## Change' 'Depends on'
-check "idea: refuses an analysis and points to /analyze-modify" has_all $i '/analyze-modify' 'refuse'
+check "idea: refuses an analysis and points to /ees-analyze-modify" has_all $i '/ees-analyze-modify' 'refuse'
 check "idea: warns about duplicates" rx '[Dd]uplic' $i
 check "idea: local ideas/ folder" has 'docs/agents/analysis/ideas/' $i
-check "idea: next step is /analyze #N" has '/analyze #' $i
-check "idea: reads config via pipeline" rx 'pipeline/config\.md' $i
+check "idea: next step is /ees-analyze #N" has '/ees-analyze #' $i
+check "idea: reads config via pipeline" rx 'ees-pipeline/config\.md' $i
 
 # 2. analyze: idea conversion
-a=skills/analyze/SKILL.md
+a=skills/ees-analyze/SKILL.md
 check "analyze: converts an idea in the same issue (Analysis: title, labels)" \
   has_all $a 'Analysis: ' 'idea' 'analysis'
 check "analyze: checks Depends on and asks via AskUserQuestion" has_all $a 'Depends on' 'AskUserQuestion'
@@ -41,7 +41,7 @@ check "analyze: local move from ideas/" has 'ideas/' $a
 check "analyze: Goal mentioned" has 'Goal' $a
 
 # 3. analysis template
-t=skills/analyze/analysis-template.md
+t=skills/ees-analyze/analysis-template.md
 goal_first() {
   local g c
   g="$(grep -nF '## Goal' $t | head -1 | cut -d: -f1)"
@@ -60,14 +60,14 @@ motivation_moved() {
 check "template: motivation phrase moved from Current State to Goal" motivation_moved
 
 # 4. analyze-modify
-m=skills/analyze-modify/SKILL.md
-check "analyze-modify: refuses an idea, points to /idea #N and /analyze #N" \
-  has_all $m '/idea #' '/analyze #'
+m=skills/ees-analyze-modify/SKILL.md
+check "analyze-modify: refuses an idea, points to /ees-idea #N and /ees-analyze #N" \
+  has_all $m '/ees-idea #' '/ees-analyze #'
 check "analyze-modify: Goal among reviewed sections" has 'Goal' $m
 
 # 5. implement
-im=skills/implement/SKILL.md
-check "implement: refuses an idea and points to /analyze #N" has_all $im 'idea' '/analyze #'
+im=skills/ees-implement/SKILL.md
+check "implement: refuses an idea and points to /ees-analyze #N" has_all $im 'idea' '/ees-analyze #'
 check "implement: checks Depends on" has 'Depends on' $im
 check "implement: closed satisfies, ready-to-review does not" \
   has_all $im 'closed' 'ready-to-review'
@@ -76,36 +76,36 @@ check "implement: dependency check on every run, including resume" dep_every_run
 check "implement: Depends on has no bypass" rx 'no (bypass|override|way)|cannot be (bypassed|overridden)|without (a )?bypass' $im
 
 # 6. pipeline docs
-g=skills/pipeline/tracker-github.md
+g=skills/ees-pipeline/tracker-github.md
 check "tracker-github: idea label via gh label create idea" has_all $g 'gh label create idea' '--remove-label idea' '--add-label analysis'
 check "tracker-github: dependency check via gh issue view --json state" rx 'gh issue view <dep>.*--json state' $g
-check "tracker-github: /idea operations and Idea: title" has_all $g '/idea' 'Idea: '
-l=skills/pipeline/tracker-local.md
+check "tracker-github: /ees-idea operations and Idea: title" has_all $g '/ees-idea' 'Idea: '
+l=skills/ees-pipeline/tracker-local.md
 check "tracker-local: ideas/ folder, mv conversion, done/ satisfies dependency" \
   has_all $l 'docs/agents/analysis/ideas/' 'mv' 'done/' 'Depends on'
-c=skills/pipeline/config.md
+c=skills/ees-pipeline/config.md
 check "config: tracker detection includes ideas/NNN-*.md" has 'ideas/NNN-' $c
 
 # 7. functional reviewer and generated agents
-check "functional-reviewer: Goal is not judged" rx 'Goal' agents/functional-reviewer.md
+check "functional-reviewer: Goal is not judged" rx 'Goal' agents/ees-functional-reviewer.md
 check "generated/ is in sync with agents/" scripts/build-agents --check
 
 # 8. setup
-check "setup: step 1 skill list contains idea" rx '`idea`' skills/setup/SKILL.md
+check "setup: step 1 skill list contains ees-idea" rx '`ees-idea`' skills/ees-setup/SKILL.md
 
 # 9. README
 r=README.md
-check "README: /idea in workflow and Depends on" has_all $r '/idea' 'Depends on'
-check "README: Models table row for /idea (Sonnet, medium)" rx '^\| .*`/idea`.*Sonnet, medium' $r
+check "README: /ees-idea in workflow and Depends on" has_all $r '/ees-idea' 'Depends on'
+check "README: Models table row for /ees-idea (Sonnet, medium)" rx '^\| .*`/ees-idea`.*Sonnet, medium' $r
 check "README: Status mentions idea label and ideas/ folder" has_all $r '`idea`' 'ideas/'
 
 # 10. install.sh links idea
 dry_run_lists_idea() {
   local home out; home="$(mktemp -d)"
   out="$(HOME="$home" ./install.sh --dry-run 2>&1)"; rm -rf "$home"
-  grep -qE '/\.claude/skills/idea( |$)' <<<"$out" && grep -qE '/\.agents/skills/idea( |$)' <<<"$out"
+  grep -qE '/\.claude/skills/ees-idea( |$)' <<<"$out" && grep -qE '/\.agents/skills/ees-idea( |$)' <<<"$out"
 }
-check "install.sh --dry-run lists idea for ~/.claude and ~/.agents skills" dry_run_lists_idea
+check "install.sh --dry-run lists ees-idea for ~/.claude and ~/.agents skills" dry_run_lists_idea
 
 echo
 if (( fails )); then echo "$fails check(s) failed"; exit 1; fi
