@@ -32,7 +32,17 @@ For other Mermaid types, use their supported styling to highlight the affected r
 
 ### Architecture subsections
 
-Each `###` names one real project unit: a package, repo, module or bounded context, never a layer such as Controller or Repository or an invented unit. Use only the unit name in the heading; put `Path: <path>` on the first line below it. Omit subsections for a single-unit change.
+Each `###` names one real project unit: a package, repo, module or bounded context, never a layer such as Controller or Repository or an invented unit. Use only the unit name in the heading; put `Path: <path>` on the first line below it. A single-unit change has no `###` heading: the fields stand directly under `## Architecture`.
+
+Fields per unit, in this order, each a label on its own line with bullets below:
+
+- `Path:` as above.
+- `Files`: one bullet per file, `` `path` `` (relative to Path or the repo root) — new | changed, briefly what and which symbols. A guide, not a boundary: the worker may touch other files when the work requires it.
+- `Follow`: the existing file or symbol the change should imitate, and in what. Omit when no such pattern exists.
+- `Seams`: the contract with another unit (call, data, event) and which unit must be done first. Omit for a change within one unit.
+- Prose below the fields: data flow, schema delta, migration and inherited decisions.
+
+Name exact files, symbols and the existing pattern. No code bodies, pseudocode or step-by-step procedures; signatures and data shapes go in blueprint blocks.
 
 Name shared seams between units so `/implement` can safely parallelize disjoint paths. When the change relies on a decision from an earlier analysis, link that analysis from Architecture. Decisions from the interview belong in Further Notes.
 
@@ -79,11 +89,27 @@ fold each one into the right section and delete the item.}
 
 ## Architecture
 
-{layers, data flow, decisions carried over from earlier analyses.
-One `###` per real unit, path on the line below the heading.
+{per unit: `Path:`, `Files`, `Follow`, `Seams`, then prose with data flow and
+decisions carried over from earlier analyses. One `###` per real unit; a
+single-unit change has no heading.
 When the schema changes, state the delta — tables and columns added or
 changed, nullability, defaults, indexes — plus the migration, written by
-hand, with the backfill and the rollback whenever existing rows are touched.}
+hand, with the backfill and the rollback whenever existing rows are touched.
+
+Example:
+
+### Billing
+Path: `src/Billing`
+
+Files
+- `Plan/PlanChanger.php`: new — applies a plan change with proration
+- `Plan/Plan.php`: changed — `changeTo()` guards downgrades
+
+Follow
+- `Subscription/Renewer.php`: transaction and event dispatch
+
+Seams
+- Groups API calls `PlanChanger::change()`; Billing is done first}
 
 ## API Contracts
 

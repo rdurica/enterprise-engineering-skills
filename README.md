@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/` and `~/.cursor/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/`, `~/.cursor/agents/` and `~/.config/opencode/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. When opencode is installed it also merges the pack's model keys into `opencode.json`; the original is kept as `opencode.json.bak` and `--dry-run` prints the changes. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed.
 
 A project works without any configuration: the tracker and monorepo are detected and every other setting has a built-in default. Optionally create your personal defaults in the global file `~/.config/enterprise-engineering-skills/workflow.md`, either through `/setup` or by hand:
 
@@ -109,10 +109,10 @@ Agents never commit, push or open PRs; the main session does. Tests are committe
 
 ### Agents for each provider
 
-Each agent is written once and built for Claude Code, Codex and Cursor:
+Each agent is written once and built for Claude Code, Codex, Cursor and opencode:
 
 - `agents/<name>.md` holds the `name`, the `description` and the instructions.
-- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`) and `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`). Leaving out a provider's table skips the agent for that provider.
+- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`) and `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`) and `opencode` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
 - `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and refuses a commit where it is out of date.
 
 ```toml
@@ -121,31 +121,40 @@ readonly = true
 claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Glob"], color = "cyan" }
 codex = { model = "gpt-6-luna", effort = "low" }
 cursor = { model = "grok-4.7-low" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash" }
 ```
 
-Claude preloads `skills`; Codex and Cursor get a first line telling the agent to read them. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`.
+Claude preloads `skills`; Codex and Cursor get a first line telling the agent to read them. opencode takes `model` and a separate `variant` (`model: …#max` is ignored there) and turns `readonly` into `edit: deny`. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`. opencode reads skills from `~/.claude/skills/` and `~/.agents/skills/` too and starts them with `@analyze #N` instead of a slash command.
 
 ## Models
 
 Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — `change`, debugging, questions — is mostly judgment and costs little.
 
-| Skill | Model, effort |
-|-------|---------------|
-| `/analyze`, `/analyze-modify`, `/discuss` | Opus |
-| `/idea` | Sonnet, medium |
-| `/implement` | Sonnet, high |
-| `/verify`, `/code-review` | Opus, medium when run directly; inside `/implement` they follow its session |
-| `/ux-review`, `/git-release`, `/monorepo-update` | Sonnet, medium |
-| `/setup` | Sonnet, high |
-| `/commit`, `/complete` | Haiku, low |
-| `change` | your selected model |
+In opencode every skill runs on the main session (`claude-agent/opus`), which spends Claude tokens only there; pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none.
+
+| Skill or agent | Claude Code | opencode |
+|----------------|-------------|----------|
+| `/analyze`, `/analyze-modify`, `/discuss` | Opus | `claude-agent/opus` |
+| `/idea` | Sonnet, medium | `claude-agent/opus` |
+| `/implement` | Sonnet, high | `claude-agent/opus` |
+| `/verify`, `/code-review` | Opus, medium when run directly; inside `/implement` they follow its session | `claude-agent/opus` |
+| `/ux-review`, `/git-release`, `/monorepo-update` | Sonnet, medium | `claude-agent/opus` |
+| `/setup` | Sonnet, high | `claude-agent/opus` |
+| `/commit`, `/complete` | Haiku, low | `claude-agent/opus` |
+| `change` | your selected model | `claude-agent/opus` |
+| `test-writer`, `implementer` | Sonnet, high | `opencode-go/deepseek-v4.1-flash`, variant `max` |
+| `functional-reviewer`, `code-reviewer`, `ux-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `max` |
+| `check-runner` | Haiku, low | `opencode-go/deepseek-v4.1-flash`, variant `-` |
+| `general`, `explore` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `max` |
+| `compaction`, `title`, `summary` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `-` |
 
 - **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
 - **One task per conversation.** Switching models mid-conversation throws away the prompt cache, so start each `/analyze` and each `/implement` in a fresh conversation.
+- **opencode prerequisites.** The `claude-agent` provider needs Claude Code >= 2.1.248 logged in with `claude auth login`. opencode reads `AGENTS.md`, not `CLAUDE.md`, so global rules from `~/.claude/CLAUDE.md` do not apply there. `/implement` has no model to escalate to in opencode; the main session takes over a failing cluster.
 
 How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the Execution contract of [`implement`](skills/implement/SKILL.md#execution-contract).
 
-Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)). `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
+Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)); opencode's main session and built-in agents are set in `config/opencode.json`. `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
 ## Status
 

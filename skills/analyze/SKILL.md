@@ -77,7 +77,7 @@ Without a codebase, run steps 2–4 only — do not write local files.
 
 All publish operations follow `{skills-root}/pipeline/tracker-<tracker>.md` — GitHub or local `docs/agents/analysis/`, never hardcoded `gh`.
 
-Start the analysis with a `## Goal` of 1–3 sentences (why the change exists, what must hold at the end; no bug variant). Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
+Start the analysis with a `## Goal` of 1–3 sentences (why the change exists, what must hold at the end; no bug variant). Keep Current State and Change to one short paragraph of 2–4 sentences each: today's behaviour and the behaviour after the change. Affected Areas follows as a short bullet map of where the change lands, with the behaviour diagram. Put implementation details in Architecture and API Contracts. Write Architecture for the implementing agent, which has no context from the interview, so it must stand alone; the header (Goal to Affected Areas) is for human readers. Every Mermaid diagram must highlight the affected parts in orange, as defined in the template.
 
 Publish **even when `## FAQ` still has open questions**. The analysis has to be stored so the work can continue later. Each FAQ item names what it belongs to, and once it is answered you fold the answer into that section and delete the item. The ideal end state is no FAQ section at all.
 
