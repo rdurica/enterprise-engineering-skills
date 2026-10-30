@@ -1,0 +1,13 @@
+{
+  "model": "claude-agent/opus",
+  "small_model": "opencode-go/deepseek-v4.1-flash",
+  "agent": {
+    "build":      { "model": "claude-agent/opus" },
+    "plan":       { "model": "claude-agent/opus" },
+    "general":    { "model": "opencode-go/deepseek-v4.1-flash", "variant": "max" },
+    "explore":    { "model": "opencode-go/deepseek-v4.1-flash", "variant": "max" },
+    "compaction": { "model": "opencode-go/deepseek-v4.1-flash" },
+    "title":      { "model": "opencode-go/deepseek-v4.1-flash" },
+    "summary":    { "model": "opencode-go/deepseek-v4.1-flash" }
+  }
+}

@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Merge config/opencode.json (the pack's models) into <opencode dir>/opencode.json.
+
+Usage: scripts/opencode-config [--dry-run] [<opencode dir>]   (default: ${XDG_CONFIG_HOME:-~/.config}/opencode)
+
+The pack owns `model`, `small_model` and, for every agent in the fragment, `model` and `variant`; they are set
+to the fragment's values (a `variant` the fragment lacks is removed). Everything else is left as it is. A changed
+file is backed up to opencode.json.bak first. Afterwards warns about subagents that inherit the session model.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+pack = Path(__file__).resolve().parent.parent
+fragment_path = pack / "config" / "opencode.json"
+schema = "https://opencode.ai/config.json"
+unset = "(unset)"
+
+
+def show(value):
+    if value is None:
+        return unset
+    return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+
+
+def merge(config, fragment):
+    """Apply the fragment to config in place and return (key, old, new) for every changed value."""
+    changes = []
+
+    def set_key(target, key, label, new):
+        old = target.get(key)
+        if new is None:
+            if key in target:
+                del target[key]
+                changes.append((label, old, None))
+        elif key not in target or old != new:
+            target[key] = new
+            changes.append((label, old, new))
+
+    for key in ("model", "small_model"):
+        set_key(config, key, key, fragment[key])
+    agents = config.get("agent")
+    if not isinstance(agents, dict):
+        agents = config["agent"] = {}
+    for agent_id, wanted in fragment["agent"].items():
+        agent = agents.get(agent_id)
+        if not isinstance(agent, dict):
+            agent = agents[agent_id] = {}
+        for key in ("model", "variant"):
+            set_key(agent, key, f"agent.{agent_id}.{key}", wanted.get(key))
+    return changes
+
+
+def warn_inheriting_models():
+    """Warn about subagents without a model, which run on the session model (Opus)."""
+    try:
+        # --standalone: without it the command talks to the shared background service and may read another config.
+        result = subprocess.run(
+            ["opencode", "debug", "agents", "--standalone"], capture_output=True, text=True, timeout=60, check=True
+        )
+        agents = json.loads(result.stdout)
+        found = [a["id"] for a in agents if not a.get("model") and a.get("mode") in ("subagent", "all")]
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        print("skip    model check (opencode debug agents failed)", file=sys.stderr)
+        return
+    for agent_id in found:
+        print(f"warn    agent {agent_id} has no model and inherits the session model", file=sys.stderr)
+
+
+def main():
+    sys.stdout.reconfigure(line_buffering=True)  # keep stdout and stderr lines in order when both go to one log
+    args = sys.argv[1:]
+    dry_run = "--dry-run" in args
+    dirs = [a for a in args if a != "--dry-run"]
+    opencode_dir = Path(dirs[0]) if dirs else Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "opencode"
+    path = opencode_dir / "opencode.json"
+    fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
+
+    if path.is_file():
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(config, dict):
+                raise ValueError("not an object")
+        except ValueError:
+            print(f"warn    {path} is not plain JSON (comments?); merge by hand from {fragment_path}", file=sys.stderr)
+            warn_inheriting_models()
+            return
+    else:
+        config = {"$schema": schema}
+
+    changes = merge(config, fragment)
+    if not changes:
+        print(f"ok      {path}")
+    else:
+        print(f"write   {path}")
+        for label, old, new in changes:
+            print(f"        {label}: {show(old)} -> {show(new)}")
+        if not dry_run:
+            opencode_dir.mkdir(parents=True, exist_ok=True)
+            if path.is_file():
+                (opencode_dir / "opencode.json.bak").write_bytes(path.read_bytes())
+            path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    warn_inheriting_models()
+
+
+main()
