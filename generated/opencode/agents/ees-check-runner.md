@@ -3,6 +3,7 @@
 description: "Runs a project's documented tests, linters and type checks and returns a compact pass/fail summary with the relevant failure output. Use proactively whenever a full test suite, linters or type checks need running and only pass/fail and failure excerpts matter, so long logs stay out of the main context; the `ees-change` skill, /ees-implement, /ees-verify, /ees-code-review and /ees-ux-review always use it. Not for a single targeted test in a TDD loop or for debugging a failure that needs the full output."
 mode: subagent
 model: opencode-go/deepseek-v4.1-flash
+variant: low
 permission:
   edit: deny
 ---

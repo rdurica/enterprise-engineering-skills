@@ -130,7 +130,7 @@ Claude preloads `skills`; Codex and Cursor get a first line telling the agent to
 
 Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — `ees-change`, debugging, questions — is mostly judgment and costs little.
 
-In opencode every skill runs on the main session (`claude-agent/opus`), which spends Claude tokens only there; pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none.
+In opencode every skill runs on the main session (`claude-agent/opus`), which spends Claude tokens only there; pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none. `max` is reserved for writing changes (`ees-implementer`, `ees-test-writer`), reviewers run on `high`, and the check runner plus the built-in `general`/`explore` run on `low`, where the quality difference is smallest.
 
 | Skill or agent | Claude Code | opencode |
 |----------------|-------------|----------|
@@ -143,9 +143,9 @@ In opencode every skill runs on the main session (`claude-agent/opus`), which sp
 | `/ees-commit`, `/ees-complete` | Haiku, low | `claude-agent/opus` |
 | `ees-change` | your selected model | `claude-agent/opus` |
 | `ees-test-writer`, `ees-implementer` | Sonnet, high | `opencode-go/deepseek-v4.1-flash`, variant `max` |
-| `ees-functional-reviewer`, `ees-code-reviewer`, `ees-ux-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `max` |
-| `ees-check-runner` | Haiku, low | `opencode-go/deepseek-v4.1-flash`, variant `-` |
-| `general`, `explore` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `max` |
+| `ees-functional-reviewer`, `ees-code-reviewer`, `ees-ux-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `high` |
+| `ees-check-runner` | Haiku, low | `opencode-go/deepseek-v4.1-flash`, variant `low` |
+| `general`, `explore` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `low` |
 | `compaction`, `title`, `summary` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `-` |
 
 - **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
