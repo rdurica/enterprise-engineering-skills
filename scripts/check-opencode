@@ -371,9 +371,11 @@ check "[17] analyze SKILL.md Phase B: the header (Goal to Affected Areas) is for
 
 im=skills/implement/SKILL.md
 contract() { region $im '^### Execution contract' '^## '; }
-impl_verbatim() { contract | grep -i 'verbatim' | gq 'Architecture'; }
+impl_verbatim() { contract | grep -i 'verbatim' | grep 'Architecture' | gq -E 'worker reads .*parent neither copies'; }
+workers_read() { gq -F 'from the analysis yourself' agents/implementer.md && gq -F 'from the analysis yourself' agents/test-writer.md; }
 impl_files_guide() { contract | grep -E "$(word Files)" | grep -i 'guide' | gq -i 'allowed paths'; }
-check "[18] implement SKILL.md: worker receives the Architecture units verbatim" impl_verbatim
+check "[18] implement SKILL.md: worker reads the Architecture units verbatim from the analysis, the parent does not copy them" impl_verbatim
+check "[18] implementer and test-writer read their part of the analysis themselves" workers_read
 check "[18] implement SKILL.md: Files is a guide, not the allowed paths" impl_files_guide
 
 escalation() { region $im 'Escalation' '^#'; }
