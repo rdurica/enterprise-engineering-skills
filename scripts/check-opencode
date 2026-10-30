@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Verify the Acceptance items of issue #7 (opencode harness). Check labels [1]..[20] map to the
-# 20 Acceptance items in order; [x..] labels are extra checks of the Architecture section.
+# 20 Acceptance items in order; [x..] labels are extra checks beyond Acceptance.
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
 #
 # Behavioural checks run in a sandbox: a mktemp dir used as HOME, XDG_CONFIG_HOME, CLAUDE_CONFIG_DIR,
@@ -17,10 +17,6 @@ check() { # check <description> <command...>
   if "$@" >/dev/null 2>&1; then echo "PASS  $desc"; else echo "FAIL  $desc"; fails=$((fails + 1)); fi
 }
 
-has() { grep -qF -- "$1" "$2"; }                 # has <text> <file>
-has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || return 1; done; }
-rx() { grep -qE -- "$1" "$2"; }                  # rx <regex> <file>
-rxi() { grep -qEi -- "$1" "$2"; }                # rx, case-insensitive
 gq() { grep "$@" >/dev/null; }                    # grep -q for pipelines: reads all input, no SIGPIPE under pipefail
 
 # region <file> <start-regex> <end-regex>: lines from the first start match up to (excluding) the next end match.
@@ -297,6 +293,25 @@ dry_run_ok() {
   cmp -s "$C/orig.json" "$C/xdg/opencode/opencode.json" && [[ ! -e "$C/xdg/opencode/opencode.json.bak" ]]
 }
 check "[11] install.sh --dry-run prints '<key>: <old> -> <new>' lines and leaves opencode.json without .bak untouched" dry_run_ok
+
+# F: opencode.json is a symlink (dotfiles manager); the merge must write through it and keep modes.
+F="$(new_scenario F)"
+mkdir -p "$F/dotfiles"
+write_user_config "$F/dotfiles/opencode.json"
+chmod 600 "$F/dotfiles/opencode.json"
+cp "$F/dotfiles/opencode.json" "$F/orig.json"
+ln -s "$F/dotfiles/opencode.json" "$F/xdg/opencode/opencode.json"
+run_install "$F"
+symlinked_config() {
+  local cfg="$F/xdg/opencode/opencode.json"
+  [[ -L "$cfg" && "$(readlink -f "$cfg")" == "$F/dotfiles/opencode.json" ]] || return 1
+  [[ "$(stat -c %a "$F/dotfiles/opencode.json")" == 600 ]] || return 1    # target mode preserved
+  [[ "$(stat -c %a "$cfg.bak")" == 600 ]] || return 1                     # backup keeps the original mode
+  cmp -s "$F/orig.json" "$cfg.bak" || return 1                            # backup holds the original
+  [[ -z "$(find "$F/xdg/opencode" -name '*.tmp' -print -quit)" ]] || return 1
+  pyj "$F/dotfiles/opencode.json" 'c.get("model") == "claude-agent/opus" and c["agent"]["build"]["model"] == "claude-agent/opus"'
+}
+check "[x7] symlinked opencode.json stays a symlink; target and .bak keep mode 600; no temp file left" symlinked_config
 
 # D: JSONC.
 D="$(new_scenario D)"
