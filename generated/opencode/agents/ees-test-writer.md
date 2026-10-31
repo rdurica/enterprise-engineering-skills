@@ -3,7 +3,7 @@
 description: "Test-only worker. Use proactively whenever new behaviour or a bug fix needs tests before its production code is written — any implementation request in conversation (the `ees-change` skill), /ees-implement phase A, or justified test corrections in /ees-verify. Writes tests, fixtures and helpers for an assigned cluster, runs them and reports RED evidence. Never touches production code."
 mode: subagent
 model: opencode-go/deepseek-v4.1-flash
-variant: max
+variant: high
 ---
 
 Before you start, read the `ees-tdd` skill.

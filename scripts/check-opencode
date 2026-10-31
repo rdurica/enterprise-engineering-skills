@@ -160,7 +160,7 @@ variants() {
     fm "$oc/$n.md" | gq -xF "variant: high" || return 1
   done
   for n in ees-implementer ees-test-writer; do
-    fm "$oc/$n.md" | gq -xF "variant: max" || return 1
+    fm "$oc/$n.md" | gq -xF "variant: high" || return 1
   done
   return 0
 }
@@ -192,7 +192,7 @@ committed_opencode_in_sync() { # the committed generated/opencode matches what b
 
 check "[1] build-agents writes generated/opencode/agents/ with six files, each mode: subagent and model $flash" all_modes_models
 check "[1] the six opencode agent files are committed in generated/ and in sync with build-agents" committed_opencode_in_sync
-check "[2] variants: check-runner low, reviewers high, implementers max" variants
+check "[2] variants: check-runner low, reviewers high, implementers high" variants
 check "[3] ees-check-runner and ees-functional-reviewer have permission: edit: deny; the other four have no permission" permissions
 check "[4] opencode agents have no name key; ees-test-writer body starts by reading the ees-tdd skill" no_name_and_read_first
 
@@ -402,7 +402,7 @@ readme_models_values() {
 }
 readme_variants() {
   local m; m="$(models)"
-  grep -F '| `ees-test-writer`, `ees-implementer` |' <<<"$m" | gq -F 'variant `max`' &&
+  grep -F '| `ees-test-writer`, `ees-implementer` |' <<<"$m" | gq -F 'variant `high`' &&
     grep -F '| `ees-functional-reviewer`, `ees-code-reviewer`, `ees-ux-reviewer` |' <<<"$m" | gq -F 'variant `high`' &&
     grep -F '| `ees-check-runner` |' <<<"$m" | gq -F 'variant `low`' &&
     grep -F '| `general`, `explore` (built-in) |' <<<"$m" | gq -F 'variant `low`'
@@ -413,7 +413,7 @@ check "[20] README Models: a row for every skill" readme_skills
 check "[20] README Models: a row for every pack agent" readme_agents
 check "[20] README Models: a row for the built-in opencode agents general, explore, compaction, title, summary" readme_builtins
 check "[20] README Models: claude-agent/opus, $flash and variants" readme_models_values
-check "[20] README Models: implementers max, reviewers high, runners low" readme_variants
+check "[20] README Models: implementers and reviewers high, runners low" readme_variants
 check "[20] README Models: Claude Code >= 2.1.248, claude auth login, opencode reads AGENTS.md not CLAUDE.md" readme_assumptions
 
 # ---------------------------------------------------------------- extra checks of the Architecture section

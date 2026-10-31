@@ -32,14 +32,14 @@ opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 claude = { model = "sonnet", effort = "high", color = "green" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-test-writer]
 skills = ["ees-tdd"]
 claude = { model = "sonnet", effort = "high", color = "yellow" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "max" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-ux-reviewer]
 claude = { model = "sonnet", effort = "medium", color = "pink" }
