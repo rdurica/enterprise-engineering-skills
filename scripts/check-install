@@ -628,6 +628,18 @@ pty_defaults_linked_only() {
 }
 check "[11] on a terminal the wizard preselects only the linked provider, not an installed one" pty_defaults_linked_only "$c11a"
 
+# The wizard explains the [x] markers and how to select several tools in one answer.
+pty_wizard_help() {
+  local d="$1"
+  grep -qF 'x = preselected' "$d/out" ||
+    { echo "wizard heading is missing the preselection legend"; return 1; }
+  grep -qF 'numbers separated by commas or spaces' "$d/out" ||
+    { echo "wizard is missing the multi-selection hint"; return 1; }
+  grep -qF 'press Enter for the default' "$d/out" ||
+    { echo "wizard hint does not mention the Enter default"; return 1; }
+}
+check "[11] the wizard heading and hint explain x = preselected, comma/space numbers and Enter" pty_wizard_help "$c11a"
+
 c11b="$(scenario pty-all)"
 printf '\n\n' >"$c11b/stdin"
 run_pty "$c11b"
