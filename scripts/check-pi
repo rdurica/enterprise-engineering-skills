@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Verify the Pi support: the pack ships the subagent tool, builds every agent for Pi with the opencode
+# model and thinking level, builds one slash command per user-invocable skill, and install.sh links
+# agents, prompts and the extension into the Pi config directory. Prints one PASS/FAIL line per check
+# and exits 1 when any check fails.
+#
+# Behavioural checks run in a sandbox: a mktemp dir is used as HOME and PI_CODING_AGENT_DIR, so
+# ~/.pi/agent is never touched.
+set -euo pipefail
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  if "$@" >/dev/null 2>&1; then echo "PASS  $desc"; else echo "FAIL  $desc"; fails=$((fails + 1)); fi
+}
+
+has() { grep -qF -- "$1" "$2"; }
+has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || return 1; done; }
+gq() { grep "$@" >/dev/null; }
+
+# ---------------------------------------------------------------- generated agents
+
+pi_agents=("$pack"/generated/pi/agents/*.md)
+check "generated/pi/agents: one file per agent" test "${#pi_agents[@]}" -eq "$(find agents -name '*.md' | wc -l)"
+check "generated/pi/agents: build is green" "$pack/scripts/build-agents" --check
+
+agent_file() { echo generated/pi/agents/$1.md; }
+for agent in ees-check-runner ees-code-reviewer ees-functional-reviewer ees-implementer ees-test-writer ees-ux-reviewer; do
+  check "agent $agent: frontmatter keys" has_all "$(agent_file "$agent")" "name: $agent" "description:" "model: opencode-go/deepseek-v4.1-flash:"
+done
+
+# The variant in agents.toml is Pi's thinking level: the reviewer set runs high, the check runner low.
+check "agent ees-check-runner: variant low as thinking level" has "model: opencode-go/deepseek-v4.1-flash:low" "$(agent_file ees-check-runner)"
+for agent in ees-code-reviewer ees-functional-reviewer ees-implementer ees-test-writer ees-ux-reviewer; do
+  check "agent $agent: variant high as thinking level" has "model: opencode-go/deepseek-v4.1-flash:high" "$(agent_file "$agent")"
+done
+
+# readonly in agents.toml becomes a Pi tool allowlist; full roles keep every tool.
+check "agent ees-check-runner: readonly is tools: read, bash" has "tools: read, bash" "$(agent_file ees-check-runner)"
+check "agent ees-functional-reviewer: readonly is tools: read, bash" has "tools: read, bash" "$(agent_file ees-functional-reviewer)"
+check "agent ees-implementer: no tool allowlist" bash -c "! grep -q '^tools:' '$(agent_file ees-implementer)'"
+check "agent ees-test-writer: preloads ees-tdd" has 'read the `ees-tdd` skill' "$(agent_file ees-test-writer)"
+
+# ---------------------------------------------------------------- slash commands
+
+pi_prompts=("$pack"/generated/pi/prompts/*.md)
+invocable_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -not -path 'skills/personal/*' -exec grep -L '^user-invocable: false' {} + | wc -l; }
+check "generated/pi/prompts: one command per user-invocable skill" test "${#pi_prompts[@]}" -eq "$(invocable_skills)"
+check "generated/pi/prompts: build is green" "$pack/scripts/build-pi-prompts" --check
+check "generated/pi/prompts: the library skill has no command" test ! -e generated/pi/prompts/ees-pipeline.md
+check "prompt ees-implement: points at the linked SKILL.md" \
+  has_all generated/pi/prompts/ees-implement.md '`ees-implement` skill' '~/.agents/skills/ees-implement/SKILL.md' '${@:-none}'
+check "prompt ees-commit: keeps the argument hint without quotes" \
+  has 'argument-hint: "[push] [paths or scope hint]"' generated/pi/prompts/ees-commit.md
+
+# ---------------------------------------------------------------- subagent tool
+
+check "extension: index.ts and agents.ts vendored" test -f pi/extensions/subagent/index.ts -a -f pi/extensions/subagent/agents.ts
+check "extension: registers the subagent tool" has 'name: "subagent"' pi/extensions/subagent/index.ts
+check "extension: advertises the installed agents in the tool description" \
+  has 'advertisedAgents.length > 0 ? `Available agents:' pi/extensions/subagent/index.ts
+check "extension: reads the agent directory from getAgentDir()" has 'path.join(getAgentDir(), "agents")' pi/extensions/subagent/agents.ts
+
+# ---------------------------------------------------------------- install.sh
+
+check "install.sh: header mentions Pi" gq -i 'Pi  ' install.sh
+check "install.sh: links agents into the Pi config dir" has 'link_agents pi "$pi_dir/agents"' install.sh
+check "install.sh: links the slash commands" has 'link_prompts "$pi_dir/prompts"' install.sh
+check "install.sh: links the subagent extension" has 'link "$pack/pi/extensions/subagent" "$pi_dir/extensions/subagent"' install.sh
+check "install.sh: honours PI_CODING_AGENT_DIR" has 'pi_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"' install.sh
+check "install.sh: cleans up dangling Pi links" has '"$pi_dir"/prompts/*.md' install.sh
+
+# Behaviour: a sandboxed install puts every agent, prompt and the extension where Pi looks.
+sb="$(mktemp -d)"
+trap 'rm -rf "$sb"' EXIT
+mkdir -p "$sb/home"
+sandbox_install() { HOME="$sb/home" PI_CODING_AGENT_DIR="$sb/home/.pi/agent" "$pack/install.sh" >/dev/null 2>&1; }
+check "install.sh: sandboxed run links all six agents" \
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/agents' | wc -l)\" -eq 6"
+check "install.sh: sandboxed run links every slash command" \
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/prompts' | wc -l)\" -eq ${#pi_prompts[@]}"
+check "install.sh: sandboxed run links the extension directory" \
+  test -f "$sb/home/.pi/agent/extensions/subagent/index.ts" -a -f "$sb/home/.pi/agent/extensions/subagent/agents.ts"
+check "install.sh: second sandboxed run reports every Pi link as ok" \
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' 2>&1 | grep -q 'ok      $sb/home/.pi/agent/agents/ees-test-writer.md'"
+check "install.sh: dry run still installs nothing" \
+  bash -c "mkdir -p '$sb/fresh'; HOME='$sb/fresh' PI_CODING_AGENT_DIR='$sb/fresh/.pi/agent' '$pack/install.sh' --dry-run >/dev/null 2>&1 && test ! -e '$sb/fresh/.pi/agent/agents/ees-test-writer.md'"
+
+# ---------------------------------------------------------------- docs
+
+check "README: documents Pi agents, the extension and the /skill: naming" \
+  has_all README.md '`~/.pi/agent/agents/`' '~/.pi/agent/extensions/subagent/' '/skill:<name>' '`pi` (`model` as `provider/model`, optional `variant`)'
+check "README: documents the Pi models and thinking level" \
+  has_all README.md 'Pi uses the same models as opencode' '`variant` as the thinking level' '`ees-check-runner` on `low`'
+check "README: documents the Pi prerequisites" has '**Pi prerequisites.**' README.md
+check "pi/extensions/subagent/README.md: documents frontmatter and the local change" \
+  has_all pi/extensions/subagent/README.md 'model: opencode-go/deepseek-v4.1-flash:low' 'One local' 'agentScope: "both"'
+
+if (( fails )); then
+  echo
+  echo "$fails check(s) failed"
+  exit 1
+fi
+echo
+echo "all checks passed"
