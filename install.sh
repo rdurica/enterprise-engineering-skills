@@ -49,10 +49,16 @@ usage_error() {
 
 # ---------------------------------------------------------------- plan helpers
 
-is_pack_link() { # <path>: a symlink whose resolved target is inside this pack
+is_pack_link() { # <path>: a symlink whose target is inside this pack, even when it dangles
   [[ -L "$1" ]] || return 1
   local target
   target="$(readlink -f "$1" 2>/dev/null || true)"
+  if [[ "$target" == "$pack" || "$target" == "$pack"/* ]]; then
+    return 0
+  fi
+  # readlink -f gives up when a parent directory of a dangling target is gone; the raw target still
+  # names this pack, so a link left by an uninstalled skill or agent is still cleaned up.
+  target="$(readlink "$1" 2>/dev/null || true)"
   [[ "$target" == "$pack" || "$target" == "$pack"/* ]]
 }
 
@@ -60,9 +66,13 @@ is_old_generated() {
   [[ -f "$1" && ! -L "$1" ]] && head -n 2 "$1" | grep -qF "$old_generated_marker"
 }
 
-# Every action is printed once while the plan is built and recorded for the apply step.
+# Every action is printed once while the plan is built and recorded for the apply step. Cleanup and
+# pruning can reach the same destination, so an action already in the plan is recorded only once.
 record() { # record <action> <dest> [src]
-  local action="$1" dest="$2" src="${3:-}"
+  local action="$1" dest="$2" src="${3:-}" entry
+  for entry in ${actions[@]+"${actions[@]}"}; do
+    if [[ "$entry" == "$action"$'\t'"$dest"$'\t'"$src" ]]; then return 0; fi
+  done
   if [[ -n "$src" ]]; then
     printf '%-8s%s -> %s\n' "$action" "$dest" "$src"
   else
@@ -193,14 +203,6 @@ is_present() { # <provider>: its CLI is on PATH or its config directory exists
   esac
 }
 
-is_selected() {
-  local p
-  for p in ${selection[@]+"${selection[@]}"}; do
-    [[ "$p" == "$1" ]] && return 0
-  done
-  return 1
-}
-
 # Bash 3.2 has no associative arrays, so membership is a plain linear scan.
 in_list() { # <value> [<list>...]
   local value="$1" item
@@ -209,6 +211,17 @@ in_list() { # <value> [<list>...]
     [[ "$item" == "$value" ]] && return 0
   done
   return 1
+}
+
+is_selected() { in_list "$1" ${selection[@]+"${selection[@]}"}; }
+
+# Store <list> as the selection, in provider order and without duplicates.
+select_from() {
+  local p
+  selection=()
+  for p in "${provider_order[@]}"; do
+    if in_list "$p" "$@"; then selection+=("$p"); fi
+  done
 }
 
 lower() { # <string>: lowercase, without bash 4's case-modification expansion
@@ -242,11 +255,14 @@ provider_note() {
 }
 
 parse_providers() {
-  local raw="$1" token p
+  local raw="$1" token
   local -a tokens=() want=()
   raw="${raw//,/ }"
   read -r -a tokens <<<"$raw"
-  for token in ${tokens[@]+"${tokens[@]}"}; do
+  if (( ${#tokens[@]} == 0 )); then
+    usage_error "--providers needs a list of providers; use 'none' to remove every link"
+  fi
+  for token in "${tokens[@]}"; do
     case "$token" in
       all) want=("${provider_order[@]}") ;;
       none) want=() ;;
@@ -254,11 +270,7 @@ parse_providers() {
       *) usage_error "unknown provider: $token" ;;
     esac
   done
-  selection=()
-  for p in "${provider_order[@]}"; do
-    if in_list "$p" ${want[@]+"${want[@]}"}; then selection+=("$p"); fi
-  done
-  return 0
+  select_from ${want[@]+"${want[@]}"}
 }
 
 # Numbered provider picker. An empty answer keeps the default, `all` and `none` replace it, and
@@ -266,7 +278,6 @@ parse_providers() {
 wizard() {
   local p i marker note line trimmed token valid
   local -a defaults=() tokens=() want=()
-  defaults=()
   for p in "${provider_order[@]}"; do
     if is_linked "$p" || is_present "$p"; then defaults+=("$p"); fi
   done
@@ -277,7 +288,7 @@ wizard() {
     for i in "${!provider_order[@]}"; do
       p="${provider_order[$i]}"
       marker=" "
-      for token in "${defaults[@]}"; do [[ "$token" == "$p" ]] && marker="x"; done
+      if in_list "$p" "${defaults[@]}"; then marker="x"; fi
       note="$(provider_note "$p")"
       printf '  %d) %-12s [%s] %s\n' "$((i + 1))" "$(provider_label "$p")" "$marker" "$note"
     done
@@ -316,10 +327,7 @@ wizard() {
       fi
     done
     if (( valid )); then
-      selection=()
-      for p in "${provider_order[@]}"; do
-        if in_list "$p" ${want[@]+"${want[@]}"}; then selection+=("$p"); fi
-      done
+      select_from ${want[@]+"${want[@]}"}
       return 0
     fi
     printf 'Invalid selection: %s\n' "$line" >&2
