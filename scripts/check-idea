@@ -102,7 +102,7 @@ check "README: Status mentions idea label and ideas/ folder" has_all $r '`idea`'
 # 10. install.sh links idea
 dry_run_lists_idea() {
   local home out; home="$(mktemp -d)"
-  out="$(HOME="$home" ./install.sh --dry-run 2>&1)"; rm -rf "$home"
+  out="$(HOME="$home" ./install.sh --dry-run --all 2>&1)"; rm -rf "$home"
   grep -qE '/\.claude/skills/ees-idea( |$)' <<<"$out" && grep -qE '/\.agents/skills/ees-idea( |$)' <<<"$out"
 }
 check "install.sh --dry-run lists ees-idea for ~/.claude and ~/.agents skills" dry_run_lists_idea

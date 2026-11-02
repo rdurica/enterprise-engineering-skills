@@ -218,7 +218,7 @@ check "[harness] opencode is installed (needed by the install scenarios)" have_o
 # A: fresh sandbox, no opencode.json, dangling links from the earlier spike, XDG_CONFIG_HOME != $HOME/.config.
 A="$(new_scenario A)"
 for n in "${agent_names[@]}"; do ln -sfn "$pack/generated/opencode/agents/$n.md" "$A/xdg/opencode/agents/$n.md"; done
-run_install "$A"
+run_install "$A" --all
 
 debug_agents_flash() {
   have_opencode || return 1
@@ -256,9 +256,9 @@ check "[13] missing opencode.json with opencode installed: install.sh creates it
 B="$(new_scenario B)"
 cfg="$B/xdg/opencode/opencode.json"
 write_user_config "$cfg"; cp "$cfg" "$B/orig.json"
-run_install "$B"
+run_install "$B" --all
 cp "$cfg" "$B/after1.json"; cp "$cfg.bak" "$B/after1.bak" 2>/dev/null || true
-run_install "$B"
+run_install "$B" --all
 
 export ORIG="$B/orig.json"
 build_overridden() {
@@ -288,7 +288,7 @@ check "[15] subagent backend without a model prints the warn line; primary build
 # C: --dry-run.
 C="$(new_scenario C)"
 write_user_config "$C/xdg/opencode/opencode.json"; cp "$C/xdg/opencode/opencode.json" "$C/orig.json"
-run_install "$C" --dry-run
+run_install "$C" --dry-run --all
 dry_run_ok() {
   grep -qE "agent\.build\.model: $flash -> claude-agent/opus" "$C/out" || return 1
   grep -qE '(^|[[:space:]])model: opencode-go/glm-5 -> claude-agent/opus' "$C/out" || return 1
@@ -303,7 +303,7 @@ write_user_config "$F/dotfiles/opencode.json"
 chmod 600 "$F/dotfiles/opencode.json"
 cp "$F/dotfiles/opencode.json" "$F/orig.json"
 ln -s "$F/dotfiles/opencode.json" "$F/xdg/opencode/opencode.json"
-run_install "$F"
+run_install "$F" --all
 symlinked_config() {
   local cfg="$F/xdg/opencode/opencode.json"
   [[ -L "$cfg" && "$(readlink -f "$cfg")" == "$F/dotfiles/opencode.json" ]] || return 1
@@ -319,7 +319,7 @@ check "[x7] symlinked opencode.json stays a symlink; target and .bak keep mode 6
 D="$(new_scenario D)"
 printf '{\n  // my comment\n  "model": "x/y",\n  "agent": {}\n}\n' >"$D/xdg/opencode/opencode.json"
 cp "$D/xdg/opencode/opencode.json" "$D/orig.json"
-run_install "$D"
+run_install "$D" --all
 jsonc_warns() {
   [[ "$(cat "$D/rc")" == 0 ]] || return 1
   grep -qF 'config/opencode.json' "$D/out" && grep -qi 'by hand' "$D/out" || return 1
@@ -333,7 +333,7 @@ nobin="$sb/nobin"; mkdir -p "$nobin"
 for t in bash env python3 git dirname readlink ln mkdir rm cat grep head sed mktemp cp date basename sort wc tr cut find; do
   command -v "$t" >/dev/null && ln -sf "$(command -v "$t")" "$nobin/$t"
 done
-{ with_env "$E" env PATH="$nobin" "$pack/install.sh" >"$E/out" 2>&1 && echo 0 >"$E/rc"; } || echo $? >"$E/rc"
+{ with_env "$E" env PATH="$nobin" "$pack/install.sh" --all >"$E/out" 2>&1 && echo 0 >"$E/rc"; } || echo $? >"$E/rc"
 no_opencode_on_path() { ! PATH="$nobin" command -v opencode; }
 no_opencode_ok() {
   local n l

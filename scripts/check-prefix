@@ -256,7 +256,7 @@ install_plan() { # run install.sh --dry-run once in a sandbox seeded with old da
   HOME="$home" XDG_CONFIG_HOME="$xdg" XDG_DATA_HOME="$sandbox/data" \
     XDG_CACHE_HOME="$sandbox/cache" XDG_STATE_HOME="$sandbox/state" \
     CLAUDE_CONFIG_DIR="$claude" CODEX_HOME="$codex" \
-    "$pack/install.sh" --dry-run >"$out_file" 2>&1 || rc=$?
+    "$pack/install.sh" --dry-run --all >"$out_file" 2>&1 || rc=$?
   if (( rc != 0 )); then
     echo "install.sh --dry-run exited with $rc"
     awk 'NR <= 10' "$out_file"
