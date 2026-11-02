@@ -243,6 +243,17 @@ plan_avoids() { # plan_avoids <out> <dest-prefix>...: no link/relink/ok line und
   return 0
 }
 
+plan_omits() { # plan_omits <out> <dest-prefix>...: no plan line of any action under a prefix
+  local out="$1" prefix; shift
+  for prefix in "$@"; do
+    if awk -v p="$prefix" 'index($2, p) == 1 { found = 1 } END { exit !found }' "$out"; then
+      echo "plan mentions $prefix"
+      return 1
+    fi
+  done
+  return 0
+}
+
 assert_dir_links() { # assert_dir_links <dest-dir> <source-dir>
   local dest="$1" src="$2" f base target count=0 actual
   [[ -d "$dest" ]] || { echo "missing destination directory: $dest"; return 1; }
@@ -584,6 +595,8 @@ check "[10] no selection flags with a non-terminal stdin behaves like --all" imp
 
 # ---------------------------------------------------------------- [11] wizard defaults on a terminal
 
+# A provider is preselected only when it is already linked into this pack. A fake codex CLI makes
+# Codex "installed" (is_present) without any pack link, so it must stay unselected.
 c11a="$(scenario pty-linked)"
 mkdir -p "$c11a/claude/agents"
 ln -s "$tree/generated/claude/agents/ees-test-writer.md" "$c11a/claude/agents/ees-test-writer.md"
@@ -591,30 +604,44 @@ printf '#!/usr/bin/env bash\nexit 0\n' >"$c11a/bin/codex"
 chmod +x "$c11a/bin/codex"
 printf '\n\n' >"$c11a/stdin"
 run_pty "$c11a"
-pty_defaults_detected() {
+wizard_preselects() { # wizard_preselects <out> <provider-number>: the picker marks provider N [x]
+  grep -qE "^[[:space:]]*$2\) .*\[x\]" "$1"
+}
+wizard_does_not_preselect() { # wizard_does_not_preselect <out> <provider-number>
+  ! wizard_preselects "$1" "$2"
+}
+pty_defaults_linked_only() {
   local d="$1" p
   has_rc "$d" 0 || return 1
   grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  wizard_preselects "$d/out" 1 || { echo "linked Claude is not preselected"; return 1; }
+  wizard_does_not_preselect "$d/out" 2 ||
+    { echo "installed-but-unlinked Codex is preselected"; return 1; }
   assert_skill_root "$d/claude/skills" || return 1
-  assert_skill_root "$d/home/.agents/skills" || return 1
   assert_agent_dir "$d" claude || return 1
-  assert_agent_dir "$d" codex || return 1
-  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
-  plan_avoids "$d/out" "$d/home/.cursor/agents/" "$d/xdg/opencode/agents/" "$d/pi/agent/"
+  assert_no_pack_links "$d/home/.agents/skills" || return 1
+  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$d/pi/agent/prompts" || return 1
+  assert_no_extension_link "$d" || return 1
+  plan_omits "$d/out" "$d/home/.agents/skills/" "$d/codex/agents/" "$d/home/.cursor/agents/" \
+    "$d/xdg/opencode/agents/" "$d/pi/agent/"
 }
-check "[11] on a terminal the wizard preselects the linked and installed providers" pty_defaults_detected "$c11a"
+check "[11] on a terminal the wizard preselects only the linked provider, not an installed one" pty_defaults_linked_only "$c11a"
 
 c11b="$(scenario pty-all)"
 printf '\n\n' >"$c11b/stdin"
 run_pty "$c11b"
 pty_defaults_all() {
-  local d="$1"
+  local d="$1" i
   has_rc "$d" 0 || return 1
   grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  for i in 1 2 3 4 5; do
+    wizard_preselects "$d/out" "$i" || { echo "nothing is linked but provider $i is not preselected"; return 1; }
+  done
   all_skill_roots "$d" || return 1
   all_agent_dirs "$d" || return 1
 }
-check "[11] on a terminal with nothing detected the wizard preselects all five providers" pty_defaults_all "$c11b"
+check "[11] on a terminal with nothing linked the wizard preselects all five providers" pty_defaults_all "$c11b"
 
 # ---------------------------------------------------------------- [12] real file and foreign symlink are skipped
 
