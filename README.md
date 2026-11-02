@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex and Cursor), and every agent into `~/.claude/agents/`, `~/.codex/agents/`, `~/.cursor/agents/` and `~/.config/opencode/agents/` (see [Agents for each provider](#agents-for-each-provider)). It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. When opencode is installed it also merges the pack's model keys into `opencode.json`; the original is kept as `opencode.json.bak` and `--dry-run` prints the changes. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed. After a release that renames skills or agents, run `install.sh` again and start a new session: the old links are dangling, `cleanup` removes them and the new `ees-` names are linked. Old folders copied by hand are not links — delete them yourself.
+`install.sh` links every skill into `~/.claude/skills/` and `~/.agents/skills/` (read by Codex, Cursor and Pi), and every agent into `~/.claude/agents/`, `~/.codex/agents/`, `~/.cursor/agents/`, `~/.config/opencode/agents/` and `~/.pi/agent/agents/` (see [Agents for each provider](#agents-for-each-provider)). For Pi it also links the subagent tool into `~/.pi/agent/extensions/subagent/` and one slash command per skill into `~/.pi/agent/prompts/`, because Pi has no built-in subagents and calls skills `/skill:<name>`. It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. When opencode is installed it also merges the pack's model keys into `opencode.json`; the original is kept as `opencode.json.bak` and `--dry-run` prints the changes. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed. After a release that renames skills or agents, run `install.sh` again and start a new session: the old links are dangling, `cleanup` removes them and the new `ees-` names are linked. Old folders copied by hand are not links — delete them yourself.
 
 A project works without any configuration: the tracker and monorepo are detected and every other setting has a built-in default. Optionally create your personal defaults in the global file `~/.config/enterprise-engineering-skills/workflow.md`, either through `/ees-setup` or by hand:
 
@@ -109,11 +109,11 @@ Agents never commit, push or open PRs; the main session does. Tests are committe
 
 ### Agents for each provider
 
-Each agent is written once and built for Claude Code, Codex, Cursor and opencode:
+Each agent is written once and built for Claude Code, Codex, Cursor, opencode and Pi:
 
 - `agents/<name>.md` holds the `name`, the `description` and the instructions.
-- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`), `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`) and `opencode` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
-- `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and refuses a commit where it is out of date.
+- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`), `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`), `opencode` (`model` as `provider/model`, optional `variant`) and `pi` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
+- `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and `scripts/build-pi-prompts --check` and refuses a commit where they are out of date.
 
 ```toml
 [ees-check-runner]
@@ -122,15 +122,18 @@ claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Gl
 codex = { model = "gpt-6-luna", effort = "low" }
 cursor = { model = "grok-4.7-low" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash" }
+pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
 ```
 
-Claude preloads `skills`; Codex and Cursor get a first line telling the agent to read them. opencode takes `model` and a separate `variant` (`model: …#max` is ignored there) and turns `readonly` into `edit: deny`. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`. opencode reads skills from `~/.claude/skills/` and `~/.agents/skills/` too and starts them with `@ees-analyze #N` instead of a slash command.
+Claude preloads `skills`; Codex, Cursor, opencode and Pi get a first line telling the agent to read them. opencode takes `model` and a separate `variant` (`model: …#max` is ignored there) and turns `readonly` into `edit: deny`. Pi writes `variant` as a `:<level>` suffix on `model` (its only way to pin a thinking level) and turns `readonly` into `tools: read, bash`, since Pi has no `edit: deny`. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Pi keeps its model in `~/.pi/agent/settings.json`. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`. opencode reads skills from `~/.claude/skills/` and `~/.agents/skills/` too and starts them with `@ees-analyze #N` instead of a slash command; Pi reads the same two directories and uses `/skill:ees-analyze #N`, or the `/ees-analyze #N` alias that `scripts/build-pi-prompts` generates.
 
 ## Models
 
 Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — `ees-change`, debugging, questions — is mostly judgment and costs little.
 
 In opencode every skill runs on the main session (`claude-agent/opus`), which spends Claude tokens only there; pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none. `ees-implementer`, `ees-test-writer` and the reviewers run on `high`, and the check runner plus the built-in `general`/`explore` run on `low`, where the quality difference is smallest.
+
+Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-flash` with `variant` as the thinking level, so `ees-implementer`, `ees-test-writer` and the reviewers run on `high` and `ees-check-runner` on `low`. Pi cannot pin a model to a skill, so skills run on the session model from `~/.pi/agent/settings.json` — set it to what you want `/ees-analyze` and `/ees-implement` to think with.
 
 | Skill or agent | Claude Code | opencode |
 |----------------|-------------|----------|
@@ -151,6 +154,7 @@ In opencode every skill runs on the main session (`claude-agent/opus`), which sp
 - **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
 - **One task per conversation.** Switching models mid-conversation throws away the prompt cache, so start each `/ees-analyze` and each `/ees-implement` in a fresh conversation.
 - **opencode prerequisites.** The `claude-agent` provider needs Claude Code >= 2.1.248 logged in with `claude auth login`. opencode reads `AGENTS.md`, not `CLAUDE.md`, so global rules from `~/.claude/CLAUDE.md` do not apply there. `/ees-implement` has no model to escalate to in opencode; the main session takes over a failing cluster.
+- **Pi prerequisites.** Agents only start once the subagent tool is linked (`install.sh` does it into `~/.pi/agent/extensions/subagent/`) and are visible to the model by name in that tool's description. Skills spelled `/ees-…` in this README reach Pi as `/ees-…` (generated alias) or `/skill:ees-…`; hidden skills are not offered to the model, only as commands. Like opencode, Pi reads `AGENTS.md` and not `CLAUDE.md`.
 
 How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the Execution contract of [`ees-implement`](skills/ees-implement/SKILL.md#execution-contract).
 
@@ -189,6 +193,8 @@ Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-
 ## Other skills
 
 Most skills run only as slash commands. Claude starts these on its own when the request fits: `ees-change` (implementation without an analysis), `ees-implement` (a request naming an analysis), `ees-discuss` (weighing options), `ees-tdd`, `ees-integration-tests`, `ees-commit` and `ees-git-release`.
+
+The same split holds in Pi: the skills Claude starts on its own are advertised to the model, the rest are commands (`/skill:ees-verify` or the generated `/ees-verify` alias).
 
 - **`ees-change`** — implementation without an analysis through the same agents; see [Workflow](#workflow).
 - **`/ees-discuss`** — talk a question through with options and trade-offs; changes nothing.
