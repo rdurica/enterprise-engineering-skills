@@ -2,7 +2,7 @@
 """Build provider agents from agents/<name>.md (description, instructions) and agents.toml (settings).
 
 Writes generated/claude/agents/<name>.md, generated/codex/agents/<name>.toml,
-generated/cursor/agents/<name>.md and generated/opencode/agents/<name>.md.
+generated/cursor/agents/<name>.md, generated/opencode/agents/<name>.md and generated/pi/agents/<name>.md.
 With --check, writes nothing and exits 1 when generated/ is stale.
 """
 import json
@@ -17,6 +17,7 @@ outputs = {
     "codex": ("agents", ".toml"),
     "cursor": ("agents", ".md"),
     "opencode": ("agents", ".md"),
+    "pi": ("agents", ".md"),
 }
 
 
@@ -99,7 +100,26 @@ def render_opencode(name, description, instructions, shared, cfg):
     return "\n".join(out) + "\n"
 
 
-renderers = {"claude": render_claude, "codex": render_codex, "cursor": render_cursor, "opencode": render_opencode}
+def render_pi(name, description, instructions, shared, cfg):
+    out = ["---", header(name), f"name: {name}", f"description: {q(description)}"]
+    # Pi takes the thinking level as a suffix of --model, which is how `variant` reaches the agent.
+    if "model" in cfg:
+        out.append(f"model: {cfg['model']}:{cfg['variant']}" if cfg.get("variant") else f"model: {cfg['model']}")
+    # Pi has read, bash, edit and write; a read-only agent keeps read and bash (tests, git).
+    tools = cfg.get("tools") or (["read", "bash"] if shared.get("readonly") else None)
+    if tools:
+        out.append(f"tools: {', '.join(tools)}")
+    out += ["---", "", read_first(shared.get("skills"), instructions)]
+    return "\n".join(out) + "\n"
+
+
+renderers = {
+    "claude": render_claude,
+    "codex": render_codex,
+    "cursor": render_cursor,
+    "opencode": render_opencode,
+    "pi": render_pi,
+}
 
 
 def build():
@@ -125,7 +145,13 @@ def build():
 def main():
     check = sys.argv[1:] == ["--check"]
     files = build()
-    existing = {p for provider in outputs for p in (pack / "generated" / provider).glob("**/*") if p.is_file()}
+    # Only the agents directory: generated/<provider>/ may hold other outputs (Pi slash commands).
+    existing = {
+        p
+        for provider, (subdir, _) in outputs.items()
+        for p in (pack / "generated" / provider / subdir).glob("*")
+        if p.is_file()
+    }
     stale = [p for p, text in files.items() if not p.is_file() or p.read_text(encoding="utf-8") != text]
     extra = sorted(existing - set(files))
 

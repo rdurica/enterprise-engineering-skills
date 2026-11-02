@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
-# Refuse a commit whose generated/ agents do not match agents/ and agents.toml.
+# Refuse a commit whose generated/ agents do not match agents/ and agents.toml, or whose Pi slash
+# commands do not match skills/.
 set -euo pipefail
-exec "$(git rev-parse --show-toplevel)/scripts/build-agents" --check
+pack="$(git rev-parse --show-toplevel)"
+"$pack/scripts/build-agents" --check
+exec "$pack/scripts/build-pi-prompts" --check
