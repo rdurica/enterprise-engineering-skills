@@ -11,7 +11,7 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
-Run the installer from a terminal: a numbered wizard asks which tools to link — Claude Code, Codex, Cursor, opencode and Pi — and preselects the ones it finds installed or already linked.
+Run the installer from a terminal: a numbered wizard asks which tools to link — Claude Code, Codex, Cursor, opencode and Pi — and preselects the ones already linked into the pack; installed tools are still shown, but not preselected.
 
 The installer prints the plan (`link`, `relink`, `ok`, `unlink`) and applies it after you confirm. The plan brings the selected tools to exactly that state: missing links are added, broken ones repaired and pack links for unselected tools removed; real files and symlinks that do not point into the pack are never touched. For scripts, `--all` selects every tool, `--providers <list>` selects an exact set (comma or space separated, `all` and `none` accepted), `--yes` skips the confirmation and `--dry-run` prints the plan and writes nothing. With no flags and no terminal on stdin, the installer behaves like `--all`.
 

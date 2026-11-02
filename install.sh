@@ -279,7 +279,7 @@ wizard() {
   local p i marker note line trimmed token valid
   local -a defaults=() tokens=() want=()
   for p in "${provider_order[@]}"; do
-    if is_linked "$p" || is_present "$p"; then defaults+=("$p"); fi
+    if is_linked "$p"; then defaults+=("$p"); fi
   done
   if (( ${#defaults[@]} == 0 )); then defaults=("${provider_order[@]}"); fi
 
