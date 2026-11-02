@@ -284,7 +284,7 @@ wizard() {
   if (( ${#defaults[@]} == 0 )); then defaults=("${provider_order[@]}"); fi
 
   while true; do
-    printf '\nSelect the tools to link (Enter keeps the default):\n'
+    printf '\nSelect the tools to link (x = preselected):\n'
     for i in "${!provider_order[@]}"; do
       p="${provider_order[$i]}"
       marker=" "
@@ -292,6 +292,7 @@ wizard() {
       note="$(provider_note "$p")"
       printf '  %d) %-12s [%s] %s\n' "$((i + 1))" "$(provider_label "$p")" "$marker" "$note"
     done
+    printf 'Enter numbers separated by commas or spaces (for example 1,3); type all or none; press Enter for the default.\n'
     printf 'Selection: '
     if ! IFS= read -r line; then
       printf '\n' >&2
