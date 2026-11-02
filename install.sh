@@ -459,7 +459,7 @@ if (( dry_run )); then
     opencode_config
   fi
 else
-  if (( used_wizard )) && (( ! assume_yes )); then
+  if (( ! assume_yes )) && { (( used_wizard )) || [[ -t 0 ]]; }; then
     confirm_plan
   fi
   apply_plan
