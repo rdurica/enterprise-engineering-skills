@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify the interactive installer of issue #10: provider selection, exact-state reconciliation,
-# pruning, conflicts, the numbered wizard, the confirmation and --dry-run. Labels [1]..[16] map to
-# the 16 installer Acceptance items in order; [harness] labels are setup checks.
+# pruning, conflicts, the numbered wizard, the confirmation, --dry-run and the documentation. Labels
+# [1]..[18] map to the 18 installer Acceptance items in order; [harness] labels are setup checks.
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
 #
 # Behavioural checks run in a sandbox: a mktemp dir is used as HOME and every provider directory is
@@ -509,6 +509,31 @@ interactive_declined() {
 }
 check "[9] --interactive with n at the confirmation writes nothing and exits 0" interactive_declined "$c9b"
 
+# --all on a terminal asks for confirmation too, unless --yes.
+c9c="$(scenario pty-all-confirm)"
+printf '\n' >"$c9c/stdin"
+run_pty "$c9c" --all
+terminal_all_confirms() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d" || return 1
+}
+check "[9] --all on a terminal asks Apply this plan? and an empty answer applies the plan" terminal_all_confirms "$c9c"
+
+c9d="$(scenario pty-all-yes)"
+: >"$c9d/stdin"
+run_pty "$c9d" --all --yes
+terminal_all_yes() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  ! grep -qF 'Apply this plan?' "$d/out" || { echo "confirmation prompt printed despite --yes"; return 1; }
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d" || return 1
+}
+check "[9] --all --yes on a terminal skips the prompt and applies the plan" terminal_all_yes "$c9d"
+
 # ---------------------------------------------------------------- [10] no flags, non-terminal stdin = --all
 
 c10="$(scenario implicit)"
@@ -696,6 +721,34 @@ pi_deselected() {
   for p in claude cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
 }
 check "[16] selecting Pi and then deselecting it removes Pi agents, prompts and the extension" pi_deselected "$c16"
+
+# ---------------------------------------------------------------- [17] and [18] documentation
+
+readme_documents_install() { # the Quick start install paragraph: wizard, every flag and the fallback
+  local readme="$tree/README.md" quick
+  [[ -f "$readme" ]] || { echo "missing README.md"; return 1; }
+  quick="$(awk '/^## Quick start/ { on = 1; next } on && /^## / { exit } on' "$readme")"
+  grep -qiE 'numbered|wizard|picker' <<<"$quick" || { echo "Quick start does not mention the numbered wizard"; return 1; }
+  grep -qF -- '--all' <<<"$quick" || { echo "Quick start does not mention --all"; return 1; }
+  grep -qF -- '--providers' <<<"$quick" || { echo "Quick start does not mention --providers"; return 1; }
+  grep -qF -- '--yes' <<<"$quick" || { echo "Quick start does not mention --yes"; return 1; }
+  grep -qF -- '--dry-run' <<<"$quick" || { echo "Quick start does not mention --dry-run"; return 1; }
+  grep -qiE 'no (flags and no )?terminal|without a terminal|not a terminal|no terminal on stdin' <<<"$quick" ||
+    { echo "Quick start does not document the no-terminal fallback"; return 1; }
+}
+check "[17] README documents the numbered wizard, --all, --providers, --yes, --dry-run and the no-terminal fallback" readme_documents_install
+
+setup_step1_runs_in_terminal() { # step 1 points the user at install.sh in a terminal, not the session
+  local skill="$tree/skills/ees-setup/SKILL.md" step1
+  [[ -f "$skill" ]] || { echo "missing skills/ees-setup/SKILL.md"; return 1; }
+  step1="$(awk '/^### 1\./ { on = 1; next } on && /^### / { exit } on' "$skill")"
+  [[ -n "$step1" ]] || { echo "ees-setup has no step 1"; return 1; }
+  grep -qF 'install.sh' <<<"$step1" || { echo "step 1 does not mention install.sh"; return 1; }
+  grep -qi 'terminal' <<<"$step1" || { echo "step 1 does not say to run install.sh in a terminal"; return 1; }
+  grep -qiE 'do not run it from the session|not from the session|never runs? it' <<<"$step1" ||
+    { echo "step 1 does not forbid running install.sh from the session"; return 1; }
+}
+check "[18] ees-setup step 1 tells the user to run install.sh in a terminal and not from the session" setup_step1_runs_in_terminal
 
 # ---------------------------------------------------------------- summary
 

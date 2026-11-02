@@ -81,9 +81,14 @@ new_scenario() { # new_scenario <name> -> path
 }
 
 # run_install <scenario-dir> [install.sh args]: combined output in <dir>/out, exit code in <dir>/rc.
+# A sandboxed run passes --yes unless it is --dry-run, so a terminal on stdin never blocks it on the
+# plan confirmation.
 run_install() {
   local d="$1"; shift
-  { with_env "$d" "$pack/install.sh" "$@" >"$d/out" 2>&1 && echo 0 >"$d/rc"; } || echo $? >"$d/rc"
+  local -a args=("$@"); local arg dry=0
+  for arg in "$@"; do [[ "$arg" == "--dry-run" ]] && dry=1; done
+  (( dry )) || args+=(--yes)
+  { with_env "$d" "$pack/install.sh" "${args[@]}" >"$d/out" 2>&1 && echo 0 >"$d/rc"; } || echo $? >"$d/rc"
   stop_service "$d"
 }
 
@@ -333,7 +338,7 @@ nobin="$sb/nobin"; mkdir -p "$nobin"
 for t in bash env python3 git dirname readlink ln mkdir rm cat grep head sed mktemp cp date basename sort wc tr cut find; do
   command -v "$t" >/dev/null && ln -sf "$(command -v "$t")" "$nobin/$t"
 done
-{ with_env "$E" env PATH="$nobin" "$pack/install.sh" --all >"$E/out" 2>&1 && echo 0 >"$E/rc"; } || echo $? >"$E/rc"
+{ with_env "$E" env PATH="$nobin" "$pack/install.sh" --all --yes >"$E/out" 2>&1 && echo 0 >"$E/rc"; } || echo $? >"$E/rc"
 no_opencode_on_path() { ! PATH="$nobin" command -v opencode; }
 no_opencode_ok() {
   local n l
