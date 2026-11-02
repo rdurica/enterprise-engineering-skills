@@ -1,9 +1,10 @@
 # Subagent tool for Pi
 
 Pi has no built-in subagents: delegating to another agent with its own context window is an example
-extension. `install.sh` links this directory into `~/.pi/agent/extensions/subagent/`, where Pi loads
-it as the `subagent` tool; the agents it dispatches to are the `~/.pi/agent/agents/*.md` files built
-from `agents/<name>.md` and `agents.toml` (`generated/pi/agents/`).
+extension. When Pi is selected, `install.sh` links this directory into
+`~/.pi/agent/extensions/subagent/`, where Pi loads it as the `subagent` tool; the agents it
+dispatches to are the `~/.pi/agent/agents/*.md` files built from `agents/<name>.md` and
+`agents.toml` (`generated/pi/agents/`).
 
 Vendored from the Pi release, `examples/extensions/subagent/` (`index.ts`, `agents.ts`). One local
 change: the tool description lists the installed user agents with the first sentence of their

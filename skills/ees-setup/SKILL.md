@@ -13,7 +13,7 @@ effort: high
 
 Optional. The pipeline works with no configuration: tracker and monorepo are detected and every other setting has a built-in default (see `{skills-root}/ees-pipeline/config.md`, the single description of settings, resolution order and detection). Run `/ees-setup` inside the **target project** (not the skills repo) to check the install or change defaults.
 
-The shared pack is one git checkout with `skills/` (one folder per skill), `agents/` (one subagent per file) and `generated/` (agents built per provider). Its `install.sh` links skills into `~/.claude/skills/` and `~/.agents/skills/` and agents into `~/.claude/agents/`. Pack root is the parent of the `skills/` directory containing this skill. `/ees-setup` never pulls or updates the pack.
+The shared pack is one git checkout with `skills/` (one folder per skill), `agents/` (one subagent per file) and `generated/` (agents built per provider). Its `install.sh` asks which tools to link and puts each selected tool's skills and agents in its own directories. Pack root is the parent of the `skills/` directory containing this skill. `/ees-setup` never pulls or updates the pack.
 
 Every step shows a preview and waits for confirmation before writing or deleting anything. Ask one question at a time with a recommended option using `AskUserQuestion`, with a text fallback.
 
@@ -23,7 +23,7 @@ Every step shows a preview and waits for confirmation before writing or deleting
 
 Skip when the current working directory **is** the pack (it contains `skills/ees-setup/SKILL.md` and `agents/`).
 
-The pipeline is the skills `ees-pipeline`, `ees-idea`, `ees-analyze`, `ees-analyze-modify`, `ees-implement`, `ees-change`, `ees-verify`, `ees-code-review`, `ees-ux-review`, `ees-complete`, `ees-monorepo-update`, `ees-tdd`, `ees-integration-tests` and `ees-commit`, and the agents `ees-test-writer`, `ees-implementer`, `ees-check-runner`, `ees-functional-reviewer`, `ees-code-reviewer` and `ees-ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack. If any is missing, offer to run the pack's `install.sh`.
+The pipeline is the skills `ees-pipeline`, `ees-idea`, `ees-analyze`, `ees-analyze-modify`, `ees-implement`, `ees-change`, `ees-verify`, `ees-code-review`, `ees-ux-review`, `ees-complete`, `ees-monorepo-update`, `ees-tdd`, `ees-integration-tests` and `ees-commit`, and the agents `ees-test-writer`, `ees-implementer`, `ees-check-runner`, `ees-functional-reviewer`, `ees-code-reviewer` and `ees-ux-reviewer`. Check that each `~/.claude/skills/<name>` and `~/.claude/agents/<name>.md` exists and resolves into the pack. If any is missing, tell the user to run the pack's `install.sh` in a terminal — it asks which tools to link — and do not run it from the session.
 
 ### 2. Global file
 
