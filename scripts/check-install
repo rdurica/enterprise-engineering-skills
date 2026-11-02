@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Verify the interactive installer of issue #10: provider selection, exact-state reconciliation,
 # pruning, conflicts, the numbered wizard, the confirmation, --dry-run and the documentation. Labels
-# [1]..[18] map to the 18 installer Acceptance items in order; [harness] labels are setup checks.
+# [1]..[18] map to the first 18 of the 19 installer Acceptance items in order; item 19 (the other
+# scripts/check-* still pass) is run separately. [harness] labels are setup checks.
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
 #
 # Behavioural checks run in a sandbox: a mktemp dir is used as HOME and every provider directory is
@@ -78,12 +79,19 @@ run_install() { # run_install <dir> [args...]; stdin from <dir>/stdin, else /dev
 }
 
 # pty.fork helper: runs a wrapper with stdin and stdout on a terminal, merges the output and returns the
-# child's exit code. Used for the two "no flags on a terminal" checks.
+# child's exit code, or 124 when the child stops producing output for TIMEOUT seconds (a regressed prompt
+# would otherwise wait forever). Used for the "no flags on a terminal" checks.
 cat >"$sb/pty-run.py" <<'PY'
 import errno
 import os
 import pty
+import select
+import signal
 import sys
+import time
+
+# Long enough for an install run on a slow machine, short enough that a prompt waiting for input fails.
+TIMEOUT_SECONDS = 30
 
 
 def main():
@@ -103,7 +111,22 @@ def main():
         if error.errno != errno.EIO:
             raise
     chunks = []
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    timed_out = False
     while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        try:
+            ready, _, _ = select.select([fd], [], [], remaining)
+        except OSError as error:
+            if error.errno == errno.EINTR:
+                continue
+            raise
+        if not ready:
+            timed_out = True
+            break
         try:
             chunk = os.read(fd, 65536)
         except OSError as error:
@@ -113,6 +136,11 @@ def main():
         if not chunk:
             break
         chunks.append(chunk)
+    if timed_out:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
     try:
         os.close(fd)
     except OSError:
@@ -120,6 +148,9 @@ def main():
     _, status = os.waitpid(pid, 0)
     with open(out_path, "wb") as handle:
         handle.write(b"".join(chunks))
+    if timed_out:
+        sys.stderr.write(f"pty-run: no output for {TIMEOUT_SECONDS}s; killed the child\n")
+        return 124
     if os.WIFEXITED(status):
         return os.WEXITSTATUS(status)
     return 128 + os.WTERMSIG(status)
@@ -152,7 +183,7 @@ write_runner() { # write_runner <dir> [args...] -> prints the wrapper path
   echo "$runner"
 }
 
-run_pty() { # run_pty <dir> [args...]; stdin from <dir>/stdin
+run_pty() { # run_pty <dir> [args...]; stdin from <dir>/stdin; exit code 124 on a timeout
   local d="$1"; shift
   local runner rc=0
   runner="$(write_runner "$d" "$@")"
@@ -463,14 +494,19 @@ c8="$(scenario dangling)"
 mkdir -p "$c8/claude/skills" "$c8/claude/agents"
 ln -s "$tree/skills/ees-removed-skill" "$c8/claude/skills/ees-removed-skill"
 ln -s "$tree/generated/claude/agents/ees-removed-agent.md" "$c8/claude/agents/ees-removed-agent.md"
+# A dangling target whose parent directory is gone too: readlink -f cannot resolve it any more.
+ln -s "$tree/skills/removed-dir/ees-removed-skill" "$c8/claude/skills/ees-removed-nested"
 run_install "$c8" --providers claude
 dangling_pruned() {
   local d="$1"
   has_rc "$d" 0 || return 1
   plan_has "$d/out" unlink "$d/claude/skills/ees-removed-skill" || { echo "dangling skill not unlinked"; return 1; }
+  plan_has "$d/out" unlink "$d/claude/skills/ees-removed-nested" ||
+    { echo "dangling link with a removed parent directory not unlinked"; return 1; }
   plan_has "$d/out" unlink "$d/claude/agents/ees-removed-agent.md" || { echo "dangling agent not unlinked"; return 1; }
   [[ ! -e "$d/claude/skills/ees-removed-skill" && ! -L "$d/claude/skills/ees-removed-skill" ]] ||
     { echo "dangling skill link remains"; return 1; }
+  [[ ! -L "$d/claude/skills/ees-removed-nested" ]] || { echo "dangling nested link remains"; return 1; }
   [[ ! -e "$d/claude/agents/ees-removed-agent.md" && ! -L "$d/claude/agents/ees-removed-agent.md" ]] ||
     { echo "dangling agent link remains"; return 1; }
   assert_skill_root "$d/claude/skills" || return 1
@@ -699,6 +735,9 @@ check "[15] --all together with --providers exits 2 with usage and writes nothin
 c15b="$(scenario usage-unknown)"
 run_install "$c15b" --providers bogus
 check "[15] an unknown provider id exits 2 with usage and writes nothing" usage_error "$c15b" 2
+c15c="$(scenario usage-empty)"
+run_install "$c15c" --providers ""
+check "[15] an empty provider list exits 2 with usage and writes nothing" usage_error "$c15c" 2
 
 # ---------------------------------------------------------------- [16] Pi selected and then deselected
 
