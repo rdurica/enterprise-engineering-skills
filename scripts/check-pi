@@ -77,17 +77,17 @@ check "install.sh: cleans up dangling Pi links" has '"$pi_dir"/prompts/*.md' ins
 sb="$(mktemp -d)"
 trap 'rm -rf "$sb"' EXIT
 mkdir -p "$sb/home"
-sandbox_install() { HOME="$sb/home" PI_CODING_AGENT_DIR="$sb/home/.pi/agent" "$pack/install.sh" >/dev/null 2>&1; }
+sandbox_install() { HOME="$sb/home" PI_CODING_AGENT_DIR="$sb/home/.pi/agent" "$pack/install.sh" --all >/dev/null 2>&1; }
 check "install.sh: sandboxed run links all six agents" \
-  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/agents' | wc -l)\" -eq 6"
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' --all >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/agents' | wc -l)\" -eq 6"
 check "install.sh: sandboxed run links every slash command" \
-  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/prompts' | wc -l)\" -eq ${#pi_prompts[@]}"
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' --all >/dev/null 2>&1 && test \"\$(ls '$sb/home/.pi/agent/prompts' | wc -l)\" -eq ${#pi_prompts[@]}"
 check "install.sh: sandboxed run links the extension directory" \
   test -f "$sb/home/.pi/agent/extensions/subagent/index.ts" -a -f "$sb/home/.pi/agent/extensions/subagent/agents.ts"
 check "install.sh: second sandboxed run reports every Pi link as ok" \
-  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' 2>&1 | grep -q 'ok      $sb/home/.pi/agent/agents/ees-test-writer.md'"
+  bash -c "HOME='$sb/home' PI_CODING_AGENT_DIR='$sb/home/.pi/agent' '$pack/install.sh' --all 2>&1 | grep -q 'ok      $sb/home/.pi/agent/agents/ees-test-writer.md'"
 check "install.sh: dry run still installs nothing" \
-  bash -c "mkdir -p '$sb/fresh'; HOME='$sb/fresh' PI_CODING_AGENT_DIR='$sb/fresh/.pi/agent' '$pack/install.sh' --dry-run >/dev/null 2>&1 && test ! -e '$sb/fresh/.pi/agent/agents/ees-test-writer.md'"
+  bash -c "mkdir -p '$sb/fresh'; HOME='$sb/fresh' PI_CODING_AGENT_DIR='$sb/fresh/.pi/agent' '$pack/install.sh' --dry-run --all >/dev/null 2>&1 && test ! -e '$sb/fresh/.pi/agent/agents/ees-test-writer.md'"
 
 # ---------------------------------------------------------------- docs
 

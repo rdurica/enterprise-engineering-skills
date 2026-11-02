@@ -1,0 +1,707 @@
+#!/usr/bin/env bash
+# Verify the interactive installer of issue #10: provider selection, exact-state reconciliation,
+# pruning, conflicts, the numbered wizard, the confirmation and --dry-run. Labels [1]..[16] map to
+# the 16 installer Acceptance items in order; [harness] labels are setup checks.
+# Prints one PASS/FAIL line per check and exits 1 when any check fails.
+#
+# Behavioural checks run in a sandbox: a mktemp dir is used as HOME and every provider directory is
+# redirected with CLAUDE_CONFIG_DIR, CODEX_HOME, XDG_CONFIG_HOME and PI_CODING_AGENT_DIR. The installer
+# runs from a copy of the tree with its own git repository, so core.hooksPath in the working checkout is
+# never touched, and PATH is a stub bin dir that hides the real provider CLIs. Terminal checks run the
+# installer under a real PTY through a small pty.fork helper.
+set -euo pipefail
+shopt -s nullglob
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  local out
+  if out="$("$@" 2>&1)"; then
+    echo "PASS  $desc"
+  else
+    echo "FAIL  $desc"
+    fails=$((fails + 1))
+    if [[ -n "$out" ]]; then
+      awk 'NR <= 12 { print "      " $0 }' <<<"$out"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------- sandbox
+
+sb="$(mktemp -d)"
+trap 'rm -rf "$sb"' EXIT
+
+# A copy of the working tree with its own git repository: the installer's core.hooksPath write lands
+# here, never in the checkout under test.
+tree="$sb/tree"
+mkdir -p "$tree"
+tar --exclude=./.git -cf - . | tar -xf - -C "$tree"
+tree="$(cd "$tree" && pwd -P)"
+git init -q "$tree" >/dev/null 2>&1
+: >"$sb/gitconfig"
+
+# Stub bin dir: the tools install.sh and scripts/opencode-config need, but no provider CLI, so provider
+# detection is controlled only by the scenario's config dirs and its own fake CLIs.
+basebin="$sb/basebin"
+mkdir -p "$basebin"
+tools=(bash sh env git python3 dirname basename readlink realpath stat ln mkdir rmdir rm cat grep head sed awk
+  mktemp cp mv date touch sort uniq wc tr cut find chmod tar seq xargs nl getconf stty tput)
+for tool in "${tools[@]}"; do
+  path="$(command -v "$tool" 2>/dev/null || true)"
+  if [[ -n "$path" ]]; then ln -sf "$path" "$basebin/$tool"; fi
+done
+
+scenario() { # scenario <name> -> path; no provider config dirs, so detection starts empty
+  local d="$sb/$1"
+  mkdir -p "$d/home" "$d/bin" "$d/data" "$d/cache" "$d/state"
+  echo "$d"
+}
+
+scenario_env() { # scenario_env <dir> <command...>
+  local d="$1"; shift
+  env HOME="$d/home" CLAUDE_CONFIG_DIR="$d/claude" CODEX_HOME="$d/codex" \
+    XDG_CONFIG_HOME="$d/xdg" XDG_DATA_HOME="$d/data" XDG_CACHE_HOME="$d/cache" \
+    XDG_STATE_HOME="$d/state" PI_CODING_AGENT_DIR="$d/pi/agent" \
+    PATH="$d/bin:$basebin" GIT_CONFIG_GLOBAL="$sb/gitconfig" GIT_CONFIG_NOSYSTEM=1 "$@"
+}
+
+run_install() { # run_install <dir> [args...]; stdin from <dir>/stdin, else /dev/null
+  local d="$1"; shift
+  local input=/dev/null rc=0
+  if [[ -f "$d/stdin" ]]; then input="$d/stdin"; fi
+  scenario_env "$d" "$tree/install.sh" "$@" <"$input" >"$d/out" 2>"$d/err" || rc=$?
+  echo "$rc" >"$d/rc"
+}
+
+# pty.fork helper: runs a wrapper with stdin and stdout on a terminal, merges the output and returns the
+# child's exit code. Used for the two "no flags on a terminal" checks.
+cat >"$sb/pty-run.py" <<'PY'
+import errno
+import os
+import pty
+import sys
+
+
+def main():
+    input_path, out_path, *cmd = sys.argv[1:]
+    with open(input_path, "rb") as handle:
+        data = handle.read()
+    pid, fd = pty.fork()
+    if pid == 0:
+        try:
+            os.execv(cmd[0], cmd)
+        except OSError:
+            os._exit(127)
+    try:
+        if data:
+            os.write(fd, data)
+    except OSError as error:
+        if error.errno != errno.EIO:
+            raise
+    chunks = []
+    while True:
+        try:
+            chunk = os.read(fd, 65536)
+        except OSError as error:
+            if error.errno == errno.EIO:
+                break
+            raise
+        if not chunk:
+            break
+        chunks.append(chunk)
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+    _, status = os.waitpid(pid, 0)
+    with open(out_path, "wb") as handle:
+        handle.write(b"".join(chunks))
+    if os.WIFEXITED(status):
+        return os.WEXITSTATUS(status)
+    return 128 + os.WTERMSIG(status)
+
+
+sys.exit(main())
+PY
+
+write_runner() { # write_runner <dir> [args...] -> prints the wrapper path
+  local d="$1"; shift
+  local runner="$d/runner.sh" arg
+  {
+    echo '#!/usr/bin/env bash'
+    printf 'export HOME=%q\n' "$d/home"
+    printf 'export CLAUDE_CONFIG_DIR=%q\n' "$d/claude"
+    printf 'export CODEX_HOME=%q\n' "$d/codex"
+    printf 'export XDG_CONFIG_HOME=%q\n' "$d/xdg"
+    printf 'export XDG_DATA_HOME=%q\n' "$d/data"
+    printf 'export XDG_CACHE_HOME=%q\n' "$d/cache"
+    printf 'export XDG_STATE_HOME=%q\n' "$d/state"
+    printf 'export PI_CODING_AGENT_DIR=%q\n' "$d/pi/agent"
+    printf 'export PATH=%q\n' "$d/bin:$basebin"
+    printf 'export GIT_CONFIG_GLOBAL=%q\n' "$sb/gitconfig"
+    printf 'export GIT_CONFIG_NOSYSTEM=1\n'
+    printf 'exec %q' "$tree/install.sh"
+    for arg in "$@"; do printf ' %q' "$arg"; done
+    printf '\n'
+  } >"$runner"
+  chmod +x "$runner"
+  echo "$runner"
+}
+
+run_pty() { # run_pty <dir> [args...]; stdin from <dir>/stdin
+  local d="$1"; shift
+  local runner rc=0
+  runner="$(write_runner "$d" "$@")"
+  python3 "$sb/pty-run.py" "$d/stdin" "$d/out" "$runner" || rc=$?
+  echo "$rc" >"$d/rc"
+  [[ -e "$d/out" ]] || : >"$d/out"
+  tr -d '\r' <"$d/out" >"$d/out.clean"
+  mv "$d/out.clean" "$d/out"
+  : >"$d/err"
+}
+
+# ---------------------------------------------------------------- expected content and destinations
+
+skill_dirs=()
+while IFS= read -r skill_md; do
+  skill_dirs+=("$(dirname "$skill_md")")
+done < <(find "$tree/skills" -name SKILL.md | sort)
+
+providers=(claude codex cursor opencode pi)
+
+agent_src() { echo "$tree/generated/$1/agents"; }
+
+agent_dest() { # agent_dest <scenario> <provider>
+  case "$2" in
+    claude) echo "$1/claude/agents" ;;
+    codex) echo "$1/codex/agents" ;;
+    cursor) echo "$1/home/.cursor/agents" ;;
+    opencode) echo "$1/xdg/opencode/agents" ;;
+    pi) echo "$1/pi/agent/agents" ;;
+  esac
+}
+
+# ---------------------------------------------------------------- state assertions
+
+has_rc() {
+  local got
+  got="$(cat "$1/rc")"
+  [[ "$got" == "$2" ]] || { echo "exit $got, want $2"; return 1; }
+}
+
+plan_has() { # plan_has <out> <action> <dest>
+  awk -v action="$2" -v dest="$3" '$1 == action && $2 == dest { found = 1 } END { exit !found }' "$1"
+}
+
+plan_action() { # plan_action <out> <action>
+  awk -v action="$2" '$1 == action { found = 1 } END { exit !found }' "$1"
+}
+
+plan_avoids() { # plan_avoids <out> <dest-prefix>...: no link/relink/ok line under a prefix
+  local out="$1" prefix; shift
+  for prefix in "$@"; do
+    if awk -v p="$prefix" '$1 ~ /^(link|relink|ok)$/ && index($2, p) == 1 { found = 1 } END { exit !found }' "$out"; then
+      echo "plan mentions $prefix"
+      return 1
+    fi
+  done
+  return 0
+}
+
+assert_dir_links() { # assert_dir_links <dest-dir> <source-dir>
+  local dest="$1" src="$2" f base target count=0 actual
+  [[ -d "$dest" ]] || { echo "missing destination directory: $dest"; return 1; }
+  for f in "$src"/*; do
+    [[ -e "$f" || -L "$f" ]] || continue
+    base="$(basename "$f")"
+    [[ -L "$dest/$base" ]] || { echo "missing link: $dest/$base"; return 1; }
+    target="$(readlink -f "$dest/$base" 2>/dev/null || true)"
+    [[ "$target" == "$(readlink -f "$f")" ]] || { echo "wrong target: $dest/$base -> $target"; return 1; }
+    count=$((count + 1))
+  done
+  actual="$(find "$dest" -maxdepth 1 -type l | wc -l)"
+  [[ "$actual" -eq "$count" ]] || { echo "$dest has $actual links, want $count"; return 1; }
+}
+
+assert_skill_root() { # assert_skill_root <root>
+  local root="$1" skill base target count=0 actual
+  [[ -d "$root" ]] || { echo "missing skill root: $root"; return 1; }
+  for skill in "${skill_dirs[@]}"; do
+    base="$(basename "$skill")"
+    [[ -L "$root/$base" ]] || { echo "missing skill link: $root/$base"; return 1; }
+    target="$(readlink -f "$root/$base" 2>/dev/null || true)"
+    [[ "$target" == "$(readlink -f "$skill")" ]] || { echo "wrong target: $root/$base -> $target"; return 1; }
+    count=$((count + 1))
+  done
+  actual="$(find "$root" -maxdepth 1 -type l | wc -l)"
+  [[ "$actual" -eq "$count" ]] || { echo "$root has $actual links, want $count"; return 1; }
+}
+
+assert_no_pack_links() { # assert_no_pack_links <dir>
+  local dir="$1" link target
+  [[ -e "$dir" ]] || return 0
+  for link in "$dir"/*; do
+    [[ -L "$link" ]] || continue
+    target="$(readlink "$link" 2>/dev/null || true)"
+    if [[ "$target" == "$tree"/* ]]; then
+      echo "pack link remains: $link -> $target"
+      return 1
+    fi
+  done
+  return 0
+}
+
+assert_no_extension_link() { # assert_no_extension_link <scenario>
+  local ext="$1/pi/agent/extensions/subagent" target
+  [[ -L "$ext" ]] || return 0
+  target="$(readlink "$ext" 2>/dev/null || true)"
+  if [[ "$target" == "$tree"/* ]]; then
+    echo "extension pack link remains: $ext -> $target"
+    return 1
+  fi
+  return 0
+}
+
+assert_agent_dir() { # assert_agent_dir <scenario> <provider>
+  assert_dir_links "$(agent_dest "$1" "$2")" "$(agent_src "$2")"
+}
+
+assert_pi_bundle() { # assert_pi_bundle <scenario>
+  local d="$1" ext target
+  assert_dir_links "$d/pi/agent/agents" "$tree/generated/pi/agents" || return 1
+  assert_dir_links "$d/pi/agent/prompts" "$tree/generated/pi/prompts" || return 1
+  ext="$d/pi/agent/extensions/subagent"
+  [[ -L "$ext" ]] || { echo "missing extension link: $ext"; return 1; }
+  target="$(readlink -f "$ext" 2>/dev/null || true)"
+  [[ "$target" == "$(readlink -f "$tree/pi/extensions/subagent")" ]] ||
+    { echo "wrong extension target: $ext -> $target"; return 1; }
+}
+
+assert_pi_prompts() { # assert_pi_prompts <scenario>: one prompt per user-invocable skill, none for pipeline
+  local d="$1" skill_md base
+  for skill_md in "$tree"/skills/*/SKILL.md; do
+    grep -q '^user-invocable: false' "$skill_md" && continue
+    base="$(basename "$(dirname "$skill_md")")"
+    [[ -L "$d/pi/agent/prompts/$base.md" ]] || { echo "missing prompt link: $base.md"; return 1; }
+  done
+  [[ ! -e "$d/pi/agent/prompts/ees-pipeline.md" ]] || { echo "pipeline must have no prompt"; return 1; }
+}
+
+assert_no_managed_links() { # assert_no_managed_links <scenario>
+  local d="$1" p
+  assert_no_pack_links "$d/claude/skills" || return 1
+  assert_no_pack_links "$d/home/.agents/skills" || return 1
+  for p in "${providers[@]}"; do
+    assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1
+  done
+  assert_no_pack_links "$d/pi/agent/prompts" || return 1
+  assert_no_pack_links "$d/home/.cursor/skills" || return 1
+  assert_no_extension_link "$d" || return 1
+}
+
+all_destinations() { # all_destinations <scenario>: every link a full --all run owns
+  local d="$1" skill p f
+  for skill in "${skill_dirs[@]}"; do
+    echo "$d/claude/skills/$(basename "$skill")"
+    echo "$d/home/.agents/skills/$(basename "$skill")"
+  done
+  for p in "${providers[@]}"; do
+    for f in "$(agent_src "$p")"/*; do
+      [[ -e "$f" || -L "$f" ]] || continue
+      echo "$(agent_dest "$d" "$p")/$(basename "$f")"
+    done
+  done
+  for f in "$tree"/generated/pi/prompts/*.md; do
+    echo "$d/pi/agent/prompts/$(basename "$f")"
+  done
+  echo "$d/pi/agent/extensions/subagent"
+}
+
+all_skill_roots() { # all_skill_roots <scenario>
+  assert_skill_root "$1/claude/skills" && assert_skill_root "$1/home/.agents/skills"
+}
+
+all_agent_dirs() { # all_agent_dirs <scenario>
+  local p
+  for p in "${providers[@]}"; do assert_agent_dir "$1" "$p" || return 1; done
+}
+
+# ---------------------------------------------------------------- harness
+
+no_provider_cli() {
+  local d; d="$(scenario harness)"
+  scenario_env "$d" bash -c 'for c in claude codex cursor cursor-agent opencode pi; do command -v "$c" >/dev/null && exit 1; done; exit 0'
+}
+
+hooks_set() {
+  [[ "$(git -C "$tree" config --get core.hooksPath || true)" == .githooks ]] ||
+    { echo "core.hooksPath is not .githooks"; return 1; }
+}
+
+check "[harness] sandbox PATH exposes no provider CLI" no_provider_cli
+check "[harness] python3 is available for the PTY wizard checks" command -v python3
+
+# ---------------------------------------------------------------- [1] and [2] --all
+
+c1="$(scenario all)"
+run_install "$c1" --all
+check "[1] --all exits 0 in a clean sandbox" has_rc "$c1" 0
+check "[1] --all links every skill into ~/.claude/skills and ~/.agents/skills" all_skill_roots "$c1"
+check "[1] --all links every agent into all five provider agent dirs" all_agent_dirs "$c1"
+check "[x1] a real run sets core.hooksPath to .githooks" hooks_set
+
+run_install "$c1" --all
+second_all_ok() {
+  local d="$1" dest
+  has_rc "$d" 0 || return 1
+  while IFS= read -r dest; do
+    plan_has "$d/out" ok "$dest" || { echo "missing ok line: $dest"; return 1; }
+  done < <(all_destinations "$d")
+  if plan_action "$d/out" link || plan_action "$d/out" relink || plan_action "$d/out" unlink; then
+    echo "second run still plans a link, relink or unlink"
+    return 1
+  fi
+}
+check "[2] second --all run exits 0 and prints ok for every existing link" second_all_ok "$c1"
+
+# ---------------------------------------------------------------- [3] claude only
+
+c3="$(scenario claude)"
+run_install "$c3" --providers claude
+claude_only() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  assert_no_pack_links "$d/home/.agents/skills" || return 1
+  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$d/pi/agent/prompts" || return 1
+  assert_no_extension_link "$d" || return 1
+}
+check "[3] --providers claude links skills to ~/.claude/skills and agents to ~/.claude/agents" claude_only "$c3"
+
+# ---------------------------------------------------------------- [4] codex only
+
+c4="$(scenario codex)"
+run_install "$c4" --providers codex
+codex_only() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_agent_dir "$d" codex || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  assert_no_pack_links "$d/claude/agents" || return 1
+  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[4] --providers codex links skills to ~/.agents/skills and agents to ~/.codex/agents" codex_only "$c4"
+
+# ---------------------------------------------------------------- [5] pi only
+
+c5="$(scenario pi)"
+run_install "$c5" --providers pi
+pi_only() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_pi_bundle "$d" || return 1
+  assert_pi_prompts "$d" || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for p in claude codex cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[5] --providers pi links agents, one prompt per user-invocable skill and the subagent extension" pi_only "$c5"
+
+# ---------------------------------------------------------------- [6] shrinking selection prunes Claude
+
+c6="$(scenario shrink)"
+run_install "$c6" --providers claude,codex
+c6_linked_claude=0
+if [[ -L "$c6/claude/agents/ees-test-writer.md" && -L "$c6/home/.agents/skills/ees-tdd" ]]; then c6_linked_claude=1; fi
+run_install "$c6" --providers codex
+shrink_prunes_claude() {
+  local d="$1" p
+  [[ "$c6_linked_claude" == 1 ]] || { echo "first run did not link Claude and the shared root"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_agent_dir "$d" codex || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  assert_no_pack_links "$d/claude/agents" || return 1
+  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[6] codex after claude+codex removes Claude's pack links and keeps Codex's and the shared root" shrink_prunes_claude "$c6"
+
+# ---------------------------------------------------------------- [7] --providers none
+
+c7="$(scenario none)"
+mkdir -p "$c7/claude/agents" "$c7/codex/agents" "$c7/foreign"
+printf 'keep me\n' >"$c7/claude/agents/keep.md"
+printf 'foreign tool\n' >"$c7/foreign/tool.md"
+ln -s "$c7/foreign/tool.md" "$c7/codex/agents/foreign.md"
+run_install "$c7" --all
+c7_seeded=0
+if [[ -L "$c7/claude/agents/ees-test-writer.md" && -L "$c7/home/.agents/skills/ees-tdd" ]]; then c7_seeded=1; fi
+run_install "$c7" --providers none
+none_removes_all() {
+  local d="$1"
+  [[ "$c7_seeded" == 1 ]] || { echo "seeding --all run linked nothing"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_no_managed_links "$d" || return 1
+  [[ -f "$d/claude/agents/keep.md" && "$(cat "$d/claude/agents/keep.md")" == "keep me" ]] ||
+    { echo "real file was removed or changed"; return 1; }
+  [[ -L "$d/codex/agents/foreign.md" ]] || { echo "foreign symlink was removed"; return 1; }
+  [[ "$(readlink -f "$d/codex/agents/foreign.md")" == "$(readlink -f "$d/foreign/tool.md")" ]] ||
+    { echo "foreign symlink was retargeted"; return 1; }
+}
+check "[7] --providers none removes every pack link, keeps real files and foreign symlinks, exits 0" none_removes_all "$c7"
+
+# ---------------------------------------------------------------- [8] dangling link pruned, new skill linked
+
+c8="$(scenario dangling)"
+mkdir -p "$c8/claude/skills" "$c8/claude/agents"
+ln -s "$tree/skills/ees-removed-skill" "$c8/claude/skills/ees-removed-skill"
+ln -s "$tree/generated/claude/agents/ees-removed-agent.md" "$c8/claude/agents/ees-removed-agent.md"
+run_install "$c8" --providers claude
+dangling_pruned() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  plan_has "$d/out" unlink "$d/claude/skills/ees-removed-skill" || { echo "dangling skill not unlinked"; return 1; }
+  plan_has "$d/out" unlink "$d/claude/agents/ees-removed-agent.md" || { echo "dangling agent not unlinked"; return 1; }
+  [[ ! -e "$d/claude/skills/ees-removed-skill" && ! -L "$d/claude/skills/ees-removed-skill" ]] ||
+    { echo "dangling skill link remains"; return 1; }
+  [[ ! -e "$d/claude/agents/ees-removed-agent.md" && ! -L "$d/claude/agents/ees-removed-agent.md" ]] ||
+    { echo "dangling agent link remains"; return 1; }
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+}
+check "[8] a dangling link is unlinked and the current skills and agents are linked" dangling_pruned "$c8"
+
+# ---------------------------------------------------------------- [9] --interactive
+
+c9a="$(scenario interactive-apply)"
+printf '1\n\n' >"$c9a/stdin"
+run_install "$c9a" --interactive
+interactive_claude() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  assert_no_pack_links "$d/home/.agents/skills" || return 1
+  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  plan_avoids "$d/out" "$d/home/.agents/skills/" "$d/codex/agents/" "$d/home/.cursor/agents/" \
+    "$d/xdg/opencode/agents/" "$d/pi/agent/"
+}
+check "[9] --interactive with piped 1 proposes only Claude Code and an empty confirmation applies" interactive_claude "$c9a"
+
+c9b="$(scenario interactive-no)"
+printf '1\nn\n' >"$c9b/stdin"
+git -C "$tree" config --unset core.hooksPath >/dev/null 2>&1 || true
+run_install "$c9b" --interactive
+interactive_declined() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  assert_no_managed_links "$d"
+  [[ ! -e "$d/xdg/opencode/opencode.json" ]] || { echo "declined run wrote opencode.json"; return 1; }
+  ! git -C "$tree" config --get core.hooksPath >/dev/null 2>&1 || { echo "declined run changed core.hooksPath"; return 1; }
+}
+check "[9] --interactive with n at the confirmation writes nothing and exits 0" interactive_declined "$c9b"
+
+# ---------------------------------------------------------------- [10] no flags, non-terminal stdin = --all
+
+c10="$(scenario implicit)"
+run_install "$c10"
+implicit_all() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d" || return 1
+}
+check "[10] no selection flags with a non-terminal stdin behaves like --all" implicit_all "$c10"
+
+# ---------------------------------------------------------------- [11] wizard defaults on a terminal
+
+c11a="$(scenario pty-linked)"
+mkdir -p "$c11a/claude/agents"
+ln -s "$tree/generated/claude/agents/ees-test-writer.md" "$c11a/claude/agents/ees-test-writer.md"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$c11a/bin/codex"
+chmod +x "$c11a/bin/codex"
+printf '\n\n' >"$c11a/stdin"
+run_pty "$c11a"
+pty_defaults_detected() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  assert_agent_dir "$d" codex || return 1
+  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  plan_avoids "$d/out" "$d/home/.cursor/agents/" "$d/xdg/opencode/agents/" "$d/pi/agent/"
+}
+check "[11] on a terminal the wizard preselects the linked and installed providers" pty_defaults_detected "$c11a"
+
+c11b="$(scenario pty-all)"
+printf '\n\n' >"$c11b/stdin"
+run_pty "$c11b"
+pty_defaults_all() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d" || return 1
+}
+check "[11] on a terminal with nothing detected the wizard preselects all five providers" pty_defaults_all "$c11b"
+
+# ---------------------------------------------------------------- [12] real file and foreign symlink are skipped
+
+c12="$(scenario conflicts)"
+mkdir -p "$c12/claude/agents" "$c12/foreign"
+printf 'my own agent\n' >"$c12/claude/agents/ees-test-writer.md"
+printf 'foreign agent\n' >"$c12/foreign/agent.md"
+ln -s "$c12/foreign/agent.md" "$c12/claude/agents/ees-code-reviewer.md"
+run_install "$c12" --all
+skip_conflicts() {
+  local d="$1" dest
+  has_rc "$d" 0 || return 1
+  for dest in "$d/claude/agents/ees-test-writer.md" "$d/claude/agents/ees-code-reviewer.md"; do
+    awk -v x="$dest" '$1 == "skip" && $2 == x { found = 1 } END { exit !found }' "$d/err" ||
+      { echo "no skip line on stderr for $dest"; return 1; }
+  done
+  [[ "$(cat "$d/claude/agents/ees-test-writer.md")" == "my own agent" ]] || { echo "real file changed"; return 1; }
+  [[ -L "$d/claude/agents/ees-code-reviewer.md" &&
+     "$(readlink -f "$d/claude/agents/ees-code-reviewer.md")" == "$(readlink -f "$d/foreign/agent.md")" ]] ||
+    { echo "foreign symlink changed"; return 1; }
+  [[ -L "$d/claude/agents/ees-implementer.md" ]] || { echo "the rest of the plan was not applied"; return 1; }
+  assert_skill_root "$d/claude/skills" || return 1
+}
+check "[12] a real file and a foreign symlink are reported as skip on stderr and left untouched" skip_conflicts "$c12"
+
+# ---------------------------------------------------------------- [13] --dry-run
+
+c13="$(scenario dry-run)"
+mkdir -p "$c13/xdg/opencode"
+printf '{"model": "user/model"}\n' >"$c13/xdg/opencode/opencode.json"
+cp "$c13/xdg/opencode/opencode.json" "$c13/orig.json"
+printf '#!/usr/bin/env bash\ncase "${1:-} ${2:-}" in "debug agents") printf "[]\\n" ;; esac\n' >"$c13/bin/opencode"
+chmod +x "$c13/bin/opencode"
+git -C "$tree" config --unset core.hooksPath >/dev/null 2>&1 || true
+run_install "$c13" --all --dry-run
+dry_run_writes_nothing() {
+  local d="$1" skill base p f dest
+  has_rc "$d" 0 || return 1
+  for skill in "${skill_dirs[@]}"; do
+    base="$(basename "$skill")"
+    plan_has "$d/out" link "$d/claude/skills/$base" || { echo "plan misses $d/claude/skills/$base"; return 1; }
+    plan_has "$d/out" link "$d/home/.agents/skills/$base" || { echo "plan misses $d/home/.agents/skills/$base"; return 1; }
+    break
+  done
+  for p in "${providers[@]}"; do
+    f="$(find "$(agent_src "$p")" -maxdepth 1 -type f | sort | head -n 1)"
+    dest="$(agent_dest "$d" "$p")/$(basename "$f")"
+    plan_has "$d/out" link "$dest" || { echo "plan misses $dest"; return 1; }
+  done
+  plan_has "$d/out" link "$d/pi/agent/extensions/subagent" || { echo "plan misses the Pi extension"; return 1; }
+  assert_no_managed_links "$d" || return 1
+  for p in claude codex cursor opencode pi; do
+    [[ ! -e "$(agent_dest "$d" "$p")" ]] || { echo "dry run created $(agent_dest "$d" "$p")"; return 1; }
+  done
+  [[ ! -e "$d/claude/skills" && ! -e "$d/home/.agents/skills" ]] || { echo "dry run created a skill root"; return 1; }
+  cmp -s "$d/orig.json" "$d/xdg/opencode/opencode.json" || { echo "dry run changed opencode.json"; return 1; }
+  [[ ! -e "$d/xdg/opencode/opencode.json.bak" ]] || { echo "dry run wrote a backup"; return 1; }
+  ! git -C "$tree" config --get core.hooksPath >/dev/null 2>&1 || { echo "dry run changed core.hooksPath"; return 1; }
+}
+check "[13] --all --dry-run prints the full plan and writes nothing, including opencode.json and core.hooksPath" dry_run_writes_nothing "$c13"
+
+# ---------------------------------------------------------------- [14] opencode.json merge only when selected
+
+c14a="$(scenario opencode-selected)"
+mkdir -p "$c14a/xdg/opencode"
+printf '{"model": "user/model"}\n' >"$c14a/xdg/opencode/opencode.json"
+cp "$c14a/xdg/opencode/opencode.json" "$c14a/orig.json"
+printf '#!/usr/bin/env bash\ncase "${1:-} ${2:-}" in "debug agents") printf "[]\\n" ;; esac\n' >"$c14a/bin/opencode"
+chmod +x "$c14a/bin/opencode"
+run_install "$c14a" --providers opencode
+opencode_selected() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_agent_dir "$d" opencode || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for p in claude codex cursor pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  python3 - "$d/xdg/opencode/opencode.json" <<'PY' || return 1
+import json, sys
+config = json.load(open(sys.argv[1]))
+assert config["model"] == "claude-agent/opus", config.get("model")
+PY
+  cmp -s "$d/orig.json" "$d/xdg/opencode/opencode.json.bak" || { echo "backup does not hold the original"; return 1; }
+}
+check "[14] opencode selected and on PATH merges opencode.json, backs it up and links only opencode" opencode_selected "$c14a"
+
+c14b="$(scenario opencode-unselected)"
+mkdir -p "$c14b/xdg/opencode"
+printf '{"model": "user/model"}\n' >"$c14b/xdg/opencode/opencode.json"
+cp "$c14b/xdg/opencode/opencode.json" "$c14b/orig.json"
+printf '#!/usr/bin/env bash\ncase "${1:-} ${2:-}" in "debug agents") printf "[]\\n" ;; esac\n' >"$c14b/bin/opencode"
+chmod +x "$c14b/bin/opencode"
+run_install "$c14b" --providers claude
+opencode_unselected() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  assert_agent_dir "$d" claude || return 1
+  assert_no_pack_links "$d/xdg/opencode/agents" || return 1
+  cmp -s "$d/orig.json" "$d/xdg/opencode/opencode.json" || { echo "opencode.json changed"; return 1; }
+  [[ ! -e "$d/xdg/opencode/opencode.json.bak" ]] || { echo "opencode.json backup written"; return 1; }
+}
+check "[14] opencode unselected leaves opencode.json untouched even when the CLI is on PATH" opencode_unselected "$c14b"
+
+# ---------------------------------------------------------------- [15] usage errors
+
+c15a="$(scenario usage-all-providers)"
+git -C "$tree" config --unset core.hooksPath >/dev/null 2>&1 || true
+run_install "$c15a" --all --providers claude
+usage_error() {
+  local d="$1" want="$2"
+  has_rc "$d" "$want" || return 1
+  [[ -s "$d/out" || -s "$d/err" ]] || { echo "no usage message"; return 1; }
+  assert_no_managed_links "$d" || return 1
+  [[ ! -e "$d/xdg/opencode/opencode.json" ]] || { echo "usage error wrote opencode.json"; return 1; }
+  ! git -C "$tree" config --get core.hooksPath >/dev/null 2>&1 || { echo "usage error changed core.hooksPath"; return 1; }
+}
+check "[15] --all together with --providers exits 2 with usage and writes nothing" usage_error "$c15a" 2
+c15b="$(scenario usage-unknown)"
+run_install "$c15b" --providers bogus
+check "[15] an unknown provider id exits 2 with usage and writes nothing" usage_error "$c15b" 2
+
+# ---------------------------------------------------------------- [16] Pi selected and then deselected
+
+c16="$(scenario pi-then-codex)"
+run_install "$c16" --providers pi
+c16_selected=0
+if [[ -L "$c16/pi/agent/agents/ees-test-writer.md" && -L "$c16/pi/agent/prompts/ees-tdd.md" &&
+   -L "$c16/pi/agent/extensions/subagent" ]]; then c16_selected=1; fi
+run_install "$c16" --providers codex
+pi_deselected() {
+  local d="$1" p
+  [[ "$c16_selected" == 1 ]] || { echo "first run did not link the Pi bundle"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_no_pack_links "$d/pi/agent/agents" || return 1
+  assert_no_pack_links "$d/pi/agent/prompts" || return 1
+  assert_no_extension_link "$d" || return 1
+  assert_skill_root "$d/home/.agents/skills" || return 1
+  assert_agent_dir "$d" codex || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for p in claude cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[16] selecting Pi and then deselecting it removes Pi agents, prompts and the extension" pi_deselected "$c16"
+
+# ---------------------------------------------------------------- summary
+
+echo
+if (( fails )); then
+  echo "$fails check(s) failed"
+  exit 1
+fi
+echo "all checks passed"

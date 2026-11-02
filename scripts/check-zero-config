@@ -59,7 +59,7 @@ check "README: no 'Preset' and no 'Both'" none 'Preset|Both' README.md
 # 7. install.sh links pipeline into both skill roots
 dry_run_lists_pipeline() {
   local home out; home="$(mktemp -d)"
-  out="$(HOME="$home" ./install.sh --dry-run 2>&1)"; rm -rf "$home"
+  out="$(HOME="$home" ./install.sh --dry-run --all 2>&1)"; rm -rf "$home"
   grep -qE '/\.claude/skills/ees-pipeline( |$)' <<<"$out" && grep -qE '/\.agents/skills/ees-pipeline( |$)' <<<"$out"
 }
 check "install.sh --dry-run lists ees-pipeline for ~/.claude and ~/.agents skills" dry_run_lists_pipeline
