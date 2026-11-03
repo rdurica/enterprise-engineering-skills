@@ -8,7 +8,7 @@ description: >-
   parent commits and runs verify automatically. For a change with no
   analysis, use the ees-change skill instead.
 model: sonnet
-effort: high
+effort: medium
 ---
 
 # Implement

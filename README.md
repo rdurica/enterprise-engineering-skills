@@ -140,7 +140,7 @@ Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-f
 |----------------|-------------|----------|
 | `/ees-analyze`, `/ees-discuss` | Opus | `claude-agent/opus` |
 | `/ees-idea` | Sonnet, medium | `claude-agent/opus` |
-| `/ees-implement` | Sonnet, high | `claude-agent/opus` |
+| `/ees-implement` | Sonnet, medium | `claude-agent/opus` |
 | `ees-verify`, `ees-ux-review` (pipeline steps) | follow the `/ees-implement` or `/ees-change` session | `claude-agent/opus` |
 | `/ees-code-review` | Opus, medium when run directly; inside a pipeline it follows that session | `claude-agent/opus` |
 | `/ees-git-release`, `/ees-monorepo-update` | Sonnet, medium | `claude-agent/opus` |
