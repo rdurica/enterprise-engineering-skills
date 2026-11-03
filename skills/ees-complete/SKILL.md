@@ -1,10 +1,10 @@
 ---
 name: ees-complete
 description: >-
-  Completes a reviewed agent-owned delivery: rebase-merges its PR(s), deletes
+  Completes a reviewed delivery: rebase-merges its PR(s), deletes
   the Delivery branch, closes the analysis issue and drops ready-to-review,
   then switches local checkouts to main and pulls. Does nothing when the
-  delivery is human-owned or has no PR. Use when the user runs /ees-complete with
+  delivery has no PR. Use when the user runs /ees-complete with
   an analysis number after reviewing a ready-to-review delivery.
 argument-hint: "[#N | NNN | slug]"
 disable-model-invocation: true
@@ -20,7 +20,7 @@ Final step after the human review of a `ready-to-review` delivery. Merge is irre
 
 ## Step 1: Load config and analysis
 
-1. Resolve configuration per `{skills-root}/ees-pipeline/config.md` (`branch-owner`, `push`, `tracker`, `language`, monorepo) and tracker operations per `{skills-root}/ees-pipeline/tracker-<tracker>.md`; skills root is the parent of this skill's directory.
+1. Resolve configuration per `{skills-root}/ees-pipeline/config.md` (`tracker`, `language`, monorepo) and tracker operations per `{skills-root}/ees-pipeline/tracker-<tracker>.md`; skills root is the parent of this skill's directory.
 2. Resolve the analysis like `/ees-implement`: `#N`, `NNN` or slug. No argument → the analysis whose `## Delivery` Branch is the current branch. GitHub: `gh issue view <N> [-R <container-repo>] --json number,state,labels,body,url`. Local: `docs/agents/analysis/` or `docs/agents/analysis/done/`.
 3. Read `## Delivery` → Branch. Missing analysis or Branch → **STOP**.
 4. Delivery roots: single repo → `.`; monorepo → every `delivery-roots` path. The container root is never merged or switched to a feature branch.
@@ -29,8 +29,7 @@ Final step after the human review of a `ready-to-review` delivery. Merge is irre
 
 Check everything first. If any line below holds, **stop without doing anything** — no merge, no branch deletion, no tracker change, no checkout — and report which line applied.
 
-- `branch-owner: human` — PRs belong to the user.
-- `push: never`, or the session forbids pushing — nothing was published.
+- The session forbids pushing — nothing is merged from this session.
 - GitHub: the issue is closed, or lacks `ready-to-review`. Local: the file is not in `done/`.
 - No open PR for the Delivery branch in any delivery root: `cd <path> && gh pr list --head <branch> --state open --json number,url`.
 

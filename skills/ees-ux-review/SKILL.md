@@ -1,91 +1,74 @@
 ---
 name: ees-ux-review
 description: >-
-  Browser UX/a11y walkthrough after code review — Critical/Major hard gate,
-  then re-check local tooling. Phase 3 of /ees-verify when ux-review is enabled, or
-  run /ees-ux-review directly after implementation.
+  UX and accessibility review of a frontend diff — consistency with the
+  project's design system, WCAG 2.2 AA, usability heuristics and frontend best
+  practices, statically in the code and, when the app runs, in a browser.
+  Critical/Major hard gate. Runs automatically in /ees-verify and the
+  `ees-change` skill whenever the diff touches the frontend; not a command of
+  its own.
+user-invocable: false
 disable-model-invocation: true
 model: sonnet
-effort: medium
+effort: high
 ---
 
 # UX review
 
-Phase 3 of `/ees-verify` when the resolved config has `ux-review: enabled`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — return to `/ees-verify` for Ship.
+Phase 3 of `/ees-verify` and the last review step of `ees-change`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — hand back to the caller.
 
-Skills root: parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/ees-commit/SKILL.md`.
+Skills root: parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/ux-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for fixes, resources and test-baseline changes.
 
-If the repo has an overlay, read it after this skill: `docs/agents/config/ux-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for fixes, resources, and test-baseline changes, including direct `/ees-ux-review` use.
+## When it runs
 
-## When to skip
+There is no switch. It runs when the fixed review-base diff, including intended untracked files, contains frontend files:
 
-Auto-green (no browser) when the intended fixed review-base diff has **no UI/frontend** changes (e.g. only backend/API/docs). Tell `/ees-verify` UX is skipped → Ship.
+- components and pages: `.tsx`, `.jsx`, `.vue`, `.svelte`, `.astro`, `.html`
+- styles: `.css`, `.scss`, `.sass`, `.less`, Tailwind or theme configuration
+- server-side templates: `.twig`, `.blade.php`, `.erb`, `.jinja`, `.hbs` and other view templates
+- or an Acceptance item (or brief outcome) that describes a screen or what the user sees.
 
-`ux-review: disabled` or missing → `/ees-verify` never calls this skill.
+Anything else — backend, API, docs, tests only — skips the review. Tell the caller "UX skipped: no frontend changes".
+
+## Two parts, one reviewer
+
+Each cycle runs one `ees-ux-reviewer` agent with fresh, scoped context: the analysis reference (or brief), the review base, the affected screens, the base URL when there is one, the viewports and [checklist.md](checklist.md).
+
+1. **Static — always.** In the code: consistency with the project's design system (existing components, tokens for colour, spacing and typography, established patterns for forms, tables, dialogs and states), accessibility in the markup (labels, roles, names, alt, focus handling), and best practices of the frontend framework at the version in the manifest.
+2. **Browser — when the app runs.** Take the base URL from `AGENTS.md`; when it is missing or the app does not answer, try the documented dev command once. Walk the affected screens and their happy path as a first-time user, desktop `1440x900` then mobile `390x844` (with touch emulation when the tool supports it), against the browser items of the checklist.
+
+When no browser tool is available, or the app cannot be started, run the static part only. This does not fail the gate and asks no one: the report says "browser walkthrough not run" with the reason, and the caller puts that line into the analysis comment or the report.
 
 ## Gate (max 3 cycles)
 
-```
-UX review cycle: 1 / 3
-- [ ] Scope (affected screens + happy-path)
-- [ ] Walkthrough (desktop + mobile)
-- [ ] Findings triaged
-- [ ] Critical/Major fixes committed (if any)
-- [ ] Re-check local tooling green (after any fix)
-```
-
 | Severity | Examples | Gate |
 |----------|----------|------|
-| **Critical** | Unreadable text, broken layout, missing input label, dead primary CTA, horizontal overflow | **fail** |
-| **Major** | Weak hierarchy, contrast below AA, tap target < 44px, missing loading/error/empty, confusing nav | **fail** |
-| **Minor** | Off-grid spacing, polish, AI-slop aesthetics | ignore; do not post |
+| **Critical** | Unreadable text, broken layout, missing input label, dead primary action, horizontal overflow, keyboard trap, contrast far below AA | **fail** |
+| **Major** | Contrast below AA, tap target < 24px, missing loading/error/empty state, a new component or style duplicating an existing one, hard-coded colours or spacing where tokens exist, confusing navigation or unguarded destructive action | **fail** |
+| **Minor** | Polish, small spacing or copy improvements | report only; never fails the gate |
 
-3 UX failures → **stop**. Return to `/ees-verify` **Fail**, which sets `needs-attention` (do not Ship; do not comment Minors).
-
-## Scope
-
-1. Screens from analysis `## Acceptance` + frontend files in `git diff <review-base-SHA> -- <intended-paths>` plus intended untracked files
-2. Short happy-path to reach those screens
-3. Viewports: desktop `1440x900`; mobile `390x844`, with mobile/touch emulation when the available browser tool supports it
-
-**Base URL** — from `AGENTS.md`; else ask. Use any available browser automation tool capable of navigation, interaction, viewport control, screenshots, and accessible UI inspection. If the required walkthrough cannot be performed, report the missing capability and hard fail; do not claim green.
-
-## One cycle
-
-Use two `ees-ux-reviewer` agents, one per pass (Walkthrough, A11y+Visual), with fresh, scoped context: relevant analysis, review-base, screens, URL, checklist and browser instructions. Parallel walkthroughs require independent browser sessions and isolated application state; otherwise run sequentially. Parent synthesizes; Minor never fails the gate.
-
-**Walkthrough prompt** — base URL, scope screens, happy-path, checklist path, both viewports:
-
-> Act as a first-time user. Use the available browser automation tool and its documented APIs. Desktop then mobile. At each screen: is the next step obvious? Is the primary action clear? Are dangerous actions guarded? Screenshot friction points. Report Critical/Major/Minor with screen + issue. Under 400 words.
-
-**A11y + Visual prompt** — same scope, [checklist.md](checklist.md):
-
-> Check affected screens against the checklist. Focus on contrast, tap targets, focus visibility, form labels, accessible names, horizontal overflow; hierarchy; loading/empty/error/success; AI-slop anti-patterns. Cite checklist item or WCAG where useful. Critical/Major/Minor with screen + issue. Under 400 words.
-
-**Outcome:** any Critical/Major → fail. Only Minor (or none) → green; hand back to `/ees-verify` for Ship.
-
-Fail and cycles < 3 → Fix, then **Re-check**, then repeat this cycle (re-walk **changed screens only**).
+Any Critical/Major → fail, then Fix and Re-check and repeat (re-review **changed screens and files only**). Only Minor or nothing → green. 3 failed cycles → **stop** and return to the caller as **Fail** (`/ees-verify` sets `needs-attention`).
 
 ## Fix
 
-Parent may handle trivial one-file CSS/copy follow-ups; delegate substantial fixes to `ees-implementer` agents by independent cluster under the Execution contract. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits, or scope creep.
+The parent selects Critical and Major findings and delegates the fixes to a fresh `ees-implementer` per independent cluster under the Execution contract; a trivial one-file CSS or copy fix may be done directly. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits or scope creep.
 
 ### Re-check (mandatory after any UX fix)
 
-Hand control to parent `/ees-verify`: re-run the local tests/tooling from `AGENTS.md` on affected delivery roots through `ees-check-runner`.
+Re-run the local tests/tooling from `AGENTS.md` on the affected delivery roots through `ees-check-runner`.
 
 - Red → repair and rerun within this UX gate’s cycle limit; no separate re-check counter.
-- Green → resume UX gate (re-walk affected screens only).
+- Green → resume the UX gate.
 
-Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance (new flow, Acceptance copy, new screen). Otherwise skip Spec/Standards.
+Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance (new flow, Acceptance copy, new screen).
 
 ## Green output
 
-Tell `/ees-verify` UX is green. Do **not** comment Minors on the analysis or the PR.
+Tell the caller UX is green, and whether the browser walkthrough ran. Do **not** comment Minors on the analysis or the PR.
 
 ## Rules
 
 - Max **3** UX cycles; Functional max **3** stays owned by `/ees-verify`
-- Parent orchestrates and commits; sub-agents handle substantial fixes
+- The reviewer only reports; implementers fix; the parent orchestrates and commits
 - No commits on the monorepo container root
 - No Ship from this skill

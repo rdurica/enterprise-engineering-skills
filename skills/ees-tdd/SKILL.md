@@ -2,9 +2,9 @@
 name: ees-tdd
 description: >-
   Test-driven development playbook with red-green-refactor vertical slices.
-  Read by ees-test-writer and when the user explicitly asks for TDD; delegated
-  implementation outside an analysis goes through the ees-change skill, analyses
-  through ees-implement.
+  Read by ees-test-writer and when the user explicitly asks for TDD; larger
+  delegated work outside an analysis goes through the ees-change skill,
+  analyses through ees-implement.
   For PHP backend, HTTP goes to ees-integration-tests; handler/domain decision
   logic always gets PHPUnit unit tests (HTTP does not replace them). Always
   run the failing test (Verify RED) before writing production code.

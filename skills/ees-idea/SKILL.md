@@ -26,7 +26,7 @@ Resolve configuration per `{skills-root}/ees-pipeline/config.md` (skills root is
 
 ## `/ees-idea #N` — rewrite
 
-Fetch the idea and rewrite Goal, Change or `Depends on` in place; keep the number, the branch and the rest of `## Delivery`. If the issue or file is already an analysis (label `analysis`, or a file outside `ideas/`), refuse and point to `/ees-analyze-modify #N`.
+Fetch the idea and rewrite Goal, Change or `Depends on` in place; keep the number, the branch and the rest of `## Delivery`. If the issue or file is already an analysis (label `analysis`, or a file outside `ideas/`), refuse and point to `/ees-analyze #N`, which modifies an analysis.
 
 ## Body
 

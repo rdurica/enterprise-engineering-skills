@@ -15,7 +15,7 @@ gh issue view <N> -R <owner/container-repo> ...
 gh issue edit <N> -R <owner/container-repo> ...
 ```
 
-Do not invent a delivery-root issue tracker. Agent-owned PRs still open in delivery roots (`/ees-verify`); human-owned PRs remain with the user; only issues/analyses live on the monorepo.
+Do not invent a delivery-root issue tracker. PRs open in delivery roots (`/ees-verify`, see `delivery.md`); only issues and analyses live on the monorepo.
 
 ## Conventions
 
@@ -36,16 +36,16 @@ Always add `-R <owner/repo>` in a monorepo (container-root remote — see above)
 | `idea` | `/ees-idea` | Idea, not yet analyzed. `/ees-analyze #N` replaces it with `analysis`; `/ees-implement` refuses it |
 | `analysis` | `/ees-analyze` | This issue is an analysis |
 | `in-progress` | `/ees-implement` | Agent is working |
-| `needs-attention` | `/ees-verify` (fail), `/ees-implement` (blocked by open FAQ) or `/ees-analyze-modify` (delivered work revised) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
-| `ready-to-review` | `/ees-verify` (green) | Verified delivery ready for human review; publishing-enabled agent-owned delivery also has a ready PR. `/ees-complete` removes it when it merges the PR and closes the issue |
+| `needs-attention` | `/ees-verify` (fail), `/ees-implement` (blocked by open FAQ) or `/ees-analyze #N` on an analysis (delivered work revised) | Agent stopped and cannot continue without a human decision or fix. **Replaces** `in-progress` — never both |
+| `ready-to-review` | `/ees-verify` (green) | Verified delivery ready for human review; with publishing on it also has a ready PR. `/ees-complete` removes it when it merges the PR and closes the issue |
 
-`/ees-implement` drops `needs-attention` when it sets `in-progress`. A green `/ees-verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. Human-owned delivery does not require a PR. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
+`/ees-implement` drops `needs-attention` when it sets `in-progress`. A green `/ees-verify` removes pipeline working labels and sets `ready-to-review`. Preserve unrelated labels (team, priority, kind). Keep `analysis` when present; bug fast-path tickets need not have it. The completion comment records verified SHA, local gates, push and CI outcome, and PR URLs when applicable.
 
 `/ees-implement` stops if `ready-to-review`. `needs-attention` does **not** stop it — that is the resume path.
 
 Create a label on first use if it is missing (`gh label create <name> [-R …]`; ignore "already exists").
 
-**Lifecycle:** `idea` → `/ees-analyze #N` → `analysis` → user reviews, then `/ees-implement` → `in-progress` → `ready-to-review` → `/ees-complete` (agent-owned with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue; agent-owned delivery may have a draft PR only when push and PR operations are allowed. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/ees-implement`.
+**Lifecycle:** `idea` → `/ees-analyze #N` → `analysis` → user reviews, then `/ees-implement` → `in-progress` → `ready-to-review` → `/ees-complete` (with a PR: rebase-merge, close). Verify fail → `needs-attention` and a comment on this issue, plus a draft PR when publishing is on. Remaining work blocked by open `## FAQ` → `needs-attention`. Session died → leave `in-progress` (resumable); re-run `/ees-implement`.
 
 ## Delivery section
 
@@ -97,7 +97,7 @@ gh issue edit <number> -R <owner/repo> --body-file <analysis-file-with-delivery>
 gh issue edit <N> [-R …] --title "Analysis: ..." --body-file <analysis-file> --remove-label idea --add-label analysis
 ```
 
-### `/ees-analyze-modify` — revise analysis
+### `/ees-analyze #N` on an analysis — revise
 
 Same `-R` rule as `/ees-analyze`. Write the full revised body to a temporary file.
 
@@ -129,11 +129,11 @@ Same `-R` rule as `/ees-analyze` (container-root in monorepo). Fetch `#N` by num
 | Operation | Command |
 |-----------|---------|
 | Green | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label needs-attention --add-label ready-to-review` then `gh issue comment` (verified SHA, local gates, push/CI outcome, PR URLs when applicable). Preserve unrelated labels |
-| Fail | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label ready-to-review --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs when applicable). Human-owned never manages PRs; agent-owned draft PR delivery follows push policy and session restrictions |
+| Fail | `gh issue edit <N> [-R …] --remove-label in-progress --remove-label ready-to-review --add-label needs-attention` then `gh issue comment` (what failed, draft PR URLs when applicable). Draft PR handling follows `delivery.md` |
 
 ### `/ees-complete` — merge and close
 
-Only for agent-owned delivery with an open PR on an open `ready-to-review` issue; otherwise `/ees-complete` does nothing.
+Only for a delivery with an open PR on an open `ready-to-review` issue; otherwise `/ees-complete` does nothing.
 
 | Operation | Command |
 |-----------|---------|

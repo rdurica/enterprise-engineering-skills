@@ -53,7 +53,7 @@ The `## Delivery` may also hold `- Depends on: 001, 002` (optional): the numbers
 The local tracker has **no status**. Never write a `Status:` line or track `in-progress`, `needs-attention` or `ready-to-review` in the file — those are GitHub labels only. The folder is the only state:
 
 - `docs/agents/analysis/` — active: ready to implement, in progress, interrupted or blocked. `/ees-implement` can always run or resume it.
-- `docs/agents/analysis/ideas/` — ideas written by `/ees-idea`, not yet analyzed. Not implementable: `/ees-implement` and `/ees-analyze-modify` do not treat these files as analyses.
+- `docs/agents/analysis/ideas/` — ideas written by `/ees-idea`, not yet analyzed. Not implementable: `/ees-implement` does not treat these files as analyses, and `/ees-analyze NNN` converts them.
 - `docs/agents/analysis/done/` — verified; moved there by a green `/ees-verify`. Not implementable.
 
 When work stops on a blocker (verify fail, or open `## FAQ`), the file stays active and the reason goes under `## Comments` with a timestamp.
@@ -77,7 +77,7 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 
 **Converting an idea** (`/ees-analyze NNN` on `ideas/NNN-<slug>.md`): first check `Depends on` (each must be in `done/`). Then write the analysis with the idea's `## Delivery` and `mv` the file from `docs/agents/analysis/ideas/` to `docs/agents/analysis/` with the same `NNN` and slug; retitle it `# Analysis: <title>`.
 
-### `/ees-analyze-modify` — revise analysis
+### `/ees-analyze NNN` on an analysis — revise
 
 | Operation | Action |
 |-----------|--------|
@@ -100,14 +100,14 @@ When work stops on a blocker (verify fail, or open `## FAQ`), the file stays act
 
 **Green:**
 
-1. Append verified SHA, local gate results, push/CI outcome and PR URLs when applicable under `## Comments`. Human-owned completion does not require a PR; `push: never` or a session no-push instruction permits a locally verified delivery
+1. Append verified SHA, local gate results, push/CI outcome and PR URLs when applicable under `## Comments`. A delivery without a PR (no GitHub remote, or a session "do not push") is complete when verified locally
 2. `mkdir -p docs/agents/analysis/done` and `mv` the file there
 
 **Fail:** append what failed, what was tried, what remains (and draft PR URLs if any) under `## Comments`. Leave the file in the active folder. Do not move to `done/`.
 
 ### `/ees-complete` — merge only
 
-Runs only when the file is in `done/` and an agent-owned PR is open. It merges the PR and syncs `main`; the file stays in `done/` unchanged.
+Runs only when the file is in `done/` and a PR is open for its Delivery branch. It merges the PR and syncs `main`; the file stays in `done/` unchanged.
 
 ## When a skill says "publish to the issue tracker"
 

@@ -23,15 +23,13 @@ Resolve the user’s analysis number or path through the configured tracker. Sto
 
 Before setting `in-progress`, on every run including resume: an idea (label `idea`, locally a file in `ideas/`) → stop and point to `/ees-analyze #N`; change no labels or branch. An analysis whose `Depends on` is unsatisfied (closed issue or local `done/` file is satisfied; `ready-to-review` while open is not) → stop and list the unsatisfied ones; no bypass.
 
-On GitHub set `in-progress`, remove `needs-attention`, and preserve unrelated labels; the local tracker has no status. Take language and branch-owner from the resolved config; a session `human` or `agent` overrides ownership only. Current delivery instructions, including “do not push”, carry through verify.
+On GitHub set `in-progress`, remove `needs-attention`, and preserve unrelated labels; the local tracker has no status. Take `language` from the resolved config. A session “do not push” carries through verify.
 
 Open FAQ: work only on decided scope; do not invent answers to unblock it.
 
 ## 2. Branch and scope
 
-- **Human-owned:** stay on the current branch; the user owns checkout and PRs.
-- **Agent-owned:** fetch origin and use the analysis Delivery branch. Create a new branch from the remote default with `--no-track`; reuse an existing branch. Switch only with a clean worktree. Pull the matching remote branch only when clean; preserve unfinished local work on resume without automatic stash or rebase.
-- **Monorepo:** delivery work belongs in delivery roots, never the container root.
+Prepare the Delivery branch per **Start** in `{skills-root}/ees-pipeline/delivery.md`. In a monorepo, delivery work belongs in delivery roots, never the container root.
 
 Inspect existing changes and keep unrelated work out of commits. Establish the review base from the branch’s merge-base with the default or explicit analysis base, once for this run. Include earlier feature commits when resuming. Ask only if the scope/base is genuinely unclear; no mandatory checkpoint file or tracker comment.
 
@@ -61,8 +59,8 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `ees-implementer` | Phase B production code, delegated repairs | sonnet / high |
 | `ees-check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
 | `ees-functional-reviewer` | Functional review in `/ees-verify` (spec and standards) | sonnet / medium |
-| `ees-code-reviewer` | `/ees-code-review` pass | sonnet / medium |
-| `ees-ux-reviewer` | `/ees-ux-review` passes | sonnet / medium |
+| `ees-code-reviewer` | `/ees-code-review` findings (read-only) | opus / medium |
+| `ees-ux-reviewer` | `/ees-ux-review` findings (read-only) | sonnet / high |
 
 Models for other harnesses are in `agents.toml`.
 

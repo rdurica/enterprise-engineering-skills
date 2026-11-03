@@ -156,7 +156,7 @@ Omit when empty.}
 
 ## Revisions
 
-{only after `/ees-analyze-modify`; always the last section. One checkbox per
+{only after `/ees-analyze #N` modified an implemented analysis; always the last section. One checkbox per
 modification, oldest first: `- [ ] <YYYY-MM-DD> — <modification in one sentence>;
 risks accepted…; tests to change…` (tests only when already committed).
 `/ees-implement` checks it `- [x]` once the modification is realized. The body above

@@ -1,10 +1,11 @@
 ---
 name: ees-code-review
 description: >-
-  Fix-first code review of the diff after Functional verify — correctness,
-  security, duplication, seams, test quality and naming are fixed in code,
-  not reported. Phase 2 of /ees-verify, or run /ees-code-review directly after
-  implementation.
+  Code review of the diff after Functional verify — a read-only reviewer finds
+  correctness, security, design, best-practice, performance, test and
+  readability issues, a fresh implementer fixes them. Phase 2 of /ees-verify
+  and the review step of the `ees-change` skill; not a command of its own.
+user-invocable: false
 disable-model-invocation: true
 model: opus
 effort: medium
@@ -12,65 +13,43 @@ effort: medium
 
 # Code review
 
-Phase 2 of `/ees-verify`, always on. Functional gate must already be green, or you are resuming after code-review fixes. Do **not** Ship from this skill — hand back to `/ees-verify`.
+Phase 2 of `/ees-verify`, always on, and the review step of `ees-change`. In verify the Functional gate must already be green, or you are resuming after code-review fixes. Do **not** Ship from this skill — hand back to the caller.
 
-Functional asks whether the diff matches the analysis and the documented standards. This phase asks whether the code is any good — and then fixes it.
+Functional asks whether the diff matches the analysis and the documented standards. This phase asks whether the code is any good.
 
-**Fix-first.** Anything you would have written as a review comment, you change in code instead. Naming and readability included. Nothing is reported and left behind, nothing is posted on the PR, nothing waits for the human except what genuinely needs a decision.
+**Find, then fix — by different agents.** `ees-code-reviewer` is read-only and only reports findings; a fresh `ees-implementer` fixes them. The reviewer does not have to weigh what a fix costs, so it reports everything it sees.
 
-Skills root is the parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`; commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/code-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for delegation, resource isolation, and test-baseline changes, including direct `/ees-code-review` use.
+Skills root is the parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`; commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/code-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for delegation, resource isolation and test-baseline changes.
 
-## What to look for
+## What the reviewer looks for
 
-Only things Spec and Standards do not already cover:
+The areas and severities are defined in the `ees-code-reviewer` agent: correctness, security, design, best practices of the stack, performance, tests and readability, each with a verdict. It reads the code around the diff and the project's manifests, not only the diff.
 
-| Area | Examples |
-|------|----------|
-| Correctness | Unhandled error or edge path, missing validation on new input, wrong transaction or consistency boundary, new unbounded or N+1 query |
-| Security | Missing authorization on a new endpoint or action, untrusted input reaching a query or a path, secrets in code, over-broad payload binding |
-| Leftovers | TODO, dead or commented-out code, unused parameters, debug output |
-| Duplication | New copy of logic that already exists in the repo |
-| Seams | Business logic in a controller or a view, domain rule outside the domain layer |
-| Test quality | Assertion-free test, test asserting mocks instead of behaviour, over-mocked unit under test |
-| Readability | Misleading naming or naming against repo idiom, unclear signature, comment that restates the code, needless nesting |
+An endpoint whose authorization contradicts the analysis is a finding to fix, not Blocked: every block in `## API Contracts` carries a mandatory Authorization line, so the rule is specified and the code has to match it. Only an endpoint the analysis never described is Blocked.
 
-## Two outcomes, both ending in code
+## One cycle
 
-- **Fix now** — everything in the table, naming and readability included. Whoever finds it, fixes it in the same pass.
-- **Blocked** — the fix needs a human decision, or it would change behaviour against the analysis. Leave the code alone and report the item; it fails the gate.
+1. **Review.** Start a new `ees-code-reviewer` with fresh, scoped context: the fixed review base, the intended diff including untracked files, the analysis reference (or the brief), the committed tests and the delivery roots. Cycle 1 reviews the whole diff from the review base. Cycles 2 and 3 review only the delta since the previous cycle's last commit, with the previous report.
+2. **Select.** The parent reads the report and picks what gets fixed: every Critical and Major; a Minor when its fix is local and cheap. Drop a finding only when it is wrong, and say why in one line. A report without verdicts for every area goes back to a new reviewer once.
+3. **Fix.** Start a fresh `ees-implementer` per independent cluster of selected findings, with the findings verbatim, the allowed paths and the guardrails below. A finding about a test goes to `ees-test-writer` under the Execution contract (reviewed reason, separate test commit, no weakened assertions).
+4. **Check and commit.** Rerun tests and tooling for the affected paths through `ees-check-runner`; red → repair within this review's cycle limit. Commit per delivery root:
+   - `refactor(scope): <what> (#<N>)` when the fixes were design, readability or structure only
+   - `fix(scope): <what> (#<N>)` when broken behaviour was repaired
 
-An endpoint whose authorization contradicts the analysis is a **Fix**: every block in `## API Contracts` carries a mandatory Authorization line, so the rule is specified and the code has to match it. Only an endpoint the analysis never described is Blocked.
+Revisit Spec/Standards when externally observable behaviour changes.
 
-## Guardrails
+## Guardrails for fixes
 
-Fix-first is not a licence to rewrite the repo.
-
-- Stay within the intended fixed review-base diff, including staged/unstaged and intended untracked files. A directly necessary regression test or adjacent repair is allowed when justified against the analysis; avoid unrelated cleanup.
-- No renaming of public API fields, DB columns, or symbols used outside the diff.
+- Stay within the intended fixed review-base diff. A directly necessary regression test or adjacent repair is allowed when justified against the analysis; avoid unrelated cleanup.
+- No renaming of public API fields, DB columns or symbols used outside the diff.
 - Preserve the agreed analysis contract. Repairing behaviour that violates it is allowed; changing the contract is Blocked.
 - No scope creep past the analysis Change and Architecture.
 - No push, no PR, no commits on a monorepo container root, no comments anywhere.
 
-## One cycle
-
-Use one `ees-code-reviewer` agent with fresh, scoped context; it covers correctness/security first, then craft, in the same pass. Give it the fixed review-base, intended diff including untracked files, relevant analysis/contracts, committed tests and guardrails. Start a new reviewer for each cycle.
-
-**Full first, then deltas.** Cycle 1 reviews the whole diff from the fixed review base: it is the complete review of the finished change. Cycles 2 and 3 review only the delta since the previous cycle's last commit, together with the previous report, to confirm the fixes and catch anything they introduced.
-
-The reviewer fixes issues within its assigned paths using the areas above. Return changed files and brief reasons, plus any Blocked item with file and decision needed. Preserve the analysis contract and follow the Execution contract for test changes. Workers do not commit or publish.
-
-Parent reviews reports and diffs, handles trivial one-file follow-up fixes when useful, runs checks through `ees-check-runner`, and commits per delivery root. Apply the Execution contract to test changes: reviewed reasons, separate test commits, no weakened assertions.
-
-- `refactor(scope): <what> (#<N>)` when the pass was readability, naming or structure only
-- `fix(scope): <what> (#<N>)` when broken behaviour was repaired
-
-Rerun tests/tooling for the affected paths through `ees-check-runner` after fixes. If red, repair within this review’s cycle limit before continuing; no separate re-check counter. Revisit Spec/Standards when externally observable behaviour changes.
-
 ## Outcome
 
-- Nothing Blocked and the re-check green → gate green, hand back to `/ees-verify` for Phase 3 (UX) or Ship.
-- Fixes landed but the reviewers still have work → next cycle, up to 3.
-- Anything Blocked, or still not clean after 3 cycles → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. Do not Ship.
+- No Critical or Major left, nothing Blocked and the re-check green → gate green, hand back for UX or Ship.
+- Fixes landed → next cycle on the delta, up to 3 in total. A cycle whose report has no Critical or Major ends the review.
+- Anything Blocked, or Critical/Major still open after 3 cycles → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. In `ees-change`, Blocked items go to the user. Do not Ship.
 
-Functional and UX keep their own three cycles. Every finding ends as a commit or as a Blocked item — never as a comment.
-
+Every selected finding ends as a commit or as a Blocked item — never as a comment.

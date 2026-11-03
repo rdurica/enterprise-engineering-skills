@@ -29,7 +29,7 @@ check() { # check <description> <command...>
 }
 
 prefix="ees-"
-skill_names=(analyze analyze-modify change code-review commit complete discuss git-release idea \
+skill_names=(analyze change code-review commit complete discuss git-release idea \
   implement integration-tests monorepo-update pipeline setup tdd ux-review verify)
 agent_names=(check-runner code-reviewer functional-reviewer implementer test-writer ux-reviewer)
 
@@ -52,7 +52,7 @@ skills_prefixed() { # every directory except personal/ carries the prefix
   return "$bad"
 }
 
-skills_exact() { # exactly the 17 expected ees-* directories, nothing else
+skills_exact() { # exactly the 16 expected ees-* directories, nothing else
   local d base bad=0
   declare -A actual=()
   for d in skills/*/; do
@@ -377,7 +377,7 @@ personal_skill_test() { # a copy with skills/personal/my-skill must stay green
 # ---------------------------------------------------------------- checks
 
 check "skills/: every directory except personal/ has the ees- prefix" skills_prefixed
-check "skills/: exactly the 17 expected ees-* directories" skills_exact
+check "skills/: exactly the 16 expected ees-* directories" skills_exact
 check "skills/: each SKILL.md name matches its directory" skills_frontmatter
 check "agents/: exactly six ees-*.md files and no other agent files" agents_prefixed
 check "agents/: each frontmatter name matches its file" agents_frontmatter
