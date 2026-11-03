@@ -1,7 +1,7 @@
 ---
 name: ees-test-writer
 description: >-
-  Test-only worker started by the pack's skills — the `ees-change` skill,
+  Test-only worker started by the pack's skills — /ees-change,
   /ees-implement phase A, and justified test corrections in /ees-verify.
   Writes tests, fixtures and helpers for an assigned cluster, runs them and
   reports RED evidence. Never touches production code. Not for direct use.

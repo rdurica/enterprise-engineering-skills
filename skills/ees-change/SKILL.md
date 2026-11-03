@@ -1,13 +1,12 @@
 ---
 name: ees-change
 description: >-
-  Implements a larger code change asked for in conversation — a new feature,
-  endpoint or behaviour that spans several units — outside a published
-  analysis, or any change the user explicitly wants done tests-first: tests go
-  to ees-test-writer, code to ees-implementer, checks to ees-check-runner and
-  review to ees-code-reviewer. Not for bug fixes and small adjustments up to
-  about five files, which the main session edits directly, not for
-  /ees-implement #N analyses and not for questions.
+  Implements a code change outside a published analysis through the full
+  agent workflow — brief, tests first through ees-test-writer, code through
+  ees-implementer, checks through ees-check-runner, then code review and, for
+  frontend changes, UX review. Run only when the user invokes /ees-change;
+  ordinary prompts are handled directly by the main session.
+disable-model-invocation: true
 argument-hint: "[what to change]"
 ---
 
@@ -19,23 +18,11 @@ The main session scopes, delegates, reviews and reports; agents write the tests 
 
 ## 1. Triage
 
-Pick the level first; the user's explicit wish overrides it ("do it tests-first", "just fix it").
-
-- **An analysis covers it** (a number, slug or path is named) → use `ees-implement` instead.
-- **Direct** — a bug fix or a small adjustment within about five files, with no new public API, data model or user-visible flow → follow **Direct** below and stop.
+- **An analysis covers it** (a number, slug or path is named) → use `/ees-implement` instead.
 - **A decision is missing** that the code cannot answer, such as an API shape, a data model or user-visible behaviour → ask one short question with a recommended answer.
-- **Large or open-ended** — several units, open design questions, a migration → suggest `/ees-analyze` and wait for the user's choice.
+- **Large or open-ended** — several units with open design questions, a migration → suggest `/ees-analyze` and wait for the user's choice.
 
-Everything else — a new feature, endpoint or behaviour across several units, or an explicit tests-first request — continues with step 2.
-
-### Direct
-
-The main session edits the code itself; no brief and no test writer.
-
-1. Make the change. A bug fix gets a regression test next to the fix.
-2. Run the affected tests through `ees-check-runner`.
-3. When the change touches more than one file, run one review per step 6 on the diff, with the request as the contract. Skip it for a one-file change.
-4. Report in two or three lines. Commit only when the user asked for it.
+Everything else continues below; the user asked for the workflow, so do not shortcut it for a small change.
 
 ## 2. Brief
 
@@ -56,7 +43,7 @@ A pure refactor with existing coverage skips this step: run the full checks thro
 
 ## 4. Code
 
-Run a fresh `ees-implementer` per cluster with the brief and the tests from step 3. Independent clusters run in parallel. Follow [implement's Execution contract](../ees-implement/SKILL.md#execution-contract): workers never edit each other's tests, commit or push. A blocker in a report goes to the user, not into a guess.
+Run a fresh `ees-implementer` per cluster with the brief and the tests from step 3. Independent clusters run in parallel. Follow [Execution contract](../ees-pipeline/execution.md): workers never edit each other's tests, commit or push. A blocker in a report goes to the user, not into a guess.
 
 ## 5. Checks
 
@@ -64,7 +51,7 @@ Run the full documented checks through `ees-check-runner`. Failures go back to `
 
 ## 6. Review
 
-Follow the cycle in [`ees-code-review`](../ees-code-review/SKILL.md#one-cycle) with the brief (or, on the Direct level, the request) in place of an analysis: a read-only `ees-code-reviewer` returns findings, a fresh `ees-implementer` fixes the ones you select, then rerun the affected tests. A second cycle reviews only the delta and runs only when the fixes changed behaviour. Blocked items go to the user.
+Follow the cycle in [`ees-code-review`](../ees-code-review/SKILL.md#one-cycle) with the brief in place of an analysis: a read-only `ees-code-reviewer` returns findings, a fresh `ees-implementer` fixes the ones you select, then rerun the affected tests. A second cycle reviews only the delta and runs only when the fixes changed behaviour. Blocked items go to the user.
 
 When the diff contains frontend files (see [`ees-ux-review`](../ees-ux-review/SKILL.md#when-it-runs)), follow `ees-ux-review` after the code review, with the brief or request as the contract.
 

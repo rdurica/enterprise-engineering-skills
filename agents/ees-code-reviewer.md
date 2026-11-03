@@ -1,8 +1,8 @@
 ---
 name: ees-code-reviewer
 description: >-
-  Read-only code reviewer started by the pack's skills — /ees-code-review in
-  /ees-verify, the `ees-change` skill and its direct level. Reviews one diff
+  Read-only code reviewer started by the pack's skills — /ees-code-review,
+  directly or in /ees-verify, and /ees-change. Reviews one diff
   for correctness, security, design, best practices of the project's stack,
   performance, test quality and readability, and returns findings with
   severity and a concrete fix. Never edits files; implementers fix the

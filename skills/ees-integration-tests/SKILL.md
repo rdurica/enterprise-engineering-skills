@@ -99,7 +99,7 @@ Docblocks are **English** even when user-facing API messages are localized.
 5. Run the project's Integration PHPUnit checks (commands from `AGENTS.md`). In the test-only phase of `/ees-implement`, record expected contract failures and distinguish them from broken fixtures or environment errors; regression tests may already pass. Do not implement the endpoint in this phase.
 6. If the project has a docblock check script, run it (e.g. `composer check-integration-docblocks`).
 
-When delegated, follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for phase boundaries, test corrections, commits and shared test resources.
+When delegated, follow [Execution contract](../ees-pipeline/execution.md) for phase boundaries, test corrections, commits and shared test resources.
 
 ## Coverage checklist per endpoint
 

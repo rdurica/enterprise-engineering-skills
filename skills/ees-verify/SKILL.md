@@ -16,7 +16,7 @@ effort: medium
 
 Finish implementation through Functional → code review → UX (frontend only) → Ship/Fail. `/ees-implement` follows this file automatically in the same session; a run interrupted or failed here is resumed with `/ees-implement #N`. Fix actionable findings within the analysis scope; report blockers needing a human decision.
 
-Resolve configuration per `{skills-root}/ees-pipeline/config.md` (`language`, monorepo) and tracker operations per `{skills-root}/ees-pipeline/tracker-<tracker>.md`, plus `docs/agents/config/verify.md` if present. Skills root is the parent of this skill's directory. Follow sibling `ees-implement/SKILL.md` → **Execution contract** for delegation and stable test rules; parent may handle trivial one-file follow-ups. Branches, pushing, CI and PRs follow `{skills-root}/ees-pipeline/delivery.md`; no other part of this file deals with them.
+Resolve configuration per `{skills-root}/ees-pipeline/config.md` (`language`, monorepo) and tracker operations per `{skills-root}/ees-pipeline/tracker-<tracker>.md`, plus `docs/agents/config/verify.md` if present. Skills root is the parent of this skill's directory. Follow `{skills-root}/ees-pipeline/execution.md` (Execution contract) for delegation and stable test rules; parent may handle trivial one-file follow-ups. Branches, pushing, CI and PRs follow `{skills-root}/ees-pipeline/delivery.md`; no other part of this file deals with them.
 
 Comments go on the analysis, never the PR, in the resolved `language`. Status changes use the `/ees-verify` operations of the tracker file.
 

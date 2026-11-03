@@ -384,21 +384,22 @@ check "[17] analyze SKILL.md Phase B: Architecture is written for an implementin
 check "[17] analyze SKILL.md Phase B: the header (Goal to Affected Areas) is for people" analyze_header_humans
 
 im=skills/ees-implement/SKILL.md
-contract() { region $im '^### Execution contract' '^## '; }
+ex=skills/ees-pipeline/execution.md
+contract() { cat $ex; }
 impl_verbatim() { contract | grep -i 'verbatim' | grep 'Architecture' | gq -E 'worker reads .*parent neither copies'; }
 workers_read() { gq -F 'from the analysis yourself' agents/ees-implementer.md && gq -F 'from the analysis yourself' agents/ees-test-writer.md; }
 impl_files_guide() { contract | grep -E "$(word Files)" | grep -i 'guide' | gq -i 'allowed paths'; }
-check "[18] implement SKILL.md: worker reads the Architecture units verbatim from the analysis, the parent does not copy them" impl_verbatim
+check "[18] execution.md: worker reads the Architecture units verbatim from the analysis, the parent does not copy them" impl_verbatim
 check "[18] ees-implementer and ees-test-writer read their part of the analysis themselves" workers_read
-check "[18] implement SKILL.md: Files is a guide, not the allowed paths" impl_files_guide
+check "[18] execution.md: Files is a guide, not the allowed paths" impl_files_guide
 
-escalation() { region $im 'Escalation' '^#'; }
+escalation() { region $ex 'Escalation' '^#'; }
 impl_escalation() {
   local e; e="$(escalation)"
   grep -qi 'opencode' <<<"$e" && grep -qi 'parent' <<<"$e" && grep -qi 'blocked' <<<"$e" &&
     grep -qEi 'model (switch|parameter|override)|switch(ing)? (the |a )?model|(cannot|can.t|unable to|no way to|does not) (switch|set|change|override|select|take)|no `?model`? param' <<<"$e"
 }
-check "[19] implement SKILL.md Escalation: without a model switch (opencode) the parent takes the cluster after the second failure or marks it blocked" impl_escalation
+check "[19] execution.md Escalation: without a model switch (opencode) the parent takes the cluster after the second failure or marks it blocked" impl_escalation
 
 r=README.md
 models() { region $r '^## Models' '^## Status'; }
@@ -446,8 +447,8 @@ check "[x2] README Agents for each provider: opencode table, edit: deny, @ees-an
 check "[x3] agents.toml: header documents opencode" toml_documented
 check "[x3] agents.toml: six opencode tables, the code and UX reviewers on $sonnet, the rest on $flash" toml_tables
 check "[x4] install.sh header mentions opencode" install_header
-check "[x5] implement SKILL.md: Agents table column is Claude model / effort and points to agents.toml" implement_table
-check "[x6] implement SKILL.md Escalation: code-reviewer in opencode keeps the same agent with a sharper brief" reviewer_opencode
+check "[x5] execution.md: Agents table column is Claude model / effort and points to agents.toml" implement_table
+check "[x6] execution.md Escalation: code-reviewer in opencode keeps the same agent with a sharper brief" reviewer_opencode
 
 echo
 if (( fails )); then echo "$fails check(s) failed"; exit 1; fi

@@ -42,7 +42,7 @@ flowchart TD
         testWriter["<b>ees-test-writer</b><br/>failing tests first"]
         implementer["<b>ees-implementer</b><br/>code until tests pass"]
         functional["<b>ees-functional-reviewer</b><br/>matches the analysis?"]
-        codeReview["<b>ees-code-reviewer</b><br/>fixes bugs and craft"]
+        codeReview["<b>ees-code-reviewer</b><br/>finds issues, implementer fixes"]
         ux["<b>ees-ux-reviewer</b><br/>frontend diffs only"]
 
         testWriter --> implementer --> functional --> codeReview --> ux
@@ -75,7 +75,7 @@ flowchart TD
     style Auto fill:#f9fafb,stroke:#9ca3af
 ```
 
-**Blue** = you · **orange** = agents · **grey** = where ideas and analyses are stored (GitHub issues or `docs/agents/analysis/`) · **dashed** = optional. `/ees-implement` continues into verify on its own; verify, code review and UX review are steps of the pipeline, not commands. Every step runs tests, lint and type checks through `ees-check-runner`, which returns only the failures.
+**Blue** = you · **orange** = agents · **grey** = where ideas and analyses are stored (GitHub issues or `docs/agents/analysis/`) · **dashed** = optional. `/ees-implement` continues into verify on its own; verify and UX review are steps of the pipeline, not commands. Every step runs tests, lint and type checks through `ees-check-runner`, which returns only the failures.
 
 0. **`/ees-idea`** (optional) — write a change down as a short idea: Goal, Change and optional `Depends on`. No code is read in depth and no decisions are settled; the detailed analysis comes later with **`/ees-analyze #N`** on the same issue, once the change is due and against the code as it is then.
 1. **`/ees-analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
@@ -89,7 +89,7 @@ To **plan several follow-up changes**, write each as an idea and give it `Depend
 
 A **simple bug** skips step 1: a ticket with Acceptance goes straight to `/ees-implement`.
 
-**Work without an analysis** comes in two levels. A bug fix or a small adjustment within about five files, with no new public API or data model, is edited **directly** by the main session: a regression test for a bug, the affected tests through `ees-check-runner` and one read-only code review when more than one file changed. A new feature or behaviour across several units — "add an endpoint", "refactor that module" — or anything you want done tests-first starts the **`ees-change`** skill: a short brief, then `ees-test-writer`, `ees-implementer`, `ees-check-runner`, the code review and, for frontend changes, the UX review. Both commit only when you ask. A large or open-ended change gets a suggestion to run `/ees-analyze` first.
+**Work without an analysis** is up to you. An ordinary prompt — "fix this bug", "rename that" — is handled directly by the main session, with no pack workflow; run **`/ees-code-review`** afterwards when you want the read-only review of those changes, with the conversation as the contract. Run **`/ees-change …`** when you want the whole workflow without an analysis: a short brief, then `ees-test-writer`, `ees-implementer`, `ees-check-runner`, the code review and, for frontend changes, the UX review. Neither commits unless you ask. `/ees-change` on a large or open-ended change suggests `/ees-analyze` first.
 
 **Decisions** live only in `## Further Notes` of each analysis, each with its rejected alternative. The pack writes and reads no ADRs.
 
@@ -99,10 +99,10 @@ To **change an existing analysis** — before `/ees-implement`, or after it when
 
 | Agent | Used by | What it does | Model |
 |-------|---------|--------------|-------|
-| `ees-test-writer` | `/ees-implement`, `ees-change` | Writes tests for one slice of the change and proves they fail | Sonnet, high |
-| `ees-implementer` | `/ees-implement`, `ees-change`, repairs | Writes production code against the committed tests | Sonnet, high |
+| `ees-test-writer` | `/ees-implement`, `/ees-change` | Writes tests for one slice of the change and proves they fail | Sonnet, high |
+| `ees-implementer` | `/ees-implement`, `/ees-change`, repairs | Writes production code against the committed tests | Sonnet, high |
 | `ees-functional-reviewer` | verify | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
-| `ees-code-reviewer` | code review in verify and `ees-change` | Finds correctness, security, design, stack best-practice, performance, test and readability issues with a verdict per area (read-only); `ees-implementer` fixes them | Opus, medium |
+| `ees-code-reviewer` | `/ees-code-review`, directly or in verify and `/ees-change` | Finds correctness, security, design, stack best-practice, performance, test and readability issues with a verdict per area (read-only); `ees-implementer` fixes them | Opus, medium |
 | `ees-ux-reviewer` | UX review of frontend diffs | Checks design-system consistency, WCAG 2.2 AA, usability heuristics and frontend best practices in the code and, when the app runs, in a browser (reports only) | Sonnet, high |
 | `ees-check-runner` | all pipeline skills, any full check run | Runs tests, lint and type checks; returns only failures | Haiku, low |
 
@@ -130,7 +130,7 @@ Claude preloads `skills`; Codex, Cursor, opencode and Pi get a first line tellin
 
 ## Models
 
-Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — `ees-change`, debugging, questions — is mostly judgment and costs little.
+Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — ordinary prompts, `/ees-change`, debugging, questions — is mostly judgment and costs little.
 
 In opencode every skill runs on the main session (`claude-agent/opus`); the code and UX reviewers run on `claude-agent/sonnet`, because review is judgment and a weak model finds little. The other pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none. `ees-implementer`, `ees-test-writer` and the reviewers run on `high`, and the check runner plus the built-in `general`/`explore` run on `low`, where the quality difference is smallest.
 
@@ -141,11 +141,12 @@ Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-f
 | `/ees-analyze`, `/ees-discuss` | Opus | `claude-agent/opus` |
 | `/ees-idea` | Sonnet, medium | `claude-agent/opus` |
 | `/ees-implement` | Sonnet, high | `claude-agent/opus` |
-| `ees-verify`, `ees-code-review`, `ees-ux-review` (pipeline steps) | follow the `/ees-implement` or `ees-change` session | `claude-agent/opus` |
+| `ees-verify`, `ees-ux-review` (pipeline steps) | follow the `/ees-implement` or `/ees-change` session | `claude-agent/opus` |
+| `/ees-code-review` | Opus, medium when run directly; inside a pipeline it follows that session | `claude-agent/opus` |
 | `/ees-git-release`, `/ees-monorepo-update` | Sonnet, medium | `claude-agent/opus` |
 | `/ees-setup` | Sonnet, high | `claude-agent/opus` |
 | `/ees-commit`, `/ees-complete` | Haiku, low | `claude-agent/opus` |
-| `ees-change` | your selected model | `claude-agent/opus` |
+| `/ees-change` | your selected model | `claude-agent/opus` |
 | `ees-test-writer`, `ees-implementer` | Sonnet, high | `opencode-go/deepseek-v4.1-flash`, variant `high` |
 | `ees-functional-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `high` |
 | `ees-code-reviewer` | Opus, medium | `claude-agent/sonnet`, variant `high` |
@@ -159,7 +160,7 @@ Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-f
 - **opencode prerequisites.** The `claude-agent` provider needs Claude Code >= 2.1.248 logged in with `claude auth login`. opencode reads `AGENTS.md`, not `CLAUDE.md`, so global rules from `~/.claude/CLAUDE.md` do not apply there. `/ees-implement` has no model to escalate to in opencode; the main session takes over a failing cluster.
 - **Pi prerequisites.** Agents only start once the subagent tool is linked (`install.sh` does it into `~/.pi/agent/extensions/subagent/`) and are visible to the model by name in that tool's description. Skills spelled `/ees-…` in this README reach Pi as `/ees-…` (generated alias) or `/skill:ees-…`; hidden skills are not offered to the model, only as commands. Like opencode, Pi reads `AGENTS.md` and not `CLAUDE.md`.
 
-How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the Execution contract of [`ees-implement`](skills/ees-implement/SKILL.md#execution-contract).
+How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the [Execution contract](skills/ees-pipeline/execution.md).
 
 Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)); opencode's main session and built-in agents are set in `config/opencode.json`. `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
@@ -192,11 +193,12 @@ Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-
 
 ## Other skills
 
-Most skills run only as slash commands. Claude starts these on its own when the request fits: `ees-change` (implementation without an analysis), `ees-implement` (a request naming an analysis), `ees-discuss` (weighing options), `ees-tdd`, `ees-integration-tests`, `ees-commit` and `ees-git-release`.
+Most skills run only as slash commands. Claude starts these on its own when the request fits: `ees-implement` (a request naming an analysis), `ees-discuss` (weighing options), `ees-tdd`, `ees-integration-tests`, `ees-commit` and `ees-git-release`.
 
-The same split holds in Pi: the skills Claude starts on its own are advertised to the model, the rest are commands (`/skill:ees-idea` or the generated `/ees-idea` alias). Verify, code review and UX review are steps of the pipeline and have no command.
+The same split holds in Pi: the skills Claude starts on its own are advertised to the model, the rest are commands (`/skill:ees-idea` or the generated `/ees-idea` alias). Verify and UX review are steps of the pipeline and have no command.
 
-- **`ees-change`** — implementation without an analysis through the same agents; see [Workflow](#workflow).
+- **`/ees-change`** — implementation without an analysis through the same agents; see [Workflow](#workflow).
+- **`/ees-code-review`** — read-only review of the current changes, fixes by `ees-implementer`; useful after an ordinary prompt.
 - **`/ees-discuss`** — talk a question through with options and trade-offs; changes nothing.
 - **`/ees-commit`** — Conventional Commits from the diff; `/ees-commit push` also pushes.
 - **`/ees-git-release`** — semver tag and GitHub release with a changelog.

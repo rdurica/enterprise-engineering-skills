@@ -20,13 +20,13 @@ See [tests.md](tests.md), [mocking.md](mocking.md), [refactoring.md](refactoring
 
 ## Execution modes
 
-For a **direct** invocation in the main session — a small change below the `ees-change` skill's delegation threshold, or the user asking to pair on TDD — use a vertical red-green-refactor loop:
+For a **direct** invocation in the main session — an ordinary prompted change, or the user asking to pair on TDD — use a vertical red-green-refactor loop:
 
 ```
 RED test1 → Verify RED → GREEN impl1 → RED test2 → Verify RED → GREEN impl2 → …
 ```
 
-Under `/ees-implement` or `ees-change`, follow `/ees-implement`'s [Execution contract](../ees-implement/SKILL.md#execution-contract): test-only workers first, reviewed tests (committed under `/ees-implement`), then new implementation workers. Stay in your assigned phase and scope; return results to the parent without git/delivery operations.
+Under `/ees-implement` or `ees-change`, follow the [Execution contract](../ees-pipeline/execution.md): test-only workers first, reviewed tests (committed under `/ees-implement`), then new implementation workers. Stay in your assigned phase and scope; return results to the parent without git/delivery operations.
 
 ## Workflow
 

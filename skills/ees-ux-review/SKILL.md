@@ -17,7 +17,7 @@ effort: high
 
 Phase 3 of `/ees-verify` and the last review step of `ees-change`. The Functional and code review gates must already be green, or you are resuming after UX fixes. Do **not** Ship from this skill — hand back to the caller.
 
-Skills root: parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/ux-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for fixes, resources and test-baseline changes.
+Skills root: parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`. Checklist: [checklist.md](checklist.md). Commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/ux-review.md`. Follow [Execution contract](../ees-pipeline/execution.md) for fixes, resources and test-baseline changes.
 
 ## When it runs
 

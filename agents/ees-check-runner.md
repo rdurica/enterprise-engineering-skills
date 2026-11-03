@@ -5,7 +5,7 @@ description: >-
   compact pass/fail summary with the relevant failure output. Use proactively
   whenever a full test suite, linters or type checks need running and only
   pass/fail and failure excerpts matter, so long logs stay out of the main
-  context; the `ees-change` skill, /ees-implement, /ees-verify,
+  context; /ees-change, /ees-implement, /ees-verify,
   /ees-code-review and /ees-ux-review always use it. Not for a single
   targeted test in a TDD loop or for debugging a failure that needs the full
   output.

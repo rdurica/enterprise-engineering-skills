@@ -1,11 +1,12 @@
 ---
 name: ees-code-review
 description: >-
-  Code review of the diff after Functional verify — a read-only reviewer finds
-  correctness, security, design, best-practice, performance, test and
-  readability issues, a fresh implementer fixes them. Phase 2 of /ees-verify
-  and the review step of the `ees-change` skill; not a command of its own.
-user-invocable: false
+  Code review of a diff — a read-only reviewer finds correctness, security,
+  design, best-practice, performance, test and readability issues, a fresh
+  implementer fixes them. Phase 2 of /ees-verify, the review step of
+  /ees-change, or run /ees-code-review directly on the current changes after
+  an ordinary prompt.
+argument-hint: "[base ref | paths]"
 disable-model-invocation: true
 model: opus
 effort: medium
@@ -15,11 +16,18 @@ effort: medium
 
 Phase 2 of `/ees-verify`, always on, and the review step of `ees-change`. In verify the Functional gate must already be green, or you are resuming after code-review fixes. Do **not** Ship from this skill — hand back to the caller.
 
+**Direct use** (`/ees-code-review` without a pipeline around it): review the changes of the current conversation.
+
+- **Base:** an explicit base ref from the argument; otherwise `HEAD` when there are uncommitted changes, else the merge-base with the default branch. Limit to the paths in the argument when given. An empty diff → say so and stop.
+- **Contract:** the conversation — what the user asked for and decided. Without an analysis, a finding that would change requested behaviour is Blocked and goes to the user.
+- Run the cycles below. Commit only when the user asks for it, through `ees-commit`; otherwise leave the fixes uncommitted, and a next cycle reviews the diff since the previous review instead of since the last commit.
+- When the diff contains frontend files, offer the UX review at the end; do not run it unasked.
+
 Functional asks whether the diff matches the analysis and the documented standards. This phase asks whether the code is any good.
 
 **Find, then fix — by different agents.** `ees-code-reviewer` is read-only and only reports findings; a fresh `ees-implementer` fixes them. The reviewer does not have to weigh what a fix costs, so it reports everything it sees.
 
-Skills root is the parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`; commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/code-review.md`. Follow [implement’s Execution contract](../ees-implement/SKILL.md#execution-contract) for delegation, resource isolation and test-baseline changes.
+Skills root is the parent of this skill directory (two levels above `SKILL.md`); resolve configuration per `{skills-root}/ees-pipeline/config.md`; commit via `{skills-root}/ees-commit/SKILL.md`. If the repo has an overlay, read it after this skill: `docs/agents/config/code-review.md`. Follow [Execution contract](../ees-pipeline/execution.md) for delegation, resource isolation and test-baseline changes.
 
 ## What the reviewer looks for
 
@@ -50,6 +58,6 @@ Revisit Spec/Standards when externally observable behaviour changes.
 
 - No Critical or Major left, nothing Blocked and the re-check green → gate green, hand back for UX or Ship.
 - Fixes landed → next cycle on the delta, up to 3 in total. A cycle whose report has no Critical or Major ends the review.
-- Anything Blocked, or Critical/Major still open after 3 cycles → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. In `ees-change`, Blocked items go to the user. Do not Ship.
+- Anything Blocked, or Critical/Major still open after 3 cycles → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. In `/ees-change` and direct use, Blocked items go to the user. Do not Ship.
 
 Every selected finding ends as a commit or as a Blocked item — never as a comment.
