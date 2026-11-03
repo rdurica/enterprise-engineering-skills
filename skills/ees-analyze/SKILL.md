@@ -20,7 +20,7 @@ What `/ees-analyze` does depends on its argument:
 
 - **No number** — a new analysis: Phase A, then Phase B.
 - **`#N` on an idea** (label `idea`, locally a file in `ideas/`) — see Idea conversion.
-- **`#N` on an analysis** (label `analysis`, a bug ticket, or a local file outside `ideas/`, including `done/`) — see Modifying an analysis. Its argument may already say what should change.
+- **`#N` on an analysis** (label `analysis`, a bug ticket, or a local file outside `ideas/`, including `done/`) — follow [modify.md](modify.md) instead of Phase A and B. Its argument may already say what should change.
 
 Write for a human who was not in the interview. They should read the analysis once and be able to explain the change without opening the diff.
 
@@ -32,7 +32,7 @@ Take `language` (`en` | `cs`) from the resolved config; if unset, use the langua
 
 `/ees-analyze #N` on an idea (label `idea`, locally a file in `ideas/`) converts it. First check its `Depends on` per the tracker doc: a dependency is satisfied when the GitHub issue is closed, locally when the file is in `done/`. For each unsatisfied one show number, title and state, explain that the analysis would be written against a state that is still going to change, and ask with `AskUserQuestion` whether to continue anyway (recommend waiting). On refusal stop; the issue or file stays unchanged.
 
-Phase A then runs in full with the idea's Goal and Change as the starting point (Change may be refined). Phase B rewrites the same ticket instead of creating one — see "Converting an idea".
+Phase A then runs in full with the idea's Goal and Change as the starting point (Change may be refined). Phase B rewrites the same ticket instead of creating one: title `Idea: …` becomes `Analysis: …`, label `idea` is replaced by `analysis`, and `## Delivery` is kept as is including `Depends on` (Kind may be refined). Locally `mv` the file from `docs/agents/analysis/ideas/` to `docs/agents/analysis/` with the same `NNN` and slug.
 
 ## Phase A — Align
 
@@ -112,76 +112,8 @@ Commits and the PR keep referencing the GitHub analysis issue as `#N`, because t
 
 For **bugs**, set `Kind: bug` and use the shorter bug sections.
 
-## Converting an idea
-
-Do not create a new ticket. Rewrite the body of the same one: title `Idea: …` becomes `Analysis: …`, label `idea` is replaced by `analysis`, `## Delivery` is kept as is including `Depends on` (Kind may be refined). Locally `mv` the file from `docs/agents/analysis/ideas/` to `docs/agents/analysis/` with the same `NNN` and slug. Operations are in `{skills-root}/ees-pipeline/tracker-<tracker>.md`.
-
 ## Publishing
 
-### Local tracker publish
-
-When the active backend is Local Markdown, follow the `/ees-analyze` operations in `{skills-root}/ees-pipeline/tracker-local.md`:
-
-1. Compute the next `NNN` as described there — scan `docs/agents/analysis/`, `docs/agents/analysis/ideas/` and `docs/agents/analysis/done/`, never reuse an ID.
-2. Take `<slug>` from the analysis title: lowercase, hyphenated, ASCII, transliterated if needed.
-3. Create `docs/agents/analysis/NNN-<slug>.md` with Kind, Delivery (branch `feature/<ticket>-<short-slug>`, where the ticket falls back to `NNN`) and the analysis body. No Status line.
-
-Bug fast-path — a ticket with Acceptance rather than a full analysis — uses the same path and ID scan with `Kind: bug`.
-
-### GitHub publish
-
-When the backend is GitHub, follow the `/ees-analyze` operations in `{skills-root}/ees-pipeline/tracker-github.md`.
-
-**Monorepo:** if the resolved config has a `## Monorepo` section (explicit or detected), create the analysis issue on the **container-root** repo only — `gh … -R <owner/container-repo>` from that remote. Never publish an analysis into a delivery-root repository.
+Create, edit and label the ticket with the `/ees-analyze` operations of `{skills-root}/ees-pipeline/tracker-<tracker>.md`: GitHub issues, or `docs/agents/analysis/NNN-<slug>.md` with the ID scan described there (a bug fast-path ticket uses the same path with `Kind: bug`). In a monorepo the analysis issue goes to the **container-root** repository only, never to a delivery root.
 
 After publishing, tell the user the next step is `/ees-implement` on this analysis, once they have reviewed it.
-
-## Modifying an analysis
-
-Take a published analysis and the user's description of what should be different, and leave behind an analysis that reads as if it had been written that way from the start. Do not write a changelog into the body — history goes only in `## Revisions`. Write prose in the resolved `language`; if unset, use the language of the analysis being modified, without asking. Phase A and Phase B above do not run; this section replaces them.
-
-### 1. Load
-
-Resolve the analysis number or path through the tracker — on the local tracker also look in `done/`. Ask for the modification if the user did not describe it.
-
-Decide the phase:
-
-- **Not implemented** — the Delivery branch does not exist or has no commits past its merge-base, and the analysis carries no pipeline label. Only the document changes.
-- **In progress or delivered** — the branch has commits, the issue is `in-progress`, `needs-attention` or `ready-to-review`, or the file is in `done/`. Read the branch diff against its merge-base too: committed tests and code are part of what must stay consistent.
-
-### 2. Find inconsistencies
-
-Walk every section — Goal, Current State, Change, Affected Areas, Architecture, API Contracts, Acceptance, Further Notes — and list what the modification contradicts, makes obsolete or leaves missing. Check it against the decisions in Further Notes of this and related analyses and, when implemented, against the committed tests and code. Delegate broad searches to the built-in `Explore` agent and keep only its conclusions.
-
-If the modification rewrites most of Change and Acceptance or changes the goal, stop and recommend a fresh analysis (`/ees-analyze` without a number) instead.
-
-### 3. Agree the risks
-
-Name each concrete risk the modification brings: a broken API contract or client compatibility, data or migration impact, committed tests or code that stop matching, a conflict with a decision in another analysis's Further Notes, scope growth. Put them to the user one at a time with `AskUserQuestion` and a recommended answer, as in the Phase A interview — accept, mitigate, or change the modification. Ask the open decisions the modification creates the same way. Explore instead of asking whenever the code can answer.
-
-Do not rewrite anything until every risk is agreed or parked in FAQ.
-
-### 4. Rewrite in place
-
-Follow [analysis-template.md](analysis-template.md) for every section you touch.
-
-- Rewrite the affected sections so the whole analysis describes one current state. No "new", "changed", "originally" or strikethrough in the body.
-- An accepted risk with its mitigation is a decision: put it in Further Notes with the rejected alternative, and in Architecture when it shapes the design. A conflict with a decision in another analysis is a risk to agree in step 3.
-- Acceptance: changed and new items become `- [ ]`, dropped items are deleted, untouched completed items stay `- [x]`.
-- Unresolved questions go to `## FAQ` under Affected Areas.
-- `## Revisions`, the last section, records only modifications to work that is already implemented, as `- [ ] <YYYY-MM-DD> — <modification in one sentence>; risks accepted…; tests to change…` (tests only when already committed). `/ees-implement` treats those tests as an agreed contract change and checks the entry `- [x]` when realized.
-  - Not implemented: rewrite the analysis only; add no entry.
-  - An unchecked entry exists: fold the modification into it — rewrite that entry with the new date and add no bullet.
-  - Every entry is checked: add a new `- [ ]` entry.
-- Keep `## Delivery` unchanged — same ticket, same branch.
-
-Before publishing, reread the whole analysis once: no section contradicts another, nothing was invented beyond the session.
-
-### 5. Publish
-
-Follow the revise operations (`/ees-analyze #N` on an analysis) in `{skills-root}/ees-pipeline/tracker-<tracker>.md`.
-
-- **GitHub:** update the body. Not implemented: no comment. Otherwise keep one comment per revision, headed `## Revision` (heading always English, content in the resolved `language`): add it for a new entry, or edit the comment of the unchecked entry in place instead of adding another. A `ready-to-review` issue no longer matches its delivery: replace that label with `needs-attention`.
-- **Local:** update the file. When it is in `done/`, move it back to `docs/agents/analysis/`. For a revision, note it under `## Comments` as `## Revision`, updating the existing note when the entry is unchecked.
-
-Tell the user the next step is `/ees-implement` on the same analysis, which continues on the existing branch.
