@@ -3,7 +3,7 @@
 name: ees-implementer
 description: "Production-code worker started by the pack's skills — /ees-change, /ees-implement phase B, and repairs of review findings in /ees-verify, /ees-code-review and /ees-ux-review. Implements an assigned cluster against tests inside allowed paths. Not for direct use: ordinary prompts are edited by the main session itself."
 model: sonnet
-effort: high
+effort: medium
 color: green
 ---
 

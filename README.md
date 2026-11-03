@@ -100,7 +100,7 @@ To **change an existing analysis** — before `/ees-implement`, or after it when
 | Agent | Used by | What it does | Model |
 |-------|---------|--------------|-------|
 | `ees-test-writer` | `/ees-implement`, `/ees-change` | Writes tests for one slice of the change and proves they fail | Sonnet, high |
-| `ees-implementer` | `/ees-implement`, `/ees-change`, repairs | Writes production code against the committed tests | Sonnet, high |
+| `ees-implementer` | `/ees-implement`, `/ees-change`, repairs | Writes production code against the committed tests | Sonnet, medium |
 | `ees-functional-reviewer` | verify | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
 | `ees-code-reviewer` | `/ees-code-review`, directly or in verify and `/ees-change` | Finds correctness, security, design, stack best-practice, performance, test and readability issues with a verdict per area (read-only); `ees-implementer` fixes them | Opus, medium |
 | `ees-ux-reviewer` | UX review of frontend diffs | Checks design-system consistency, WCAG 2.2 AA, usability heuristics and frontend best practices in the code and, when the app runs, in a browser (reports only) | Sonnet, high |
@@ -140,14 +140,14 @@ Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-f
 |----------------|-------------|----------|
 | `/ees-analyze`, `/ees-discuss` | Opus | `claude-agent/opus` |
 | `/ees-idea` | Sonnet, medium | `claude-agent/opus` |
-| `/ees-implement` | Sonnet, medium | `claude-agent/opus` |
+| `/ees-implement` | Sonnet, high | `claude-agent/opus` |
 | `ees-verify`, `ees-ux-review` (pipeline steps) | follow the `/ees-implement` or `/ees-change` session | `claude-agent/opus` |
 | `/ees-code-review` | Opus, medium when run directly; inside a pipeline it follows that session | `claude-agent/opus` |
 | `/ees-git-release`, `/ees-monorepo-update` | Sonnet, medium | `claude-agent/opus` |
 | `/ees-setup` | Sonnet, high | `claude-agent/opus` |
 | `/ees-commit`, `/ees-complete` | Haiku, low | `claude-agent/opus` |
 | `/ees-change` | your selected model | `claude-agent/opus` |
-| `ees-test-writer`, `ees-implementer` | Sonnet, high | `opencode-go/deepseek-v4.1-flash`, variant `high` |
+| `ees-test-writer`, `ees-implementer` | Sonnet; high for the test writer, medium for the implementer | `opencode-go/deepseek-v4.1-flash`, variant `high` |
 | `ees-functional-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `high` |
 | `ees-code-reviewer` | Opus, medium | `claude-agent/sonnet`, variant `high` |
 | `ees-ux-reviewer` | Sonnet, high | `claude-agent/sonnet`, variant `high` |

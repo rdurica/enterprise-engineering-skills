@@ -13,7 +13,7 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | Agent | Work | Claude model / effort |
 |-------|------|-----------------------|
 | `ees-test-writer` | Phase A tests, justified test corrections | sonnet / high |
-| `ees-implementer` | Phase B production code, delegated repairs | sonnet / high |
+| `ees-implementer` | Phase B production code, delegated repairs | sonnet / medium |
 | `ees-check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
 | `ees-functional-reviewer` | Functional review in `/ees-verify` (spec and standards) | sonnet / medium |
 | `ees-code-reviewer` | `/ees-code-review` findings (read-only) | opus / medium |

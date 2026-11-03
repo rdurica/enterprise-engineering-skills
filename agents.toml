@@ -34,7 +34,7 @@ opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-implementer]
-claude = { model = "sonnet", effort = "high", color = "green" }
+claude = { model = "sonnet", effort = "medium", color = "green" }
 codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
