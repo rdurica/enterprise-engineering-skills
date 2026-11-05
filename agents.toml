@@ -52,5 +52,5 @@ pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 claude = { model = "sonnet", effort = "medium", color = "pink" }
 codex = { model = "gpt-6.1-terra", effort = "high" }
 cursor = { model = "grok-4.7-high" }
-opencode = { model = "claude-agent/sonnet", variant = "high" }
+opencode = { model = "claude-agent/sonnet", variant = "medium" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }

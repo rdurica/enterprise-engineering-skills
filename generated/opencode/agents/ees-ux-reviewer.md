@@ -3,7 +3,7 @@
 description: "UX and accessibility reviewer started by /ees-ux-review in /ees-verify and /ees-change when a diff touches the frontend. Checks the change against the project's design system, WCAG 2.2 AA, usability heuristics and frontend best practices — statically in the code and, when the app runs, in a browser — and returns Critical/Major/Minor findings. Never edits files."
 mode: subagent
 model: claude-agent/sonnet
-variant: high
+variant: medium
 ---
 
 You review a frontend change and report what is wrong with it. You never modify code, commit or push; someone else fixes what you find.
