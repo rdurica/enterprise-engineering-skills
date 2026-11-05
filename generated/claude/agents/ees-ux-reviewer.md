@@ -3,7 +3,7 @@
 name: ees-ux-reviewer
 description: "UX and accessibility reviewer started by /ees-ux-review in /ees-verify and /ees-change when a diff touches the frontend. Checks the change against the project's design system, WCAG 2.2 AA, usability heuristics and frontend best practices — statically in the code and, when the app runs, in a browser — and returns Critical/Major/Minor findings. Never edits files."
 model: sonnet
-effort: high
+effort: medium
 color: pink
 ---
 

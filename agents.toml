@@ -19,7 +19,7 @@ pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
 
 [ees-code-reviewer]
 readonly = true
-claude = { model = "opus", effort = "medium", tools = ["Read", "Grep", "Glob", "Bash"], color = "red" }
+claude = { model = "opus", effort = "low", tools = ["Read", "Grep", "Glob", "Bash"], color = "red" }
 codex = { model = "gpt-6.1-terra", effort = "high" }
 cursor = { model = "grok-4.7-high" }
 opencode = { model = "claude-agent/sonnet", variant = "high" }
@@ -49,7 +49,7 @@ opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 
 [ees-ux-reviewer]
-claude = { model = "sonnet", effort = "high", color = "pink" }
+claude = { model = "sonnet", effort = "medium", color = "pink" }
 codex = { model = "gpt-6.1-terra", effort = "high" }
 cursor = { model = "grok-4.7-high" }
 opencode = { model = "claude-agent/sonnet", variant = "high" }

@@ -16,8 +16,8 @@ The parent primarily coordinates and delegates code/test work. A trivial one-fil
 | `ees-implementer` | Phase B production code, delegated repairs | sonnet / medium |
 | `ees-check-runner` | Project tests, lint and type checks; compact summary | haiku / low |
 | `ees-functional-reviewer` | Functional review in `/ees-verify` (spec and standards) | sonnet / medium |
-| `ees-code-reviewer` | `/ees-code-review` findings (read-only) | opus / medium |
-| `ees-ux-reviewer` | `/ees-ux-review` findings (read-only) | sonnet / high |
+| `ees-code-reviewer` | `/ees-code-review` findings (read-only) | opus / low |
+| `ees-ux-reviewer` | `/ees-ux-review` findings (read-only) | sonnet / medium |
 
 Models for other harnesses are in `agents.toml`.
 
