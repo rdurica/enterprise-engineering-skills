@@ -164,6 +164,38 @@ How the pipeline keeps its own cost down — summaries instead of logs, checks i
 
 Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)); opencode's main session and built-in agents are set in `config/opencode.json`. `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
+## Agents from another tool (Herdr)
+
+Optional, and not installed by `install.sh`. Inside one tool the pack's agents start as native subagents, which is the better path: the result returns straight to the parent. [Herdr](https://herdr.dev) desktop is worth setting up only when the main session should use a model its own tool cannot run, such as a Codex session that wants its code review from Claude. Its CLI `hc` starts another tool in its own terminal, sends it a task and delivers its report back as the next input. `hc --skill` prints the manual for agents.
+
+1. **Create a template per agent** in `~/.config/herdr-core/templates/<name>.md`. `claude --agent` starts Claude Code as one pack agent with the model, effort and tools from its definition; the body is prepended to every task:
+
+   ```markdown
+   ---
+   name: claude-code-reviewer
+   description: Claude Code as ees-code-reviewer
+   command: claude --agent ees-code-reviewer
+   ---
+   When you are done or stuck, report to whoever sent the task with `hc send`; write long answers to a file and send its path.
+   ```
+
+   For the other direction use `command: codex --no-daemon -m <model> -c model_reasoning_effort=<effort>`. Codex needs `--no-daemon`, or its commands run outside Herdr. `hc templates` lists what is installed.
+
+2. **Start it** from any agent running in a Herdr terminal (`$HC_TERMINAL_ID` is set):
+
+   ```sh
+   hc run --bg --name review --cwd "$PWD" claude-code-reviewer "Review git diff main...HEAD. Read-only."
+   hc wait review
+   ```
+
+3. **Make it the default, if you want**, with a rule in your own `~/.codex/AGENTS.md` (or `~/.claude/CLAUDE.md`), not in this pack:
+
+   ```markdown
+   When `HC_TERMINAL_ID` is set, start code review with `hc run --bg claude-code-reviewer "<brief>"` instead of the native ees-code-reviewer, wait with `hc wait`, and read the report it sends. Start every other agent natively.
+   ```
+
+A terminal that shows `blocked` is waiting for you to answer a permission prompt; the parent does not answer it. The other tool's run counts against that tool's own subscription.
+
 ## Status
 
 With the local tracker there is no status: an analysis in `docs/agents/analysis/` is active, an idea in `docs/agents/analysis/ideas/` is waiting for `/ees-analyze`, and a green verify moves it to `done/`. Blockers are noted under `## Comments`. On GitHub, the issue carries these labels:
