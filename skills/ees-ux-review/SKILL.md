@@ -45,13 +45,13 @@ When no browser tool is available, or the app cannot be started, run the static 
 |----------|----------|------|
 | **Critical** | Unreadable text, broken layout, missing input label, dead primary action, horizontal overflow, keyboard trap, contrast far below AA | **fail** |
 | **Major** | Contrast below AA, tap target < 24px, missing loading/error/empty state, a new component or style duplicating an existing one, hard-coded colours or spacing where tokens exist, confusing navigation or unguarded destructive action | **fail** |
-| **Minor** | Polish, small spacing or copy improvements | report only; never fails the gate |
+| **Minor** | Polish, small spacing or copy improvements | fixed like the others; never fails the gate |
 
-Any Critical/Major → fail, then Fix and Re-check and repeat (re-review **changed screens and files only**). Only Minor or nothing → green. 3 failed cycles → **stop** and return to the caller as **Fail** (`/ees-verify` sets `needs-attention`).
+Any Critical/Major → fail, then Fix and Re-check and repeat (re-review **changed screens and files only**). Only Minor → fix them and Re-check, then green without another review cycle. Nothing → green. 3 failed cycles → **stop** and return to the caller as **Fail** (`/ees-verify` sets `needs-attention`).
 
 ## Fix
 
-The parent selects Critical and Major findings and delegates the fixes to a fresh `ees-implementer` per independent cluster under the Execution contract; a trivial one-file CSS or copy fix may be done directly. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits or scope creep.
+The parent selects every Critical, Major and Minor finding and delegates the fixes to a fresh `ees-implementer` per independent cluster under the Execution contract; a trivial one-file CSS or copy fix may be done directly. Preserve the agreed analysis contract, test-first coverage and stable test baseline. Commit justified test changes separately; production commit: `fix(ui): <what> (#<N>)`. No push/PR, container-root commits or scope creep.
 
 ### Re-check (mandatory after any UX fix)
 
@@ -64,7 +64,7 @@ Full Spec/Standards again **only** if the UX fix changes behaviour vs Acceptance
 
 ## Green output
 
-Tell the caller UX is green, and whether the browser walkthrough ran. Do **not** comment Minors on the analysis or the PR.
+Tell the caller UX is green, and whether the browser walkthrough ran. Do **not** comment findings on the analysis or the PR; they end as fixes.
 
 ## Rules
 

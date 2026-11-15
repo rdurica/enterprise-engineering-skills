@@ -50,7 +50,7 @@ After Functional is green, check off satisfied Acceptance and read and follow si
 
 ## 3. UX
 
-Read and follow sibling `ees-ux-review/SKILL.md` (read the file; it cannot be started with the Skill tool) when the review-base diff contains frontend files as defined there under **When it runs**; otherwise skip this step. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
+Read and follow sibling `ees-ux-review/SKILL.md` (read the file; it cannot be started with the Skill tool) when the review-base diff contains frontend files as defined there under **When it runs**; otherwise skip this step. Critical, Major and Minor findings are fixed (only Critical/Major fail the gate); a blocked or exhausted UX gate → Fail.
 
 After review or UX fixes, rerun checks for the affected paths before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
 

@@ -38,7 +38,7 @@ An endpoint whose authorization contradicts the analysis is a finding to fix, no
 ## One cycle
 
 1. **Review.** Start a new `ees-code-reviewer` with fresh, scoped context: the fixed review base, the intended diff including untracked files, the analysis reference (or the brief), the committed tests and the delivery roots. Cycle 1 reviews the whole diff from the review base. Cycles 2 and 3 review only the delta since the previous cycle's last commit, with the previous report.
-2. **Select.** The parent reads the report and picks what gets fixed: every Critical and Major; a Minor when its fix is local and cheap. Drop a finding only when it is wrong, and say why in one line. A report without verdicts for every area goes back to a new reviewer once.
+2. **Select.** The parent reads the report and picks what gets fixed: every Critical, Major and Minor. Drop a finding only when it is wrong, and say why in one line. A report without verdicts for every area goes back to a new reviewer once.
 3. **Fix.** Start a fresh `ees-implementer` per independent cluster of selected findings, with the findings verbatim, the allowed paths and the guardrails below. A finding about a test goes to `ees-test-writer` under the Execution contract (reviewed reason, separate test commit, no weakened assertions).
 4. **Check and commit.** Rerun tests and tooling for the affected paths through `ees-check-runner`; red → repair within this review's cycle limit. Commit per delivery root:
    - `refactor(scope): <what> (#<N>)` when the fixes were design, readability or structure only
@@ -56,8 +56,8 @@ Revisit Spec/Standards when externally observable behaviour changes.
 
 ## Outcome
 
-- No Critical or Major left, nothing Blocked and the re-check green → gate green, hand back for UX or Ship.
-- Fixes landed → next cycle on the delta, up to 3 in total. A cycle whose report has no Critical or Major ends the review.
-- Anything Blocked, or Critical/Major still open after 3 cycles → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. In `/ees-change` and direct use, Blocked items go to the user. Do not Ship.
+- No finding left unfixed, nothing Blocked and the re-check green → gate green, hand back for UX or Ship.
+- Fixes landed → next cycle on the delta, up to 3 in total. A cycle whose report has no Critical or Major ends the review once its Minor fixes are committed and the re-check is green.
+- Anything Blocked, or Critical/Major still open after 3 cycles (a Minor still open after 3 cycles does not fail the gate; name it in the report) → stop and return to `/ees-verify` **Fail**, which sets `needs-attention` and puts the Blocked items in the fail note. In `/ees-change` and direct use, Blocked items go to the user. Do not Ship.
 
 Every selected finding ends as a commit or as a Blocked item — never as a comment.
