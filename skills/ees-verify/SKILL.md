@@ -7,7 +7,6 @@ description: >-
   when a gate fails. Comments only on the analysis, never on the PR. Followed
   automatically at the end of /ees-implement; not a command of its own.
 user-invocable: false
-disable-model-invocation: true
 model: opus
 effort: medium
 ---

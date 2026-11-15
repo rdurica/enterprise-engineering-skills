@@ -65,7 +65,7 @@ When a wave joins, review changes and run relevant checks through `ees-check-run
 
 ## 5. Verify and resume
 
-Once decided work is complete, automatically read and follow sibling `ees-verify/SKILL.md` in this session (read the file; it cannot be started with the Skill tool). Carry the analysis, review base, test baseline, results and current delivery restrictions; the main window keeps orchestrating.
+Once decided work is complete, automatically run `ees-verify` in this session (invoke the skill, or read and follow sibling `ees-verify/SKILL.md`). Carry the analysis, review base, test baseline, results and current delivery restrictions; the main window keeps orchestrating.
 
 If FAQ leaves work unfinished, mark `needs-attention` and briefly explain what needs a decision. Do not verify it as complete.
 
