@@ -47,11 +47,11 @@ The reviewer returns a concise fix list, not comments. Delegate repairs to `ees-
 
 ## 2. Code review
 
-After Functional is green, check off satisfied Acceptance and follow sibling `ees-code-review/SKILL.md`. A read-only reviewer finds correctness, security, design, best-practice and readability issues; implementers fix them, preserving the agreed contract. Blocked findings or exhausted review cycles → Fail.
+After Functional is green, check off satisfied Acceptance and read and follow sibling `ees-code-review/SKILL.md` (read the file; it cannot be started with the Skill tool). A read-only reviewer finds correctness, security, design, best-practice and readability issues; implementers fix them, preserving the agreed contract. Blocked findings or exhausted review cycles → Fail.
 
 ## 3. UX
 
-Follow sibling `ees-ux-review/SKILL.md` when the review-base diff contains frontend files as defined there under **When it runs**; otherwise skip this step. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
+Read and follow sibling `ees-ux-review/SKILL.md` (read the file; it cannot be started with the Skill tool) when the review-base diff contains frontend files as defined there under **When it runs**; otherwise skip this step. Critical/Major findings must be fixed; a blocked or exhausted UX gate → Fail.
 
 After review or UX fixes, rerun checks for the affected paths before continuing. Repair failed checks within the current gate’s cycle limit; there is no separate re-check counter. Revisit Spec/Standards when the fix changes externally observable behaviour; re-walk affected UI when needed.
 

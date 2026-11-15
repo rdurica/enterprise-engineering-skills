@@ -13,7 +13,7 @@ effort: high
 
 # Implement
 
-The main window orchestrates: read the saved analysis, plan work, delegate, review results, commit, then run `/ees-verify` automatically. Tests come first; new implementation sub-agents work against committed tests.
+The main window orchestrates: read the saved analysis, plan work, delegate, review results, commit, then follow sibling `ees-verify/SKILL.md` automatically. Tests come first; new implementation sub-agents work against committed tests.
 
 Resolve configuration per `{skills-root}/ees-pipeline/config.md` and tracker operations per `{skills-root}/ees-pipeline/tracker-<tracker>.md`. Skills root is the parent of this skill's directory. Use sibling `ees-tdd`, `ees-integration-tests` for PHP HTTP, and `ees-commit` skills where relevant.
 
@@ -65,7 +65,7 @@ When a wave joins, review changes and run relevant checks through `ees-check-run
 
 ## 5. Verify and resume
 
-Once decided work is complete, automatically follow sibling `ees-verify/SKILL.md` in this session. Carry the analysis, review base, test baseline, results and current delivery restrictions; the main window keeps orchestrating.
+Once decided work is complete, automatically read and follow sibling `ees-verify/SKILL.md` in this session (read the file; it cannot be started with the Skill tool). Carry the analysis, review base, test baseline, results and current delivery restrictions; the main window keeps orchestrating.
 
 If FAQ leaves work unfinished, mark `needs-attention` and briefly explain what needs a decision. Do not verify it as complete.
 
