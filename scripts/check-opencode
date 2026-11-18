@@ -5,7 +5,9 @@
 #
 # Behavioural checks run in a sandbox: a mktemp dir used as HOME, XDG_CONFIG_HOME, CLAUDE_CONFIG_DIR,
 # CODEX_HOME and the opencode data/cache/state dirs, so ~/.config/opencode, ~/.claude, ~/.codex and
-# ~/.cursor are never touched. agents.toml is only modified in a copy of the working tree.
+# ~/.cursor are never touched. agents.toml is only modified in a copy of the working tree. generated/ is
+# gitignored local build output: the agent files are validated in a copy of the tree (without
+# generated/) that scripts/build-agents has built, not in the working tree's generated/.
 set -euo pipefail
 
 pack="$(git rev-parse --show-toplevel)"
@@ -134,11 +136,10 @@ EOF
 
 # ---------------------------------------------------------------- build-agents on a copy of the tree
 
-copy_tree() { mkdir -p "$1" && tar --exclude=./.git -cf - . | tar -xf - -C "$1"; }
+copy_tree() { mkdir -p "$1" && tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$1"; }
 
-# 1-4: regenerate opencode output from scratch in a copy.
+# 1-4: build the opencode output from scratch in a copy of the tree that has no generated/.
 gen="$sb/gen"; copy_tree "$gen"
-rm -rf "$gen/generated/opencode"
 "$gen/scripts/build-agents" >"$gen/build.out" 2>&1 || true
 oc="$gen/generated/opencode/agents"
 
@@ -166,9 +167,10 @@ variants() {
   local n
   six_files || return 1
   fm "$oc/ees-check-runner.md" | gq -xF "variant: low" || return 1
-  for n in ees-code-reviewer ees-functional-reviewer ees-ux-reviewer; do
+  for n in ees-code-reviewer ees-functional-reviewer; do
     fm "$oc/$n.md" | gq -xF "variant: high" || return 1
   done
+  fm "$oc/ees-ux-reviewer.md" | gq -xF "variant: medium" || return 1
   for n in ees-implementer ees-test-writer; do
     fm "$oc/$n.md" | gq -xF "variant: high" || return 1
   done
@@ -196,29 +198,31 @@ no_name_and_read_first() {
   first="$(body "$oc/ees-test-writer.md" | grep -v '^$' | head -1)"
   grep -qE '[Rr]ead.*`ees-tdd`' <<<"$first"
 }
-committed_opencode_in_sync() { # the committed generated/opencode matches what build-agents produces
-  six_files && diff -r "$oc" generated/opencode/agents && scripts/build-agents --check
+validate_writes_nothing() { # build-agents --validate on a tree without generated/ exits 0 and creates no generated/
+  local v="$sb/validate" rc=0
+  copy_tree "$v"
+  "$v/scripts/build-agents" --validate >/dev/null 2>&1 || rc=$?
+  [[ "$rc" == 0 && ! -e "$v/generated" ]]
 }
 
 check "[1] build-agents writes generated/opencode/agents/ with six files, each mode: subagent, reviewers on $sonnet and the rest on $flash" all_modes_models
-check "[1] the six opencode agent files are committed in generated/ and in sync with build-agents" committed_opencode_in_sync
-check "[2] variants: check-runner low, reviewers high, implementers high" variants
+check "[1] build-agents --validate exits 0 on a tree without generated/ and writes nothing" validate_writes_nothing
+check "[2] variants: check-runner low, code and functional reviewers high, ux reviewer medium, implementers high" variants
 check "[3] ees-check-runner, ees-functional-reviewer and ees-code-reviewer have permission: edit: deny; the other three have no permission" permissions
 check "[4] opencode agents have no name key; ees-test-writer body starts by reading the ees-tdd skill" no_name_and_read_first
 
-# 5: stale detection on a copy with a changed agents.toml.
+# 5: a changed agents.toml reaches the built output: rebuilding a copy rewrites every opencode agent file.
 stale="$sb/stale"; copy_tree "$stale"
-stale_check() {
-  local rc=0 out n
-  "$stale/scripts/build-agents" --check >/dev/null 2>&1 || return 1          # copy starts in sync
+rebuild_picks_up_toml() {
+  local n
+  "$stale/scripts/build-agents" >/dev/null 2>&1 || return 1                  # copy starts built from the original agents.toml
   sed -i -e "s#deepseek-v4\.1-flash#deepseek-v4.1-flash-changed#g" -e "s#claude-agent/sonnet#claude-agent/sonnet-changed#g" "$stale/agents.toml"
-  out="$("$stale/scripts/build-agents" --check 2>&1)" || rc=$?
-  [[ "$rc" == 1 ]] || return 1
+  "$stale/scripts/build-agents" >/dev/null 2>&1 || return 1
   for n in "${agent_names[@]}"; do
-    grep -qxF "stale   generated/opencode/agents/$n.md" <<<"$out" || return 1
+    grep -qE '^model: .*-changed$' "$stale/generated/opencode/agents/$n.md" || return 1
   done
 }
-check "[5] changed agents.toml without regenerating: build-agents --check exits 1 and prints stale generated/opencode/agents/<name>.md" stale_check
+check "[5] changed agents.toml: rebuilding the copy rewrites all six opencode agent files with the new models" rebuild_picks_up_toml
 
 # ---------------------------------------------------------------- install.sh scenarios
 

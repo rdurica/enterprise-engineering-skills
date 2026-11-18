@@ -5,7 +5,9 @@
 # and exits 1 when any check fails.
 #
 # Behavioural checks run in a sandbox: a mktemp dir is used as HOME and PI_CODING_AGENT_DIR, so
-# ~/.pi/agent is never touched.
+# ~/.pi/agent is never touched. generated/ is gitignored local build output, so the agents and prompts
+# are validated in a copy of the tree (without generated/) that scripts/build-agents and
+# scripts/build-pi-prompts have built; the working tree's generated/ is never read.
 set -euo pipefail
 
 pack="$(git rev-parse --show-toplevel)"
@@ -21,13 +23,23 @@ has() { grep -qF -- "$1" "$2"; }
 has_all() { local f="$1"; shift; local t; for t in "$@"; do has "$t" "$f" || return 1; done; }
 gq() { grep "$@" >/dev/null; }
 
-# ---------------------------------------------------------------- generated agents
+# ---------------------------------------------------------------- build in a sandbox copy
 
-pi_agents=("$pack"/generated/pi/agents/*.md)
-check "generated/pi/agents: one file per agent" test "${#pi_agents[@]}" -eq "$(find agents -name '*.md' | wc -l)"
-check "generated/pi/agents: build is green" "$pack/scripts/build-agents" --check
+sb="$(mktemp -d)"
+trap 'rm -rf "$sb"' EXIT
+built="$sb/built"
+mkdir -p "$built"
+tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$built"
+build_ok() { "$built/scripts/build-agents" && "$built/scripts/build-pi-prompts"; }
+check "build: build-agents and build-pi-prompts succeed on a tree without generated/" build_ok
+check "build: build-agents --validate exits 0" "$built/scripts/build-agents" --validate
 
-agent_file() { echo generated/pi/agents/$1.md; }
+# ---------------------------------------------------------------- built agents
+
+pi_agents=("$built"/generated/pi/agents/*.md)
+check "built pi/agents: one file per agent" test "${#pi_agents[@]}" -eq "$(find agents -name '*.md' | wc -l)"
+
+agent_file() { echo "$built/generated/pi/agents/$1.md"; }
 for agent in ees-check-runner ees-code-reviewer ees-functional-reviewer ees-implementer ees-test-writer ees-ux-reviewer; do
   check "agent $agent: frontmatter keys" has_all "$(agent_file "$agent")" "name: $agent" "description:" "model: opencode-go/deepseek-v4.1-flash:"
 done
@@ -46,15 +58,14 @@ check "agent ees-test-writer: preloads ees-tdd" has 'read the `ees-tdd` skill' "
 
 # ---------------------------------------------------------------- slash commands
 
-pi_prompts=("$pack"/generated/pi/prompts/*.md)
+pi_prompts=("$built"/generated/pi/prompts/*.md)
 invocable_skills() { find skills -mindepth 2 -maxdepth 2 -name SKILL.md -not -path 'skills/personal/*' -exec grep -L '^user-invocable: false' {} + | wc -l; }
-check "generated/pi/prompts: one command per user-invocable skill" test "${#pi_prompts[@]}" -eq "$(invocable_skills)"
-check "generated/pi/prompts: build is green" "$pack/scripts/build-pi-prompts" --check
-check "generated/pi/prompts: the library skill has no command" test ! -e generated/pi/prompts/ees-pipeline.md
+check "built pi/prompts: one command per user-invocable skill" test "${#pi_prompts[@]}" -eq "$(invocable_skills)"
+check "built pi/prompts: the library skill has no command" test ! -e "$built/generated/pi/prompts/ees-pipeline.md"
 check "prompt ees-implement: points at the linked SKILL.md" \
-  has_all generated/pi/prompts/ees-implement.md '`ees-implement` skill' '~/.agents/skills/ees-implement/SKILL.md' '${@:-none}'
+  has_all "$built/generated/pi/prompts/ees-implement.md" '`ees-implement` skill' '~/.agents/skills/ees-implement/SKILL.md' '${@:-none}'
 check "prompt ees-commit: keeps the argument hint without quotes" \
-  has 'argument-hint: "[push] [paths or scope hint]"' generated/pi/prompts/ees-commit.md
+  has 'argument-hint: "[push] [paths or scope hint]"' "$built/generated/pi/prompts/ees-commit.md"
 
 # ---------------------------------------------------------------- subagent tool
 
@@ -74,8 +85,6 @@ check "install.sh: honours PI_CODING_AGENT_DIR" has 'pi_dir="${PI_CODING_AGENT_D
 check "install.sh: cleans up dangling Pi links" has '"$pi_dir"/prompts/*.md' install.sh
 
 # Behaviour: a sandboxed install puts every agent, prompt and the extension where Pi looks.
-sb="$(mktemp -d)"
-trap 'rm -rf "$sb"' EXIT
 mkdir -p "$sb/home"
 # A sandboxed run passes --yes, so a terminal on stdin never blocks it on the plan confirmation.
 sandbox_install() { HOME="$sb/home" PI_CODING_AGENT_DIR="$sb/home/.pi/agent" "$pack/install.sh" --all --yes >/dev/null 2>&1; }
