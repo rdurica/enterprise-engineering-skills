@@ -8,9 +8,8 @@
 #   Pi           ~/.pi/agent/agents/<agent>.md, prompts and the subagent tool in ~/.pi/agent/extensions/subagent/
 # Agents link to generated/<provider>/agents/, built by scripts/build-agents.
 # generated/ is a local build output: the installer builds it (scripts/build-agents, scripts/build-pi-prompts) first.
-# The selection is stored in settings.json (`providers`) and is the default for the next run; without it
-# the installer links every provider when there is no terminal.
-# Without a terminal and without flags the installer links the stored providers, else every provider. Re-run after changing a
+# The selection is stored in settings.json (`providers`) and is the default for the next run. Without a terminal
+# and without flags the installer links the stored providers, else every provider. Re-run after changing a
 # skill or agent: missing links are added, broken ones repaired and links of unselected tools removed.
 set -euo pipefail
 
@@ -37,7 +36,7 @@ Usage: ./install.sh [--all | --providers <list>] [--interactive] [--yes] [--dry-
   --providers <list>   comma or space separated: claude, codex, cursor, opencode, pi, all, none
   --interactive        ask which tools to use, even when stdin is not a terminal
   --yes                apply the plan without asking for confirmation
-  --dry-run            print the plan and write nothing
+  --dry-run            print the plan; only builds the local generated/, writes no links or settings
   --help               show this help
 
 Without --all or --providers the installer asks on a terminal and uses the providers stored in
@@ -509,14 +508,14 @@ else
   fi
 fi
 
-# Keep generated/ in sync with agents/ and agents.toml on every commit in this checkout.
+# Validate sources on every commit and rebuild generated/ after git pull in this checkout.
 if [[ -z "$(git -C "$pack" config --get core.hooksPath 2>/dev/null || true)" ]]; then
   printf '%-8s%s\n' hooks "core.hooksPath = .githooks"
   (( dry_run )) || git -C "$pack" config core.hooksPath .githooks
 fi
 
 if (( dry_run )); then
-  echo "Dry run: nothing written."
+  echo "Dry run: no links or settings written."
 else
   echo "Done. Start a new Claude Code, Codex, Cursor, opencode or Pi session to pick up the changes."
 fi
