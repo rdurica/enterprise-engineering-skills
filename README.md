@@ -11,6 +11,13 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ~/Projects/enterprise-engineering-skills/install.sh
 ```
 
+Prefer clicking to flags? `make setup` opens a local page where you switch providers on and pick the model and effort of every agent — see [Choosing providers and models](#choosing-providers-and-models).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/setup-dark.png">
+  <img alt="The setup page: provider switches on top, then one tab per provider with a card for each agent, its model and its effort" src="docs/images/setup-light.png">
+</picture>
+
 Run the installer from a terminal: a numbered wizard asks which tools to link — Claude Code, Codex, Cursor, opencode and Pi — and preselects the ones already linked into the pack; installed tools are still shown, but not preselected. Pick several tools by typing one or more numbers separated by commas or spaces (for example `1,3`), type `all` or `none`, or press Enter for the default.
 
 The installer prints the plan (`link`, `relink`, `ok`, `unlink`) and applies it after you confirm. The plan brings the selected tools to exactly that state: missing links are added, broken ones repaired and pack links for unselected tools removed; real files and symlinks that do not point into the pack are never touched. For scripts, `--all` selects every tool, `--providers <list>` selects an exact set (comma or space separated, `all` and `none` accepted), `--yes` skips the confirmation and `--dry-run` prints the plan and writes no links, settings or opencode.json (it still builds the local `generated/`). With no flags and no terminal on stdin, the installer behaves like `--all`.
@@ -166,7 +173,13 @@ How the pipeline keeps its own cost down — summaries instead of logs, checks i
 
 ### Choosing providers and models
 
-Run `make setup`: it opens a local page where you pick the providers and, per agent and provider, the model and effort or variant; for opencode also the main session model, the small model and the built-in agents. Save writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer.
+Run `make setup`. It opens a local page, reachable only from this machine and protected by a one-time token, with three parts:
+
+- **Providers** — switch on the tools you use; each tile shows whether it is linked or only installed.
+- **Agents** — one tab per provider, one card per agent: a searchable model picker and an effort (or variant) slider. Anything you change is marked and has a reset back to the pack default.
+- **Save and install** — writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer.
+
+The opencode tab also has a **Session** section with the main model, which runs every skill, and the cheap small model. opencode's built-in agents follow those two: `build` and `plan` the main model; `general`, `explore`, `compaction`, `title` and `summary` the small model (a hand-written `opencode.agent.<id>.model` in settings still wins).
 
 The file holds only deviations from the pack defaults (`agents.toml`, `config/opencode.json`) and you can edit it by hand; a missing key means the current pack default, so a new default from `git pull` reaches everything you did not change:
 
@@ -178,7 +191,7 @@ The file holds only deviations from the pack defaults (`agents.toml`, `config/op
 }
 ```
 
-The offered values come from the catalog `config/models.toml`, which the pack author updates together with the defaults: a default missing from the catalog fails the build. A value of yours that is no longer in the catalog only warns and is still used. Unknown agents, providers and keys warn and are ignored. `generated/` is rebuilt from the defaults plus your settings after every `git pull`; if you installed before the git hooks existed (no `core.hooksPath` in the pack checkout), re-run `install.sh` once after pulling this change. `install.sh` takes its default provider selection from `providers` in settings, and `--providers` or `--all` store the selection there.
+The offered values come from the catalog `config/models.toml`, which the pack author updates together with the defaults: a default missing from the catalog fails the build. **Load models** on a provider's tab adds the models your own tools offer on this machine and account — `codex app-server` (`model/list`, with the efforts of each model), `cursor-agent models`, `opencode models` and `pi --list-models` — and keeps them in `models.json` next to `settings.json`, so they can be saved and built without a warning; Reload refreshes the list. Claude Code needs no list: `opus`, `sonnet` and `haiku` always mean the newest model. A value of yours that is no longer in the catalog only warns and is still used. Unknown agents, providers and keys warn and are ignored. `generated/` is rebuilt from the defaults plus your settings after every `git pull`; if you installed before the git hooks existed (no `core.hooksPath` in the pack checkout), re-run `install.sh` once after pulling this change. `install.sh` takes its default provider selection from `providers` in settings, and `--providers` or `--all` store the selection there.
 
 `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 

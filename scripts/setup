@@ -3,16 +3,20 @@
 
 Listens on 127.0.0.1 on a random free port, prints http://127.0.0.1:<port>/?token=<token> and opens it in
 the browser. GET / needs the token in the query, /api/* the X-Setup-Token header, POST /api/save also an
-Origin equal to this server's own address (Save runs commands). Runs until Ctrl+C.
+Origin equal to this server's own address (Save and Load models run commands). Runs until Ctrl+C.
+POST /api/models {"provider": id} asks that provider's own CLI which models this machine and account can use
+and stores the answer in models.json next to settings.json (see ees_settings).
 Stdlib only, Python 3.11+.
 """
 import hmac
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -85,6 +89,139 @@ def provider_note(provider):
     return "not found"
 
 
+class Discovery(Exception):
+    pass
+
+
+discover_timeout = 60
+level_order = ("none", "off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
+ansi = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+
+def run_tool(argv):
+    try:
+        proc = subprocess.run(
+            argv, stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace", timeout=discover_timeout
+        )
+    except FileNotFoundError:
+        raise Discovery(f"{argv[0]} is not installed or not on PATH")
+    except subprocess.TimeoutExpired:
+        raise Discovery(f"`{' '.join(argv)}` did not answer within {discover_timeout} s")
+    if proc.returncode:
+        tail = (proc.stderr.strip() or proc.stdout.strip()).splitlines()[-3:]
+        raise Discovery(f"`{' '.join(argv)}` failed: {' '.join(tail) or f'exit {proc.returncode}'}")
+    return ansi.sub("", proc.stdout)
+
+
+def by_level_order(levels):
+    known = [lv for lv in level_order if lv in levels]
+    return known + sorted(set(levels) - set(known))
+
+
+def discover_codex():
+    """Ask `codex app-server` (JSON-RPC over stdio) for model/list; hidden models are left out."""
+    try:
+        proc = subprocess.Popen(
+            ["codex", "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, errors="replace",
+        )
+    except FileNotFoundError:
+        raise Discovery("codex is not installed or not on PATH")
+    timer = threading.Timer(discover_timeout, proc.kill)
+    timer.start()
+    send = lambda msg: (proc.stdin.write(json.dumps(msg) + "\n"), proc.stdin.flush())
+    try:
+        send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"clientInfo": {"name": "ees-setup", "version": "1"}}})
+        send({"jsonrpc": "2.0", "method": "initialized"})
+        models, cursor, rid = [], None, 2
+        while True:
+            send({"jsonrpc": "2.0", "id": rid, "method": "model/list", "params": {"cursor": cursor} if cursor else {}})
+            for line in proc.stdout:
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                if msg.get("id") == rid:
+                    break
+            else:
+                raise Discovery(f"`codex app-server` ended without answering model/list within {discover_timeout} s")
+            if "error" in msg:
+                raise Discovery(f"codex model/list failed: {msg['error'].get('message', msg['error'])}")
+            result = msg.get("result") or {}
+            models += [m for m in result.get("data", []) if isinstance(m, dict) and not m.get("hidden")]
+            cursor, rid = result.get("nextCursor"), rid + 1
+            if not cursor:
+                break
+    except (BrokenPipeError, OSError) as error:
+        raise Discovery(f"`codex app-server` cannot be asked: {error}")
+    finally:
+        timer.cancel()
+        proc.kill()
+        proc.wait()
+    ids = [m["id"] for m in models if isinstance(m.get("id"), str)]
+    per_model = {
+        m["id"]: by_level_order([e.get("reasoningEffort") for e in m.get("supportedReasoningEfforts") or [] if isinstance(e, dict)])
+        for m in models if isinstance(m.get("id"), str)
+    }
+    efforts = by_level_order({lv for levels in per_model.values() for lv in levels})
+    return {"models": ids, "efforts": efforts, "levels_by_model": per_model, "source": "codex app-server model/list"}
+
+
+def discover_cursor():
+    """`cursor-agent models` prints one `<id> - <name>` line per model available to the signed-in account."""
+    from shutil import which as w
+    cli = next((c for c in ("cursor-agent", "agent") if w(c)), "cursor-agent")
+    out = run_tool([cli, "models"])
+    ids = [m.group(1) for m in re.finditer(r"^\s*([A-Za-z0-9][\w.:/\[\]=,-]*)\s+-\s+\S", out, re.M)]
+    return {"models": ids, "source": f"{cli} models"}
+
+
+def discover_opencode():
+    out = run_tool(["opencode", "models"])
+    ids = [line.strip() for line in out.splitlines() if re.fullmatch(r"[\w.@-]+/\S+", line.strip())]
+    return {"models": ids, "source": "opencode models"}
+
+
+def discover_pi():
+    """`pi --list-models` prints a table whose first two columns are provider and model."""
+    out = run_tool(["pi", "--list-models"])
+    ids = []
+    for line in out.splitlines():
+        cols = line.split()
+        if len(cols) >= 2 and cols[:2] != ["provider", "model"]:
+            ids.append(f"{cols[0]}/{cols[1]}")
+    return {"models": ids, "source": "pi --list-models"}
+
+
+discoverers = {"codex": discover_codex, "cursor": discover_cursor, "opencode": discover_opencode, "pi": discover_pi}
+
+
+def load_models(body):
+    provider = obj(body, "request").get("provider")
+    if provider == "claude":
+        raise Invalid("Claude Code takes the aliases opus, sonnet and haiku, which always mean the newest model")
+    if provider not in discoverers:
+        raise Invalid(f"unknown provider: {provider!r}")
+    entry = discoverers[provider]()
+    entry["models"] = list(dict.fromkeys(entry["models"]))
+    if not entry["models"]:
+        raise Discovery(f"`{entry['source']}` listed no models; is the tool signed in?")
+    entry["loaded_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    with save_lock:
+        local, _ = es.load_local_models()
+        local[provider] = entry
+        path = es.local_models_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        es.atomic_write(path, (json.dumps(local, indent=2, ensure_ascii=False) + "\n").encode(), 0o600)
+    return {"provider": provider, "count": len(entry["models"]), "source": entry["source"]}
+
+
+def user_catalog():
+    """(pack catalog extended by models.json, models.json entries, models.json warnings)."""
+    local, warnings = es.load_local_models()
+    return es.with_local(es.load_catalog(), local), local, warnings
+
+
 def state_warnings(settings, load_warnings, catalog, agents_toml, fragment):
     out = list(load_warnings) + es.check_top_level(settings, catalog)
     out += es.merge_agents(agents_toml, settings, catalog)[1]
@@ -93,7 +230,7 @@ def state_warnings(settings, load_warnings, catalog, agents_toml, fragment):
 
 
 def build_state():
-    catalog = es.load_catalog()
+    catalog, local, local_warnings = user_catalog()
     agents_toml, fragment = es.load_defaults()
     settings, load_warnings = es.load_settings()
     stored = settings.get("providers")
@@ -106,10 +243,13 @@ def build_state():
         selected = {p for p in es.providers if notes[p] == "linked"}
     return {
         "catalog": catalog,
+        "pack_catalog": es.load_catalog(),
         "defaults": {"agents": agents_toml, "opencode": fragment},
         "settings": settings,
         "providers": [{"id": p, "label": labels[p], "selected": p in selected, "note": notes[p]} for p in es.providers],
-        "warnings": state_warnings(settings, load_warnings, catalog, agents_toml, fragment),
+        "local": {p: {k: v for k, v in e.items() if k in ("source", "loaded_at", "levels_by_model")} | {"count": len(e.get("models", []))}
+                  for p, e in local.items()},
+        "warnings": local_warnings + state_warnings(settings, load_warnings, catalog, agents_toml, fragment),
     }
 
 
@@ -194,7 +334,7 @@ def validate(body, current):
     are unchanged from the stored settings, and rejected when they are new.
     """
     body = obj(body, "request")
-    catalog = es.load_catalog()
+    catalog = user_catalog()[0]
     agents_toml, fragment = es.load_defaults()
     chosen = body.get("providers")
     if not isinstance(chosen, list) or not all(isinstance(p, str) for p in chosen):
@@ -280,7 +420,7 @@ def save(body):
         es.write_settings(new)
         code, log = run_install(new["providers"])
         settings, load_warnings = es.load_settings()
-        catalog = es.load_catalog()
+        catalog = user_catalog()[0]
         agents_toml, fragment = es.load_defaults()
         warnings = state_warnings(settings, load_warnings, catalog, agents_toml, fragment)
         for line in log.splitlines():
@@ -357,7 +497,8 @@ def make_handler(token, origin):
             self.error(404, "not_found")
 
         def post(self):
-            if urlsplit(self.path).path != "/api/save":
+            route = urlsplit(self.path).path
+            if route not in ("/api/save", "/api/models"):
                 return self.error(404, "not_found")
             if not self.header_token_ok():
                 return self.error(403, "invalid_token", token_hint)
@@ -370,6 +511,15 @@ def make_handler(token, origin):
                 body = json.loads(self.rfile.read(length))
             except (ValueError, RecursionError):
                 return self.error(400, "invalid_settings", "request body is not valid JSON")
+            if route == "/api/models":
+                try:
+                    return self.json(200, load_models(body))
+                except Invalid as error:
+                    return self.error(400, "invalid_request", str(error))
+                except Discovery as error:
+                    return self.error(502, "discovery_failed", str(error))
+                except OSError as error:
+                    return self.error(500, "save_failed", str(error))
             try:
                 result = save(body)
             except Invalid as error:

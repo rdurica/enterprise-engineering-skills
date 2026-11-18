@@ -32,7 +32,7 @@
 
   /* Top bar */
   .topbar { position:sticky; top:0; z-index:10; background:color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter:blur(16px) saturate(1.5); -webkit-backdrop-filter:blur(16px) saturate(1.5); box-shadow:0 1px 0 color-mix(in srgb, var(--fg) 6%, transparent); }
-  .topbar-inner { max-width:68rem; margin:0 auto; padding:.75rem 1.5rem; display:flex; align-items:center; gap:1rem; }
+  .topbar-inner { max-width:76rem; margin:0 auto; padding:.75rem 1.5rem; display:flex; align-items:center; gap:1rem; }
   .brand { display:flex; align-items:center; gap:.7rem; margin-right:auto; min-width:0; }
   .brand-mark { display:grid; place-items:center; width:2.1rem; height:2.1rem; border-radius:10px; background:linear-gradient(135deg, var(--accent), #b16cf7); color:#fff; flex:none; }
   .brand-name { font-weight:650; letter-spacing:-.01em; line-height:1.2; }
@@ -51,10 +51,10 @@
   button.icon:hover { background:var(--accent-soft); color:var(--accent-soft-fg); }
 
   /* Page */
-  main { max-width:68rem; margin:0 auto; padding:2.75rem 1.5rem 4rem; }
-  .hero { margin-bottom:2.25rem; }
-  h1 { margin:0; font-size:clamp(1.75rem, 3.5vw, 2.4rem); line-height:1.15; letter-spacing:-.035em; font-weight:720; }
-  .lead { margin:.6rem 0 0; color:var(--muted); font-size:1rem; max-width:42rem; }
+  main { max-width:76rem; margin:0 auto; padding:2rem 1.5rem 4rem; }
+  .hero { margin-bottom:1.75rem; }
+  h1 { margin:0; font-size:clamp(1.5rem, 3vw, 1.9rem); line-height:1.15; letter-spacing:-.035em; font-weight:720; }
+  .lead { margin:.4rem 0 0; color:var(--muted); font-size:.95rem; max-width:52rem; }
   h2 { margin:0; font-size:1.05rem; letter-spacing:-.01em; font-weight:650; }
   .section-title { margin:0 0 .9rem; font-size:.8rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
   .card { background:var(--surface); border-radius:20px; box-shadow:var(--shadow); padding:1.5rem; margin-bottom:1.25rem; }
@@ -68,17 +68,16 @@
 
   /* Provider toggles */
   fieldset { border:0; margin:0; padding:0; min-width:0; }
-  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(10.5rem, 1fr)); gap:.75rem; margin-bottom:2.25rem; }
-  .tile { display:grid; grid-template-columns:auto 1fr auto; grid-template-areas:"icon . switch" "text text text"; align-items:center; gap:.9rem .5rem; padding:1rem; border-radius:16px; background:var(--surface); box-shadow:var(--shadow); cursor:pointer; transition:background-color .15s, box-shadow .15s; }
-  .tile:hover { background:color-mix(in srgb, var(--surface) 92%, var(--accent)); }
-  .tile:has(input:checked) { background:color-mix(in srgb, var(--surface) 88%, var(--accent)); }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(11.5rem, 1fr)); gap:.6rem; margin-bottom:1.75rem; }
+  .tile { display:flex; align-items:center; gap:.7rem; padding:.65rem .75rem; border-radius:14px; background:var(--surface); box-shadow:var(--shadow); cursor:pointer; transition:background-color .15s, box-shadow .15s; }
+  .tile:hover { background:color-mix(in srgb, var(--surface) 94%, var(--accent)); }
+  .tile:has(input:checked) { box-shadow:var(--shadow), inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
   .tile:has(input:focus-visible) { outline:2px solid var(--focus); outline-offset:2px; }
-  .tile .picon { grid-area:icon; }
-  .tile .switch { grid-area:switch; }
-  .tile-text { grid-area:text; display:flex; flex-direction:column; min-width:0; }
-  .tile-name { font-weight:620; }
-  .tile-note { font-size:.8rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; }
-  .tile-note::before { content:""; width:.45rem; height:.45rem; border-radius:50%; background:var(--faint); }
+  .tile .picon { width:2.1rem; height:2.1rem; border-radius:10px; }
+  .tile-text { flex:1; display:flex; flex-direction:column; min-width:0; line-height:1.3; }
+  .tile-name { font-weight:620; font-size:.92rem; }
+  .tile-note { font-size:.76rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; }
+  .tile-note::before { content:""; width:.42rem; height:.42rem; border-radius:50%; background:var(--faint); }
   .tile-note.linked::before { background:var(--ok); } .tile-note.installed::before { background:var(--accent); }
   /* switch */
   .switch { appearance:none; -webkit-appearance:none; flex:none; width:2.5rem; height:1.5rem; margin:0; border-radius:999px; background:var(--track); position:relative; cursor:pointer; transition:background-color .15s; }
@@ -93,28 +92,71 @@
   .pill.outside { background:var(--warn-soft); color:var(--warn-fg); }
   .pill.dirty { background:var(--warn-soft); color:var(--warn-fg); }
 
-  /* Agent list */
-  .list-head, .row { display:grid; grid-template-columns:minmax(0, 1fr) 21rem 13.5rem 2rem; gap:1.5rem; align-items:center; }
-  .list-head { padding:0 .9rem .5rem; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
-  .rows { list-style:none; margin:0; padding:0; }
-  .row { padding:.9rem; border-radius:14px; transition:background-color .15s; }
-  .row:hover { background:var(--fill); }
-  .row + .row { margin-top:.15rem; }
-  .agent-name { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; font-family:var(--mono); font-size:.88rem; font-weight:600; }
-  .agent-name.plain { font-family:inherit; font-size:.94rem; }
-  .agent-name .mark { width:.45rem; height:.45rem; border-radius:50%; background:var(--accent); }
-  .agent-desc { margin:.2rem 0 0; color:var(--muted); font-size:.86rem; line-height:1.45; }
-  .group-title { margin:1.25rem .9rem .4rem; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
-  .control-label { display:none; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin-bottom:.35rem; }
-  .cell-empty { color:var(--faint); padding-left:.2rem; }
+  /* Tabs */
+  .agents-card { padding:0; }
+  .tabs-bar { display:flex; align-items:center; gap:1rem; padding:1rem 1.25rem; border-bottom:1px solid color-mix(in srgb, var(--fg) 7%, transparent); }
+  .tabs { display:flex; gap:.25rem; padding:.25rem; border-radius:12px; background:var(--fill); overflow-x:auto; scrollbar-width:none; max-width:100%; }
+  .tab { display:flex; align-items:center; gap:.5rem; flex:none; min-height:2.25rem; padding:.35rem .8rem .35rem .45rem; border-radius:9px; background:transparent; color:var(--muted); font-weight:580; font-size:.9rem; white-space:nowrap; }
+  .tab:hover { background:color-mix(in srgb, var(--surface) 55%, transparent); color:var(--fg); }
+  .tab[aria-selected="true"] { background:var(--surface); color:var(--fg); box-shadow:0 1px 2px rgb(0 0 0 / .08), 0 2px 8px -4px rgb(0 0 0 / .18); }
+  .tab .picon { width:1.6rem; height:1.6rem; border-radius:7px; background:transparent; }
+  .tab .picon svg { width:16px; height:16px; }
+  .badge { min-width:1.25rem; height:1.25rem; padding:0 .35rem; border-radius:999px; display:grid; place-items:center; font-size:.7rem; font-weight:700; background:var(--accent-soft); color:var(--accent-soft-fg); }
+  .badge.warn { background:var(--warn-soft); color:var(--warn-fg); }
+  .tabs-meta { margin-left:auto; display:flex; align-items:center; gap:.75rem; font-size:.84rem; color:var(--muted); min-width:0; }
+  .tabs-meta .meta-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  button.load { display:flex; align-items:center; gap:.4rem; flex:none; font-size:.84rem; min-height:2rem; padding:.35rem .75rem; }
+  button.load svg { width:14px; height:14px; }
+  .panel-note { margin:0 0 1rem; padding:.6rem .85rem; border-radius:10px; background:var(--fill); color:var(--muted); font-size:.84rem; }
+  .panel-note.bad { background:var(--bad-soft); color:var(--bad); font-weight:500; }
+  .panel { padding:1.25rem; }
+  .panel:focus-visible { outline-offset:-2px; }
+
+  /* Agent cards */
+  .agents { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(19rem, 1fr)); gap:.85rem; }
+  .agent { display:flex; flex-direction:column; gap:.9rem; padding:1rem 1.05rem 1.1rem; border-radius:16px; background:var(--surface); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--fg) 9%, transparent); transition:box-shadow .15s; }
+  .agent:hover { box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--fg) 18%, transparent); }
+  .agent.is-own { box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 60%, transparent); background:color-mix(in srgb, var(--surface) 96%, var(--accent)); }
+  .agent.is-outside { box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--warn-fg) 55%, transparent); }
+  .agent-name { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; font-family:var(--mono); font-size:.86rem; font-weight:650; }
+  .agent-name.plain { font-family:inherit; font-size:.92rem; }
+  .agent-desc { margin:.3rem 0 0; color:var(--muted); font-size:.84rem; line-height:1.45; }
+  .agent-controls { margin-top:auto; display:flex; flex-direction:column; gap:.8rem; }
+  .group-title { margin:1.5rem 0 .7rem; font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
+  .group-title:first-child { margin-top:0; }
+  .control-head { display:flex; align-items:center; justify-content:space-between; min-height:1.5rem; margin-bottom:.3rem; }
+  .control-label { font-size:.7rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
+  .control-head button.icon { width:1.5rem; height:1.5rem; min-height:1.5rem; }
 
   /* Select */
   select { appearance:none; -webkit-appearance:none; width:100%; font:inherit; font-size:.86rem; color:var(--fg); min-height:2.4rem; padding:.45rem 2rem .45rem .8rem; border:0; border-radius:10px; cursor:pointer;
     background:linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 1.05rem) 52% / .34rem .34rem no-repeat,
                linear-gradient(-45deg, transparent 50%, var(--muted) 50%) calc(100% - .76rem) 52% / .34rem .34rem no-repeat, var(--fill); transition:background-color .15s; }
-  .row:hover select { background-color:var(--surface); }
   select:hover { background-color:var(--fill-hover) !important; }
   .outside select { background-color:var(--warn-soft) !important; color:var(--warn-fg); }
+
+  /* Model picker */
+  .picker { position:relative; }
+  .picker-trigger { width:100%; display:flex; align-items:center; gap:.5rem; min-height:2.4rem; padding:.45rem 2rem .45rem .8rem; font-size:.86rem; font-weight:450; text-align:left;
+    background:linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 1.05rem) 52% / .34rem .34rem no-repeat,
+               linear-gradient(-45deg, transparent 50%, var(--muted) 50%) calc(100% - .76rem) 52% / .34rem .34rem no-repeat, var(--fill); }
+  .picker-trigger:hover { background-color:var(--fill-hover); }
+  .picker-value { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .picker-tag { flex:none; font-size:.72rem; color:var(--faint); }
+  .outside .picker-trigger { background-color:var(--warn-soft); color:var(--warn-fg); }
+  .picker-pop { position:absolute; z-index:20; top:calc(100% + .35rem); left:0; width:max(100%, 24rem); max-width:calc(100vw - 2rem); background:var(--surface); border-radius:14px;
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--fg) 10%, transparent), 0 18px 40px -12px rgb(0 0 0 / .35); overflow:hidden; }
+  .picker-search { width:100%; font:inherit; font-size:.88rem; color:var(--fg); background:transparent; border:0; border-bottom:1px solid color-mix(in srgb, var(--fg) 8%, transparent); padding:.75rem .9rem; outline:none; }
+  .picker-list { max-height:20rem; overflow:auto; padding:.35rem; overscroll-behavior:contain; }
+  .picker-group + .picker-group { margin-top:.35rem; }
+  .picker-group-title { position:sticky; top:-.35rem; background:var(--surface); padding:.45rem .55rem .25rem; font-size:.68rem; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
+  .picker-option { display:flex; align-items:center; gap:.5rem; padding:.42rem .55rem; border-radius:8px; font-size:.86rem; cursor:pointer; }
+  .picker-option.active { background:var(--accent-soft); color:var(--accent-soft-fg); }
+  .picker-option.selected .picker-name { font-weight:650; }
+  .picker-option.selected::before { content:"✓"; width:1em; color:var(--accent); }
+  .picker-option:not(.selected)::before { content:""; width:1em; }
+  .picker-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); font-size:.82rem; }
+  .picker-empty { padding:1rem; color:var(--muted); font-size:.86rem; }
 
   /* Slider */
   .slider { --thumb:18px; padding-top:.35rem; }
@@ -142,23 +184,17 @@
   .alert p { margin:0; flex:1 1 20rem; }
   pre { font-family:var(--mono); font-size:.82rem; background:var(--code-bg); color:var(--code-fg); padding:1rem 1.1rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:14px; margin:0; }
 
-  @media (max-width: 60rem) {
-    .list-head { display:none; }
-    .row { grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
-    .row > .info { grid-column:1 / -1; }
-    .row > .reset-cell { position:absolute; }
-    .row { position:relative; }
-    .row > .reset-cell { top:.7rem; right:.6rem; }
-    .control-label { display:block; }
-  }
   @media (max-width: 40rem) {
     .topbar-inner { padding:.6rem 1rem; gap:.6rem; }
-    .brand-sub, #save-hint-top { display:none; }
-    main { padding:1.75rem 1rem 3rem; }
-    .card { padding:1rem .6rem; border-radius:16px; }
-    .card-head { padding:0 .4rem; }
-    .tiles { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.6rem; }
-    .row { grid-template-columns:1fr; }
+    .brand-sub { display:none; }
+    main { padding:1.5rem 1rem 3rem; }
+    .tiles { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .tile { gap:.5rem; padding:.55rem .6rem; }
+    .tabs-bar { padding:.75rem; }
+    .tabs-bar { flex-wrap:wrap; }
+    .tabs-meta .meta-text { display:none; }
+    .panel { padding:.75rem; }
+    .agents { grid-template-columns:1fr; }
     .bar-status #status { display:none; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
@@ -182,8 +218,7 @@
 <main>
   <div class="hero">
     <h1>Providers and models</h1>
-    <p class="lead">Pick your tools and the model of each agent. Only deviations from the pack defaults are saved – anything you leave alone follows the current defaults.</p>
-    <p class="lead" id="save-hint">Saving rebuilds the agents and runs <code>install.sh</code>.</p>
+    <p class="lead">Pick your tools and the model of each agent. Only deviations from the pack defaults are saved – anything you leave alone follows the current defaults. <span id="save-hint">Saving rebuilds the agents and runs <code>install.sh</code>.</span></p>
   </div>
   <div id="warnings"></div>
   <div id="load-error" role="alert"></div>
@@ -235,15 +270,8 @@ const about = {
   "ees-ux-reviewer": "Reviews UX and accessibility of frontend changes against WCAG 2.2 AA, in code and in a browser.",
 };
 const aboutOpencode = {
-  model: "Model of the main session that orchestrates the pipeline.",
-  small_model: "Cheaper model for small tasks such as titles and summaries.",
-  build: "opencode's default agent for working on code.",
-  plan: "opencode's planning agent; reads and proposes, never edits.",
-  general: "General-purpose subagent for multi-step tasks.",
-  explore: "Fast subagent for searching the codebase.",
-  compaction: "Compacts a long conversation so it fits the context.",
-  title: "Generates session titles.",
-  summary: "Summarizes sessions.",
+  model: "Main session: runs every skill, and opencode's build and plan agents follow it.",
+  small_model: "Cheap model for the small work: titles, summaries, compaction and the general and explore helpers follow it.",
 };
 const sessionName = { model: "Main model", small_model: "Small model" };
 let dirty = false, saving = false;
@@ -277,9 +305,90 @@ function delPath(root, path) {
 
 const safe = (v) => String(v).replace(/[^A-Za-z0-9_-]/g, "_");
 
+// Searchable model picker, the same for every provider (opencode and Pi list every model of every configured provider).
+// A button shows the value; it opens a popover with a search field (ARIA combobox) over a listbox grouped as
+// "Recommended" (default and pack catalog) and then one group per provider prefix.
+let pickerSeq = 0;
+function picker(id, label, options, value, def, outside, provider, choose) {
+  const pack = new Set([def, ...((state.pack_catalog?.[provider] || {}).models || [])]);
+  const wrap = el("div", { class: "picker" });
+  const trigger = attr(el("button", { type: "button", class: "picker-trigger", id }), { "aria-haspopup": "listbox", "aria-expanded": "false", "aria-label": label + ": " + value });
+  trigger.append(el("span", { class: "picker-value", textContent: value }), el("span", { class: "picker-tag", textContent: value === def ? "default" : outside ? "not in catalog" : "" }));
+  wrap.append(trigger);
+  let pop = null, items = [], active = -1;
+  const close = (refocus) => {
+    if (!pop) return;
+    pop.remove(); pop = null; trigger.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", outsideClick, true);
+    if (refocus) trigger.focus();
+  };
+  const outsideClick = (e) => { if (!wrap.contains(e.target)) close(false); };
+  const setActive = (i) => {
+    items.forEach((it) => it.classList.remove("active"));
+    active = items.length ? (i + items.length) % items.length : -1;
+    const it = items[active];
+    if (it) { it.classList.add("active"); search.setAttribute("aria-activedescendant", it.id); it.scrollIntoView({ block: "nearest" }); }
+    else search.removeAttribute("aria-activedescendant");
+  };
+  const listId = id + "-list-" + (++pickerSeq);
+  const search = attr(el("input", { type: "search", class: "picker-search", placeholder: "Search " + options.length + " models…", autocomplete: "off", spellcheck: false }),
+    { role: "combobox", "aria-expanded": "true", "aria-controls": listId, "aria-autocomplete": "list", "aria-label": "Search models" });
+  const list = attr(el("div", { class: "picker-list", id: listId }), { role: "listbox", "aria-label": label });
+  const option = (o, text) => {
+    const it = attr(el("div", { class: "picker-option" + (o === value ? " selected" : ""), id: listId + "-" + items.length },
+      el("span", { class: "picker-name", textContent: text, title: o }),
+      el("span", { class: "picker-tag", textContent: o === def ? "default" : "" })), { role: "option", "aria-selected": String(o === value) });
+    it.dataset.value = o;
+    it.onpointerdown = (e) => e.preventDefault();          // keep focus in the search field
+    it.onclick = () => { close(true); if (o !== value) choose(o); };
+    items.push(it);
+    return it;
+  };
+  const fill = () => {
+    const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const hit = (o) => terms.every((t) => o.toLowerCase().includes(t));
+    items = []; list.replaceChildren();
+    const groups = new Map([["Recommended", []]]);
+    for (const o of options) {
+      if (!hit(o)) continue;
+      const g = pack.has(o) ? "Recommended" : o.includes("/") ? o.slice(0, o.indexOf("/")) : "Other models";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(o);
+    }
+    for (const [g, opts] of groups) {
+      if (!opts.length) continue;
+      const gid = listId + "-g-" + safe(g);
+      const box = attr(el("div", { class: "picker-group" }), { role: "group", "aria-labelledby": gid });
+      box.append(el("div", { class: "picker-group-title", id: gid, textContent: g + " · " + opts.length }));
+      for (const o of opts) box.append(option(o, g === "Recommended" || !o.startsWith(g + "/") ? o : o.slice(g.length + 1)));
+      list.append(box);
+    }
+    if (!items.length) list.append(el("div", { class: "picker-empty", textContent: "No model matches “" + search.value + "”." }));
+    setActive(terms.length ? 0 : Math.max(0, items.findIndex((it) => it.dataset.value === value)));
+  };
+  search.oninput = fill;
+  search.onkeydown = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
+    else if (e.key === "Enter") { e.preventDefault(); items[active]?.click(); }
+    else if (e.key === "Escape") { e.preventDefault(); close(true); }
+    else if (e.key === "Tab") close(false);
+  };
+  const open = () => {
+    if (pop) return close(true);
+    pop = el("div", { class: "picker-pop" }, search, list);
+    wrap.append(pop); trigger.setAttribute("aria-expanded", "true");
+    search.value = ""; fill(); search.focus();
+    document.addEventListener("pointerdown", outsideClick, true);
+  };
+  trigger.onclick = open;
+  trigger.onkeydown = (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); } };
+  return wrap;
+}
+
 // One editable value: `section` is "agents" or "opencode", `path` the keys below it, `list` the catalog list.
-// Models get a select; ordered levels (effort, variant) a slider. Returns the control, its reset button and state.
-function control(section, path, def, list, label, kind) {
+// Models get the picker; ordered levels (effort, variant) a slider. Returns the control, its reset button and state.
+function control(section, path, def, list, label, kind, provider) {
   const own = getPath(draft[section], path);
   const value = own === undefined ? def : own;
   const outside = !list.includes(value);
@@ -290,9 +399,7 @@ function control(section, path, def, list, label, kind) {
   const text = (o) => o + (o === def ? " (default)" : "") + (o === value && outside ? " (not in catalog)" : "");
   let input;
   if (kind === "select") {
-    input = attr(el("select", { id }), { "aria-label": label });
-    for (const o of options) input.append(el("option", { value: o, selected: o === value, textContent: text(o) }));
-    input.onchange = () => choose(input.value);
+    input = picker(id, label, options, value, def, outside, provider || path[1], choose);
   } else {
     const max = Math.max(options.length - 1, 1);
     const range = attr(el("input", { type: "range", id, min: 0, max: options.length - 1, step: 1, value: options.indexOf(value) }), { "aria-label": label, "aria-valuetext": text(value) });
@@ -318,24 +425,21 @@ function control(section, path, def, list, label, kind) {
   const reset = attr(el("button", { type: "button", class: "icon", hidden: !isOwn, id: id + "-reset", title: "Back to default: " + def }), { "aria-label": "Reset to default: " + label });
   reset.innerHTML = resetIcon;
   reset.onclick = () => { delPath(draft[section], path); edited(); };
-  const box = el("div", { class: "cell" + (outside ? " outside" : "") }, el("div", { class: "control-label", textContent: colName[path[path.length - 1]] || "" }), input);
-  box.querySelector(".control-label").setAttribute("aria-hidden", "true");
-  return { box, reset, own: isOwn, outside };
+  const head = el("div", { class: "control-head" }, attr(el("span", { class: "control-label", textContent: colName[path[path.length - 1]] || "" }), { "aria-hidden": "true" }), reset);
+  const box = el("div", { class: "cell" + (outside ? " outside" : "") }, head, input);
+  return { box, own: isOwn, outside };
 }
 
-// One row: name, what it does, a model cell, a level cell and one reset button for the row's own values.
+// One agent card: name, what it does and its model and level controls.
 function row(name, desc, model, level, plain) {
   const all = [model, level].filter(Boolean);
   const outside = all.some((c) => c.outside), own = all.some((c) => c.own);
   const nameBox = el("div", { class: "agent-name" + (plain ? " plain" : "") }, name);
   if (outside) nameBox.append(el("span", { class: "pill outside", textContent: "not in catalog" }));
   else if (own) nameBox.append(el("span", { class: "pill own", textContent: "custom" }));
-  const resets = el("div", { class: "reset-cell" }, ...all.map((c) => c.reset));
-  return el("li", { class: "row" },
-    el("div", { class: "info" }, nameBox, desc ? el("p", { class: "agent-desc", textContent: desc }) : ""),
-    model ? model.box : el("div", { class: "cell-empty", textContent: "–" }),
-    level ? level.box : el("div", { class: "cell-empty", textContent: "" }),
-    resets);
+  return el("li", { class: "agent" + (outside ? " is-outside" : own ? " is-own" : "") },
+    el("div", {}, nameBox, desc ? el("p", { class: "agent-desc", textContent: desc }) : ""),
+    el("div", { class: "agent-controls" }, ...all.map((c) => c.box)));
 }
 
 function renderProviders() {
@@ -354,22 +458,18 @@ function renderProviders() {
 
 const levelKey = { claude: "effort", codex: "effort", opencode: "variant", pi: "variant" };
 
-function listHead(levelName) {
-  const head = el("div", { class: "list-head" }, el("span", { textContent: "Agent" }), el("span", { textContent: "Model" }), el("span", { textContent: levelName || "" }), el("span"));
-  head.setAttribute("aria-hidden", "true");
-  return head;
-}
-
 function agentRows(provider, plabel) {
   const lk = levelKey[provider];
   const cat = state.catalog[provider] || {};
   const listOf = { model: cat.models || [], effort: cat.efforts || [], variant: cat.variants || [] };
-  const list = el("ul", { class: "rows" });
+  const list = el("ul", { class: "agents" });
   for (const [agent, tables] of Object.entries(state.defaults.agents)) {
     const cfg = tables[provider];
     if (!cfg) continue;
-    const model = cfg.model === undefined ? null : control("agents", [agent, provider, "model"], cfg.model, listOf.model, "Model – " + agent + " (" + plabel + ")", "select");
-    const level = !lk || cfg[lk] === undefined ? null : control("agents", [agent, provider, lk], cfg[lk], listOf[lk], colName[lk] + " – " + agent + " (" + plabel + ")", "slider");
+    const model = cfg.model === undefined ? null : control("agents", [agent, provider, "model"], cfg.model, listOf.model, "Model – " + agent + " (" + plabel + ")", "select", provider);
+    const chosenModel = getPath(draft.agents, [agent, provider, "model"]) ?? cfg.model;
+    const levels = levelsFor(provider, chosenModel) || listOf[lk];
+    const level = !lk || cfg[lk] === undefined ? null : control("agents", [agent, provider, lk], cfg[lk], levels, colName[lk] + " – " + agent + " (" + plabel + ")", "slider");
     list.append(row(agent, about[agent], model, level));
   }
   return list;
@@ -378,15 +478,10 @@ function agentRows(provider, plabel) {
 function opencodeRows() {
   const cat = state.catalog.opencode || {};
   const d = state.defaults.opencode;
-  const list = el("ul", { class: "rows" });
+  const list = el("ul", { class: "agents" });
   for (const k of ["model", "small_model"]) {
     if (d[k] === undefined) continue;
-    list.append(row(sessionName[k], aboutOpencode[k], control("opencode", [k], d[k], cat.models || [], sessionName[k] + " – main session (opencode)", "select"), null, true));
-  }
-  for (const [id, cfg] of Object.entries(d.agent || {})) {
-    const model = cfg.model === undefined ? null : control("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (opencode built-in agent)", "select");
-    const level = cfg.variant === undefined ? null : control("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Variant – " + id + " (opencode built-in agent)", "slider");
-    list.append(row(id, aboutOpencode[id], model, level));
+    list.append(row(sessionName[k], aboutOpencode[k], control("opencode", [k], d[k], cat.models || [], sessionName[k] + " (opencode session)", "select", "opencode"), null, true));
   }
   return list;
 }
@@ -400,23 +495,96 @@ function countOwn(provider) {
   return n;
 }
 
+// Whether a provider has a value outside its catalog, so its tab can flag it while another tab is open.
+function hasOutside(provider) {
+  const cat = state.catalog[provider] || {};
+  const listOf = { model: cat.models || [], small_model: cat.models || [], effort: cat.efforts || [], variant: cat.variants || [] };
+  const check = (cfg) => cfg && typeof cfg === "object" && Object.entries(cfg).some(([k, v]) => listOf[k] && typeof v === "string" && !listOf[k].includes(v));
+  if (Object.values(draft.agents).some((t) => t && typeof t === "object" && check(t[provider]))) return true;
+  return provider === "opencode" && (check(draft.opencode) || Object.values(draft.opencode.agent || {}).some(check));
+}
+
+// Levels the provider's own CLI reported for one model (Codex). A model it did not list gets only the levels
+// every listed model supports, so a level one model alone has (such as ultra) is not offered for it. null means
+// nothing was loaded: use the provider-wide catalog list.
+function levelsFor(provider, model) {
+  const byModel = state.local?.[provider]?.levels_by_model;
+  if (!byModel || typeof byModel !== "object") return null;
+  const own = byModel[model];
+  if (Array.isArray(own) && own.length) return own;
+  const lists = Object.values(byModel).filter((l) => Array.isArray(l) && l.length);
+  if (!lists.length) return null;
+  const common = lists[0].filter((lv) => lists.every((l) => l.includes(lv)));
+  return common.length ? common : null;
+}
+
+const loadIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>';
+const loadNote = {};   // provider -> {text, bad} shown above the panel after Load models
+let loading = null;
+async function loadModels(provider) {
+  if (loading) return;
+  loading = provider; render();
+  try {
+    const r = await fetch("/api/models", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ provider }) });
+    const data = await r.json();
+    if (!r.ok) { loadNote[provider] = { text: "Cannot load models: " + (data.message || data.error), bad: true }; return; }
+    const s = await fetch("/api/state", { headers });
+    if (s.ok) { state = await s.json(); showWarnings($("warnings"), state.warnings); }
+    loadNote[provider] = { text: "Loaded " + data.count + " models from " + data.source + "." };
+  } catch (e) {
+    loadNote[provider] = { text: "Cannot load models: " + e, bad: true };
+  } finally { loading = null; render(); }
+}
+
+let activeTab = null;
 function renderTables() {
   const box = $("tables");
   box.replaceChildren();
   const chosen = state.providers.filter((p) => draft.providers.has(p.id));
-  if (chosen.length) box.append(el("h2", { class: "section-title", textContent: "Agents" }));
+  if (!chosen.length) return;
+  if (!chosen.some((p) => p.id === activeTab)) activeTab = chosen[0].id;
+  const current = chosen.find((p) => p.id === activeTab);
+  const tabs = attr(el("div", { class: "tabs" }), { role: "tablist", "aria-label": "Agent settings by provider" });
   for (const p of chosen) {
-    const own = countOwn(p.id);
-    const sec = el("section", { class: "card" }, el("div", { class: "card-head" }, picon(p.id),
-      el("div", { class: "head-text" }, el("h2", { textContent: p.label }), el("p", { class: "sub", textContent: "Agent models and " + (levelKey[p.id] === "variant" ? "variants" : levelKey[p.id] ? "effort levels" : "settings") })),
-      el("span", { class: "pill " + (own ? "own" : ""), textContent: own ? own + " custom " + (own === 1 ? "value" : "values") : "defaults only" })));
-    if (p.id === "opencode") {
-      sec.append(el("h3", { class: "group-title", textContent: "Main session and built-in agents" }), listHead("Variant"), opencodeRows(),
-        el("h3", { class: "group-title", textContent: "Pack agents" }));
-    }
-    sec.append(listHead(levelKey[p.id] ? colName[levelKey[p.id]] : ""), agentRows(p.id, p.label));
-    box.append(sec);
+    const own = countOwn(p.id), warn = hasOutside(p.id);
+    const tab = attr(el("button", { type: "button", class: "tab", id: "tab-" + p.id, tabIndex: p.id === activeTab ? 0 : -1 }, picon(p.id), p.label),
+      { role: "tab", "aria-selected": String(p.id === activeTab), "aria-controls": "panel" });
+    if (warn) tab.append(attr(el("span", { class: "badge warn", textContent: "!" }), { "aria-label": "has values not in catalog" }));
+    else if (own) tab.append(attr(el("span", { class: "badge", textContent: String(own) }), { "aria-label": own + " custom " + (own === 1 ? "value" : "values") }));
+    tab.onclick = () => { activeTab = p.id; render(); };
+    tabs.append(tab);
   }
+  tabs.onkeydown = (e) => {
+    const i = chosen.findIndex((p) => p.id === activeTab);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: chosen.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    activeTab = chosen[(next + chosen.length) % chosen.length].id;
+    render();
+    $("tab-" + activeTab).focus();
+  };
+  const own = countOwn(current.id);
+  const lk = levelKey[current.id];
+  const local = state.local?.[current.id];
+  const metaText = (own ? own + " custom" : "defaults only") + " · " + (current.id === "claude" ? "aliases always mean the newest model"
+    : local ? local.count + " models from " + local.source + ", " + new Date(local.loaded_at).toLocaleDateString() : "pack catalog only");
+  const meta = el("div", { class: "tabs-meta" }, el("span", { class: "meta-text", textContent: metaText }));
+  if (current.id !== "claude") {
+    const btn = el("button", { type: "button", class: "load", id: "load-" + current.id, disabled: loading !== null, title: "Ask " + current.label + " on this machine which models your account can use" });
+    btn.innerHTML = loadIcon;
+    btn.append(loading === current.id ? "Loading…" : local ? "Reload models" : "Load models");
+    btn.onclick = () => loadModels(current.id);
+    meta.append(btn);
+  }
+  const panel = attr(el("div", { class: "panel", id: "panel", tabIndex: 0 }), { role: "tabpanel", "aria-labelledby": "tab-" + current.id });
+  if (loadNote[current.id]) panel.append(attr(el("p", { class: "panel-note" + (loadNote[current.id].bad ? " bad" : ""), textContent: loadNote[current.id].text }), { role: loadNote[current.id].bad ? "alert" : "status" }));
+  if (current.id === "opencode") {
+    panel.append(el("h3", { class: "group-title", textContent: "Session" }), opencodeRows(),
+      el("h3", { class: "group-title", textContent: "Pack agents" }));
+  }
+  panel.append(agentRows(current.id, current.label));
+  box.append(el("h2", { class: "section-title", textContent: "Agents" }),
+    el("section", { class: "card agents-card" }, el("div", { class: "tabs-bar" }, tabs, meta), panel));
 }
 
 function showWarnings(target, list) {

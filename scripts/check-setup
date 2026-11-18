@@ -59,6 +59,7 @@ stubbin="$sb/stubbin"
 mkdir -p "$stubbin"
 cat >"$stubbin/opencode" <<'STUB'
 #!/usr/bin/env bash
+if [[ "${1:-}" == models ]]; then printf '%s\n' claude-agent/opus local-llm/coder-9b ollama/qwen-9; exit 0; fi
 echo '[]'
 STUB
 chmod +x "$stubbin/opencode"
@@ -762,6 +763,9 @@ area_real_pack() {
 #   [G-corrupt]  a corrupt settings.json is never overwritten by POST /api/save (error response, file unchanged)
 #   [G-500]      an unexpected failure answers with HTTP 500 and a JSON body instead of dropping the connection
 #   [G-harden]   foreign Host header: 403; the page has a Content-Security-Policy and Referrer-Policy: no-referrer
+#   [G-session]  opencode built-in agents follow the saved session model / small model unless set directly
+#   [G-models]   POST /api/models asks the provider CLI, stores models.json, extends the catalog for saving;
+#                claude, unknown providers, a missing CLI and a foreign Origin are refused
 
 : >"$sb/gitconfig"
 
@@ -1291,6 +1295,53 @@ c_gui_page_security_headers() { # [G-harden]
   gui_stop "$d" || true
 }
 
+c_gui_opencode_builtins_follow_session() { # [G-session]
+  local d f
+  d="$(gui_new session)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["opencode"],"agents":{},"opencode":{"model":"claude-agent/sonnet","small_model":"claude-agent/sonnet","agent":{"explore":{"model":"claude-agent/opus"}}}}'
+  saved_ok "$d" || return 1
+  f="$d/xdg/opencode/opencode.json"
+  json_is "$f" '[c["agent"][a]["model"] for a in ("build", "plan")]' '["claude-agent/sonnet", "claude-agent/sonnet"]' || return 1
+  json_is "$f" '[c["agent"][a]["model"] for a in ("general", "compaction", "title", "summary")]' '["claude-agent/sonnet", "claude-agent/sonnet", "claude-agent/sonnet", "claude-agent/sonnet"]' || return 1
+  json_is "$f" 'c["agent"]["explore"]["model"]' '"claude-agent/opus"' || return 1        # set directly: wins
+  json_is "$f" 'c["agent"]["general"]["variant"]' '"low"' || return 1                    # variants keep their defaults
+  gui_stop "$d" || true
+}
+
+c_gui_load_models() { # [G-models]
+  local d tok f
+  d="$(gui_new models)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  printf '%s\n' '{"provider":"opencode"}' >"$d/req.json"
+  api "$d" POST /api/models "$tok" "http://evil.example" "$d/req.json"
+  status_is "$d" 403 invalid_origin || return 1
+  api "$d" POST /api/models "$tok" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 200 || return 1
+  json_is "$d/r.body" 'c["count"]' '3' || return 1
+  f="$d/xdg/enterprise-engineering-skills/models.json"
+  json_is "$f" 'c["opencode"]["models"]' '["claude-agent/opus", "local-llm/coder-9b", "ollama/qwen-9"]' || return 1
+  api "$d" GET /api/state "$tok" -
+  json_is "$d/r.body" '"local-llm/coder-9b" in c["catalog"]["opencode"]["models"]' 'true' || return 1
+  json_is "$d/r.body" 'c["local"]["opencode"]["count"]' '3' || return 1
+  save "$d" '{"providers":["opencode"],"agents":{"ees-check-runner":{"opencode":{"model":"local-llm/coder-9b"}}},"opencode":{"small_model":"ollama/qwen-9"}}'
+  saved_ok "$d" || return 1
+  json_is "$d/r.body" 'any("not in the catalog" in w or "coder-9b" in w for w in c["warnings"])' 'false' || return 1
+  settings_is "$d" 'c["opencode"]' '{"small_model": "ollama/qwen-9"}' || return 1
+  printf '%s\n' '{"provider":"claude"}' >"$d/req.json"
+  api "$d" POST /api/models "$tok" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 400 invalid_request || return 1
+  printf '%s\n' '{"provider":"nope"}' >"$d/req.json"
+  api "$d" POST /api/models "$tok" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 400 invalid_request || return 1
+  printf '%s\n' '{"provider":"pi"}' >"$d/req.json"
+  api "$d" POST /api/models "$tok" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 502 discovery_failed || return 1
+  json_is "$f" 'sorted(c)' '["opencode"]' || return 1
+  gui_stop "$d" || true
+}
+
 area_gui() {
   trap 'gui_cleanup; rm -rf "$sb"' EXIT
   check "[G-start] make setup listens on 127.0.0.1, prints the URL with token, opens it in the browser; Ctrl+C ends it and closes the port" c_gui_make_setup_start_open_stop
@@ -1306,6 +1357,8 @@ area_gui() {
   check "[G-corrupt] POST /api/save with a corrupt settings.json fails with an error and leaves the file byte-identical" c_gui_corrupt_settings_not_overwritten
   check "[G-500] an unexpected failure (invalid catalog) in GET /api/state and POST /api/save is an HTTP 500 with a JSON body" c_gui_unexpected_failure_is_a_json_500
   check "[G-harden] a foreign Host header with a valid token is 403 (GET /, GET /api/state, POST /api/save); own Host still works" c_gui_foreign_host_rejected
+  check "[G-session] opencode build/plan follow the saved main model, the helpers the small model; an agent model set directly wins" c_gui_opencode_builtins_follow_session
+  check "[G-models] POST /api/models stores the CLI's models in models.json and they can be saved without warnings; claude, unknown, missing CLI and foreign Origin are refused" c_gui_load_models
   check "[G-harden] GET /?token= carries a Content-Security-Policy header and Referrer-Policy: no-referrer" c_gui_page_security_headers
 }
 

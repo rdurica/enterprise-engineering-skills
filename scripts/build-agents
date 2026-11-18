@@ -145,6 +145,9 @@ def check_sources():
 def build():
     defaults, catalog, sources = check_sources()
     user, problems = ees_settings.load_settings()
+    local, local_problems = ees_settings.load_local_models()
+    problems += local_problems
+    catalog = ees_settings.with_local(catalog, local)
     problems += ees_settings.check_top_level(user, catalog)
     settings, more = ees_settings.merge_agents(defaults, user, catalog)
     for problem in problems + more:
