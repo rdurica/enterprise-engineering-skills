@@ -758,6 +758,10 @@ area_real_pack() {
 #   [G-catalog]  a deviation outside the catalog is reported in /api/state warnings and shown as "mimo katalog"
 #   [G-provider] unticking a provider removes its links and updates settings.json providers
 #   [G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json
+#   [G-stale]    stale stored entries (unknown agent/key) do not block a save; new unknown ones are still 400
+#   [G-corrupt]  a corrupt settings.json is never overwritten by POST /api/save (error response, file unchanged)
+#   [G-500]      an unexpected failure answers with HTTP 500 and a JSON body instead of dropping the connection
+#   [G-harden]   foreign Host header: 403; the page has a Content-Security-Policy and Referrer-Policy: no-referrer
 
 : >"$sb/gitconfig"
 
@@ -829,6 +833,39 @@ except OSError as e:
     data = str(e).encode()
 open(prefix + ".status", "w").write(str(status))
 open(prefix + ".ctype", "w").write(ctype)
+open(prefix + ".body", "wb").write(data)
+PY
+
+# raw.py <prefix> <METHOD> <path> <port> <timeout-s> <token|-> <origin|-> <host|-> [body-file]: like api.py but
+# with a short client timeout, an optional Host header override, and the response headers kept in
+# <prefix>.headers (one "lowercase-name: value" line each). status 0 means no HTTP response at all (reset,
+# hang, timeout).
+cat >"$sb/gui-raw.py" <<'PY'
+import http.client, sys
+prefix, method, path, port, timeout, token, origin, host, *rest = sys.argv[1:]
+headers = {}
+if token != "-":
+    headers["X-Setup-Token"] = token
+if origin != "-":
+    headers["Origin"] = origin
+if host != "-":
+    headers["Host"] = host
+body = None
+if rest:
+    body = open(rest[0], "rb").read()
+    headers["Content-Type"] = "application/json"
+status, hdrs, data = 0, "", b""
+try:
+    conn = http.client.HTTPConnection("127.0.0.1", int(port), timeout=float(timeout))
+    conn.request(method, path, body=body, headers=headers)
+    r = conn.getresponse()
+    status = r.status
+    hdrs = "".join(f"{k.lower()}: {v}\n" for k, v in r.getheaders())
+    data = r.read()
+except (OSError, http.client.HTTPException) as e:
+    data = f"{type(e).__name__}: {e}".encode()
+open(prefix + ".status", "w").write(str(status))
+open(prefix + ".headers", "w").write(hdrs)
 open(prefix + ".body", "wb").write(data)
 PY
 
@@ -939,6 +976,18 @@ snapshot() { # snapshot <dir>: settings.json and every provider link, for before
 }
 
 settings_is() { json_is "$(settings_file "$1")" "$2" "$3"; } # settings_is <dir> <expr> <expected JSON>
+
+# raw <dir> <METHOD> <path> <token|-> <origin|-> <host|-> [body-file]: result in <dir>/r.{status,headers,body}
+raw() {
+  local d="$1" method="$2" path="$3"
+  shift 3
+  python3 -I "$sb/gui-raw.py" "$d/r" "$method" "$path" "$(<"$d/port")" 10 "$@"
+}
+
+json_body() { # json_body <dir>: the last response body is a JSON object
+  [[ "$(json_get "$1/r.body" 'isinstance(c, dict)')" == true ]] || { echo "response body is not a JSON object: $(head -c 300 "$1/r.body")"; return 1; }
+}
+
 
 # ---------------------------------------------------------------- checks
 
@@ -1137,6 +1186,108 @@ c_gui_opencode_variant_reaches_opencode_json() { # [G-opencode]
   gui_stop "$d" || true
 }
 
+c_gui_stale_stored_entries_do_not_block_save() { # [G-stale]
+  local d s stale_agents stale_oc
+  d="$(gui_new stale)"
+  s="$(settings_file "$d")"
+  write_settings "$d" <<'JSON'
+{
+  "providers": ["claude", "codex"],
+  "agents": {
+    "ees-gone": { "codex": { "model": "gpt-6.2-terra" } },
+    "ees-implementer": { "codex": { "tools": ["Read"] } }
+  },
+  "opencode": { "agent": { "ghost": { "variant": "low" } } }
+}
+JSON
+  stale_agents='"ees-gone":{"codex":{"model":"gpt-6.2-terra"}},"ees-implementer":{"codex":{"tools":["Read"]}}'
+  stale_oc='"agent":{"ghost":{"variant":"low"}}'
+  gui_start "$d" scripts/setup || return 1
+
+  # the page sends the stored agents/opencode back unchanged, plus the one new deviation
+  save "$d" '{"providers":["claude","codex"],"agents":{'"$stale_agents"',"ees-code-reviewer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{'"$stale_oc"'}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["agents"]["ees-code-reviewer"]["codex"]["model"]' '"gpt-6.2-terra"' || return 1
+  has_line "$d/codex/agents/ees-code-reviewer.toml" 'model = "gpt-6.2-terra"' || return 1
+
+  # a NEW unknown agent or key (not in the stored settings) is still rejected, stale ones next to it or not
+  local before after body
+  before="$(snapshot "$d")"
+  for body in \
+    '{"providers":["claude","codex"],"agents":{"ees-new-ghost":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{}}' \
+    '{"providers":["claude","codex"],"agents":{"ees-implementer":{"codex":{"bogus":"x"}}},"opencode":{}}' \
+    '{"providers":["claude","codex"],"agents":{'"$stale_agents"',"ees-new-ghost":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{'"$stale_oc"'}}' \
+    '{"providers":["claude","codex"],"agents":{},"opencode":{"agent":{"ghost2":{"variant":"low"}}}}'; do
+    save "$d" "$body"
+    status_is "$d" 400 invalid_settings || { echo "(request: $body)"; return 1; }
+  done
+  after="$(snapshot "$d")"
+  [[ "$before" == "$after" ]] || { echo "settings or links changed by rejected requests:"; diff <(echo "$before") <(echo "$after") || true; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_corrupt_settings_not_overwritten() { # [G-corrupt]
+  local d s before st
+  d="$(gui_new corrupt)"
+  s="$(settings_file "$d")"
+  mkdir -p "$(dirname "$s")"
+  printf '{not json' >"$s"
+  before="$(cat "$s"; echo x)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["claude","codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{}}'
+  st="$(<"$d/r.status")"
+  [[ "$(cat "$s"; echo x)" == "$before" ]] || { echo "corrupt settings.json was changed by POST /api/save (HTTP $st); now: $(head -c 300 "$s")"; return 1; }
+  [[ "$st" =~ ^[45][0-9][0-9]$ ]] || { echo "expected a 4xx/5xx for a corrupt settings.json, got $st; body: $(head -c 300 "$d/r.body")"; return 1; }
+  json_body "$d" || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_unexpected_failure_is_a_json_500() { # [G-500]
+  local d tok
+  d="$(gui_new broken-catalog)"
+  printf '%s\n' '[[[ this is not toml' >"$d/tree/config/models.toml"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  raw "$d" GET /api/state "$tok" - -
+  status_is "$d" 500 || { echo "(GET /api/state)"; return 1; }
+  json_body "$d" || return 1
+  printf '%s\n' '{"providers":["claude"],"agents":{},"opencode":{}}' >"$d/req.json"
+  raw "$d" POST /api/save "$tok" "$(origin_of "$d")" - "$d/req.json"
+  status_is "$d" 500 || { echo "(POST /api/save)"; return 1; }
+  json_body "$d" || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_foreign_host_rejected() { # [G-harden]
+  local d tok port
+  d="$(gui_new harden)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"; port="$(<"$d/port")"
+  raw "$d" GET /api/state "$tok" - "127.0.0.1:$port"
+  status_is "$d" 200 || { echo "(own Host header must keep working)"; return 1; }
+  raw "$d" GET /api/state "$tok" - "evil.example:$port"
+  status_is "$d" 403 || { echo "(GET /api/state with a foreign Host)"; return 1; }
+  raw "$d" GET "/?token=$tok" - - "evil.example:$port"
+  status_is "$d" 403 || { echo "(GET /?token= with a foreign Host)"; return 1; }
+  printf '%s\n' '{"providers":["claude"],"agents":{},"opencode":{}}' >"$d/req.json"
+  raw "$d" POST /api/save "$tok" "$(origin_of "$d")" "evil.example:$port" "$d/req.json"
+  status_is "$d" 403 || { echo "(POST /api/save with a foreign Host)"; return 1; }
+  [[ ! -e "$(settings_file "$d")" ]] || { echo "settings.json written by a request with a foreign Host"; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_page_security_headers() { # [G-harden]
+  local d tok
+  d="$(gui_new page-headers)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  raw "$d" GET "/?token=$tok" - - -
+  status_is "$d" 200 || return 1
+  grep -Eiq '^content-security-policy: .+' "$d/r.headers" || { echo "GET /?token= has no Content-Security-Policy header; headers:"; cat "$d/r.headers"; return 1; }
+  grep -Eiq '^referrer-policy: *no-referrer *$' "$d/r.headers" || { echo "GET /?token= has no 'Referrer-Policy: no-referrer' header; headers:"; cat "$d/r.headers"; return 1; }
+  gui_stop "$d" || true
+}
+
 area_gui() {
   trap 'gui_cleanup; rm -rf "$sb"' EXIT
   check "[G-start] make setup listens on 127.0.0.1, prints the URL with token, opens it in the browser; Ctrl+C ends it and closes the port" c_gui_make_setup_start_open_stop
@@ -1148,6 +1299,11 @@ area_gui() {
   check "[G-catalog] deviation outside the catalog is a warning in /api/state and the page labels it \"mimo katalog\"" c_gui_outside_catalog_reported
   check "[G-provider] unticking a provider and saving removes its links and updates settings.json providers" c_gui_untick_provider
   check "[G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json" c_gui_opencode_variant_reaches_opencode_json
+  check "[G-stale] stale stored agent/key does not block a save that sends them back unchanged; a new unknown agent/key is still 400" c_gui_stale_stored_entries_do_not_block_save
+  check "[G-corrupt] POST /api/save with a corrupt settings.json fails with an error and leaves the file byte-identical" c_gui_corrupt_settings_not_overwritten
+  check "[G-500] an unexpected failure (invalid catalog) in GET /api/state and POST /api/save is an HTTP 500 with a JSON body" c_gui_unexpected_failure_is_a_json_500
+  check "[G-harden] a foreign Host header with a valid token is 403 (GET /, GET /api/state, POST /api/save); own Host still works" c_gui_foreign_host_rejected
+  check "[G-harden] GET /?token= carries a Content-Security-Policy header and Referrer-Policy: no-referrer" c_gui_page_security_headers
 }
 
 main() {
