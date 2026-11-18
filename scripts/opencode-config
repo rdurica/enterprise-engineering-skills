@@ -4,15 +4,19 @@
 Usage: scripts/opencode-config [--dry-run] [<opencode dir>]   (default: ${XDG_CONFIG_HOME:-~/.config}/opencode)
 
 The pack owns `model`, `small_model` and, for every agent in the fragment, `model` and `variant`; they are set
-to the fragment's values (a `variant` the fragment lacks is removed). Everything else is left as it is. A changed
+to the fragment's values overlaid with the `opencode` section of the user's settings.json (a `variant` the fragment lacks is removed). Everything else is left as it is. A changed
 file is backed up to opencode.json.bak first. Afterwards warns about subagents that inherit the session model.
 """
 import json
 import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ees_settings  # noqa: E402
+from ees_settings import atomic_write, mode_for  # noqa: E402
 
 pack = Path(__file__).resolve().parent.parent
 fragment_path = pack / "config" / "opencode.json"
@@ -24,30 +28,6 @@ def show(value):
     if value is None:
         return unset
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-
-
-def atomic_write(path, data, mode):
-    """Write data beside path and rename, so an interrupted run never leaves a truncated file."""
-    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    tmp = Path(name)
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-        tmp.chmod(mode)
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
-
-
-def mode_for(path):
-    """Mode of the existing file (through symlinks), or the umask default for a new one."""
-    try:
-        return path.stat().st_mode & 0o7777
-    except OSError:
-        umask = os.umask(0)
-        os.umask(umask)
-        return 0o666 & ~umask
 
 
 def merge(config, fragment):
@@ -102,6 +82,12 @@ def main():
     opencode_dir = Path(dirs[0]) if dirs else Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "opencode"
     path = opencode_dir / "opencode.json"
     fragment = json.loads(fragment_path.read_text(encoding="utf-8"))
+    catalog = ees_settings.load_catalog(pack)
+    user, problems = ees_settings.load_settings()
+    problems += ees_settings.check_opencode_defaults(fragment, catalog)
+    fragment, more = ees_settings.merge_opencode(fragment, user, catalog)
+    for problem in problems + more:
+        ees_settings.warn(problem)
 
     def merge_by_hand(reason):
         print(f"warn    {path} {reason}; merge by hand from {fragment_path}", file=sys.stderr)
