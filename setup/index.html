@@ -5,49 +5,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nastavení enterprise-engineering-skills</title>
 <style>
-  :root { color-scheme: light dark; --bg:#fff; --fg:#1b1f24; --muted:#59636e; --line:#d0d7de; --accent:#0b5fff; --accent-fg:#fff; --warn-bg:#fff4d6; --warn-fg:#6b4a00; --own:#e6f0ff; --ok:#1a7f37; --bad:#cf222e; --code-bg:#eef0f2; --focus:#0b5fff; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f1318; --fg:#e6e9ee; --muted:#9aa4b0; --line:#30363d; --accent:#6ea8ff; --accent-fg:#0f1318; --warn-bg:#3b2f0b; --warn-fg:#ffd479; --own:#14253f; --ok:#56d364; --bad:#ff7b72; --code-bg:#1a2029; --focus:#6ea8ff; } }
-  * { box-sizing: border-box; }
-  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
-  main { max-width: 60rem; margin: 0 auto; }
-  h1 { font-size: 1.5rem; } h2 { font-size: 1.2rem; margin-top: 2rem; }
-  fieldset { border:1px solid var(--line); border-radius:6px; min-width:0; }
-  fieldset label { margin-right: 1rem; display:inline-flex; align-items:center; gap:.4rem; padding:.25rem .25rem; min-height:1.5rem; }
-  input[type=checkbox] { width:1.5rem; height:1.5rem; margin:0; }
-  .note { color: var(--muted); font-size: .9em; }
-  .table-wrap { overflow-x:auto; max-width:100%; margin-bottom:1rem; }
-  table { border-collapse: collapse; width:100%; }
-  caption { text-align:left; font-weight:600; font-size:1rem; color:var(--fg); padding:.25rem 0; }
-  th, td { text-align:left; padding:.3rem .35rem; border-bottom:1px solid var(--line); vertical-align: middle; }
-  select, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:.25rem .5rem; min-height:1.5rem; }
-  select { max-width:100%; }
-  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); padding:.5rem 1.2rem; font-weight:600; }
-  button:disabled { opacity:.6; cursor:not-allowed; }
+  :root {
+    color-scheme: light dark;
+    --bg:#f5f6f8; --surface:#ffffff; --surface-2:#f1f3f6; --fg:#14171c; --muted:#5b6472;
+    --line:#e3e6ea; --line-strong:#cfd4da;
+    --accent:#4f46e5; --accent-hover:#4338ca; --accent-fg:#ffffff; --accent-soft:#eef0ff; --accent-soft-fg:#3730a3;
+    --ok:#166534; --ok-soft:#e6f5ec; --bad:#b91c1c; --bad-soft:#fdecec;
+    --warn-fg:#7c4f00; --warn-bg:#fff5dc; --warn-line:#d99a00;
+    --code-bg:#0f172a; --code-fg:#e2e8f0; --focus:#4f46e5;
+    --radius:14px; --radius-sm:8px; --shadow:0 1px 2px rgb(16 24 40 / .06), 0 4px 16px rgb(16 24 40 / .06);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) { :root {
+    --bg:#0b0e14; --surface:#131821; --surface-2:#1a2030; --fg:#e6e9ef; --muted:#9aa3b2;
+    --line:#232a36; --line-strong:#323b4a;
+    --accent:#8b8cf8; --accent-hover:#a5a6ff; --accent-fg:#0b0e14; --accent-soft:#23264a; --accent-soft-fg:#c7c8ff;
+    --ok:#4ade80; --ok-soft:#12301f; --bad:#f87171; --bad-soft:#3a1515;
+    --warn-fg:#fcd34d; --warn-bg:#33270a; --warn-line:#b38600;
+    --code-bg:#080a0f; --code-fg:#d6dde8; --focus:#a5a6ff;
+    --shadow:0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .25);
+  } }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html { scroll-padding-bottom:6rem; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
+  main { max-width:64rem; margin:0 auto; padding:2.5rem 1.25rem 0; }
+  header { margin-bottom:2rem; }
+  .eyebrow { margin:0 0 .35rem; font-size:.8rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-soft-fg); }
+  h1 { margin:0; font-size:clamp(1.6rem, 3vw, 2.1rem); line-height:1.2; letter-spacing:-.02em; }
+  .lead { margin:.6rem 0 0; color:var(--muted); max-width:44rem; }
+  h2 { margin:0; font-size:1.15rem; letter-spacing:-.01em; }
+  code { font-family:var(--mono); font-size:.9em; background:var(--surface-2); padding:.05em .35em; border-radius:5px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:1.25rem; margin-bottom:1.25rem; }
+  .card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .muted { color:var(--muted); font-size:.9rem; margin:0; }
+  /* Providers as selectable tiles */
+  fieldset { border:0; margin:0; padding:0; min-width:0; }
+  legend { padding:0; margin-bottom:1rem; font-size:1.15rem; font-weight:700; letter-spacing:-.01em; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(11.5rem, 1fr)); gap:.75rem; }
+  .tile { display:flex; align-items:center; gap:.75rem; padding:.8rem 1rem; border:1.5px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); cursor:pointer; min-height:3.5rem; transition:border-color .15s, background-color .15s; }
+  .tile:hover { border-color:var(--line-strong); }
+  .tile:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+  .tile:has(input:focus-visible) { outline:3px solid var(--focus); outline-offset:2px; }
+  .tile input { width:1.25rem; height:1.25rem; margin:0; accent-color:var(--accent); flex:none; }
+  .tile input:focus-visible { outline:none; }
+  .tile-text { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+  .tile-name { font-weight:600; }
+  /* Pills */
+  .pill { display:inline-flex; align-items:center; gap:.3rem; width:fit-content; font-size:.75rem; font-weight:600; line-height:1; padding:.3rem .55rem; border-radius:999px; background:var(--surface-2); color:var(--muted); border:1px solid var(--line); white-space:nowrap; }
+  .pill::before { content:""; width:.45rem; height:.45rem; border-radius:50%; background:currentColor; opacity:.85; }
+  .pill.plain::before { display:none; }
+  .pill.linked { background:var(--ok-soft); color:var(--ok); border-color:transparent; }
+  .pill.installed { background:var(--accent-soft); color:var(--accent-soft-fg); border-color:transparent; }
+  .pill.own { background:var(--accent-soft); color:var(--accent-soft-fg); border-color:transparent; }
+  .pill.outside { background:var(--warn-bg); color:var(--warn-fg); border-color:var(--warn-line); }
+  .pill.dirty { background:var(--warn-bg); color:var(--warn-fg); border-color:transparent; }
+  /* Tables */
+  .table-wrap { overflow-x:auto; max-width:100%; border:1px solid var(--line); border-radius:var(--radius-sm); }
+  .table-wrap + .table-wrap { margin-top:1rem; }
+  table { border-collapse:collapse; width:100%; }
+  caption { text-align:left; font-weight:600; font-size:.95rem; padding:.75rem 1rem; background:var(--surface-2); border-bottom:1px solid var(--line); }
+  th, td { text-align:left; padding:.6rem 1rem; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tbody tr:last-child > * { border-bottom:0; }
+  thead th { font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); background:var(--surface); }
+  tbody th { font-family:var(--mono); font-size:.88rem; font-weight:500; white-space:nowrap; }
+  tbody tr:hover > * { background:var(--surface-2); }
+  td.own { box-shadow:inset 3px 0 0 var(--accent); }
+  td.outside { box-shadow:inset 3px 0 0 var(--warn-line); background:var(--warn-bg); }
+  tbody tr:hover > td.outside { background:var(--warn-bg); }
+  .empty { color:var(--muted); }
+  .cell { display:flex; gap:.5rem; align-items:center; flex-wrap:nowrap; white-space:nowrap; }
+  /* Controls */
+  select, button { font:inherit; font-size:.92rem; color:var(--fg); background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:.4rem .6rem; min-height:2.25rem; }
+  select { max-width:100%; min-width:10rem; cursor:pointer; }
+  select:hover, button:hover { border-color:var(--accent); }
+  button { cursor:pointer; font-weight:500; }
+  button.ghost { background:transparent; border-color:transparent; color:var(--accent-soft-fg); padding:.35rem .6rem; }
+  button.ghost:hover { background:var(--accent-soft); border-color:transparent; }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); padding:.6rem 1.3rem; font-weight:600; min-height:2.75rem; }
+  button.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+  button:disabled { opacity:.6; cursor:progress; }
   :focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
-  .own { background: var(--own); } .badge { font-size:.8em; border:1px solid var(--line); border-radius:10px; padding:0 .5em; }
-  td.outside { border-left:4px solid var(--warn-fg); background:var(--warn-bg); }
-  .outside .badge { background:var(--warn-bg); color:var(--warn-fg); border-color:var(--warn-fg); font-weight:600; }
-  .warnings { background:var(--warn-bg); color:var(--warn-fg); padding:.5rem 1rem; border-radius:6px; }
-  pre { background:var(--code-bg); padding:.75rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:6px; }
-  .ok { color:var(--ok); } .bad { color:var(--bad); }
-  .dirty { color:var(--warn-fg); background:var(--warn-bg); border-radius:10px; padding:0 .6em; font-size:.9em; }
-  .actions { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; }
-  .cell { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
-  @media (max-width: 40rem) { body { padding:12px; } th, td { padding:.25rem .2rem; } .table-wrap table { min-width:0; } }
+  /* Alerts and log */
+  .warnings { background:var(--warn-bg); color:var(--warn-fg); border:1px solid var(--warn-line); border-radius:var(--radius-sm); padding:.85rem 1rem; margin-bottom:1.25rem; }
+  .warnings ul { margin:.4rem 0 0; padding-left:1.2rem; }
+  .alert { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; background:var(--bad-soft); color:var(--bad); border:1px solid currentColor; border-radius:var(--radius-sm); padding:.85rem 1rem; margin-bottom:1.25rem; }
+  .alert p { margin:0; flex:1 1 20rem; }
+  pre { font-family:var(--mono); font-size:.85rem; background:var(--code-bg); color:var(--code-fg); padding:1rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:var(--radius-sm); margin:0; }
+  .ok { color:var(--ok); font-weight:600; } .bad { color:var(--bad); font-weight:600; }
+  /* Sticky action bar */
+  .actions { position:sticky; bottom:0; z-index:1; margin:1.5rem -1.25rem 0; padding:.9rem 1.25rem; display:flex; gap:.75rem 1rem; align-items:center; flex-wrap:wrap; background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-top:1px solid var(--line); }
+  .actions .muted { flex:1 1 16rem; }
+  #result { margin-top:1.25rem; padding-bottom:2rem; }
+  @media (max-width: 40rem) {
+    main { padding:1.5rem 1rem 0; }
+    .card { padding:1rem; }
+    .tiles { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.5rem; }
+    .tile { padding:.7rem .75rem; gap:.6rem; }
+    .tile .pill { padding:.25rem .45rem; }
+    .tile .pill::before { display:none; }
+    th, td { padding:.5rem .6rem; }
+    select { min-width:8rem; }
+    .actions { margin:1.25rem -1rem 0; padding:.75rem 1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Nastavení poskytovatelů a modelů</h1>
-  <p class="note">Ukládají se jen odchylky od defaultů packu. Co nezměníte, se řídí aktuálními defaulty.</p>
+  <header>
+    <p class="eyebrow">enterprise-engineering-skills</p>
+    <h1>Poskytovatelé a modely</h1>
+    <p class="lead">Ukládají se jen odchylky od defaultů packu. Co nezměníte, se řídí aktuálními defaulty.</p>
+  </header>
   <div id="warnings"></div>
   <div id="load-error" role="alert"></div>
-  <fieldset id="providers"><legend>Poskytovatelé</legend></fieldset>
+  <section class="card"><fieldset id="providers"><legend>Poskytovatelé</legend></fieldset></section>
   <div id="tables"></div>
-  <p class="note" id="save-hint">Uložení přegeneruje agenty a spustí <code>install.sh</code>.</p>
-  <p id="no-provider" class="note" hidden>Není vybrán žádný poskytovatel – uložením se odstraní všechny linky.</p>
-  <div class="actions"><button class="primary" id="save" type="button" aria-describedby="save-hint">Uložit a nainstalovat</button> <span id="dirty" class="dirty" hidden>Neuložené změny</span> <span id="status" role="status" aria-live="polite"></span> <span id="error" role="alert" class="bad"></span></div>
-  <section id="result" hidden aria-live="polite"><h2>Výsledek instalace</h2><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Log instalace"></pre></section>
+  <p id="no-provider" class="warnings" hidden>Není vybrán žádný poskytovatel – uložením se odstraní všechny linky.</p>
+  <div class="actions">
+    <button class="primary" id="save" type="button" aria-describedby="save-hint">Uložit a nainstalovat</button>
+    <span id="dirty" class="pill dirty" hidden>Neuložené změny</span>
+    <span id="status" role="status" aria-live="polite"></span>
+    <span id="error" role="alert" class="bad"></span>
+    <p class="muted" id="save-hint">Uložení přegeneruje agenty a spustí <code>install.sh</code>.</p>
+  </div>
+  <section id="result" class="card" hidden aria-live="polite"><div class="card-head"><h2>Výsledek instalace</h2></div><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Log instalace"></pre></section>
 </main>
 <script>
 "use strict";
@@ -99,7 +182,8 @@ function field(section, path, def, list, label) {
   const value = own === undefined ? def : own;
   const outside = !list.includes(value);
   const id = "f-" + section + "-" + path.join("--").replace(/[^A-Za-z0-9_-]/g, "_");
-  const select = el("select", { id, "aria-label": label });
+  const select = el("select", { id });
+  select.setAttribute("aria-label", label);
   const options = outside ? [value, ...list] : list;
   for (const o of options) select.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (mimo katalog)" : "") }));
   select.onchange = () => {
@@ -107,22 +191,25 @@ function field(section, path, def, list, label) {
     edited();
   };
   const isOwn = own !== undefined && own !== def;
-  const reset = el("button", { type: "button", textContent: "Obnovit", hidden: !isOwn, id: id + "-reset", title: "Vrátit default: " + def });
+  const reset = el("button", { type: "button", class: "ghost", textContent: "Obnovit", hidden: !isOwn, id: id + "-reset", title: "Vrátit default: " + def });
   reset.setAttribute("aria-label", "Obnovit default: " + label);
   reset.onclick = () => { delPath(draft[section], path); edited(); };
-  const badge = el("span", { class: "badge", textContent: outside ? "mimo katalog" : isOwn ? "vlastní" : "default" });
-  const cell = el("div", { class: "cell" + (outside ? " outside" : ""), }, select, badge, reset);
-  const td = el("td", { class: isOwn ? "own" : "" }, cell);
+  // The select already says "(default)"; a pill marks only the user's own and out-of-catalog values.
+  const badge = el("span", { class: "pill plain " + (outside ? "outside" : "own"), textContent: outside ? "mimo katalog" : "vlastní", hidden: !outside && !isOwn });
+  const cell = el("div", { class: "cell" }, select, badge, reset);
+  const td = el("td", { class: outside ? "outside" : isOwn ? "own" : "" }, cell);
   return td;
 }
 
 function renderProviders() {
   const box = $("providers");
-  box.replaceChildren(el("legend", { textContent: "Poskytovatelé" }));
+  const tiles = el("div", { class: "tiles" });
+  box.replaceChildren(el("legend", { textContent: "Poskytovatelé" }), tiles);
   for (const p of state.providers) {
     const cb = el("input", { type: "checkbox", id: "prov-" + p.id, checked: draft.providers.has(p.id) });
     cb.onchange = () => { cb.checked ? draft.providers.add(p.id) : draft.providers.delete(p.id); edited(); };
-    box.append(el("label", { htmlFor: cb.id }, cb, " " + p.label + " ", el("span", { class: "note", textContent: "(" + (noteCs[p.note] || p.note) + ")" })));
+    const note = el("span", { class: "pill " + (p.note === "not found" ? "" : p.note), textContent: noteCs[p.note] || p.note });
+    tiles.append(el("label", { class: "tile", htmlFor: cb.id }, cb, el("span", { class: "tile-text" }, el("span", { class: "tile-name", textContent: p.label }), note)));
   }
 }
 
@@ -146,7 +233,7 @@ function agentTable(provider, plabel) {
     const cfg = tables[provider];
     if (!cfg) continue;
     const tr = el("tr", {}, el("th", { scope: "row", textContent: agent }));
-    for (const k of keys) tr.append(cfg[k] === undefined ? el("td", { textContent: "–" }) : field("agents", [agent, provider, k], cfg[k], listOf[k], colName[k] + " – " + agent + " (" + plabel + ")"));
+    for (const k of keys) tr.append(cfg[k] === undefined ? el("td", { class: "empty", textContent: "–" }) : field("agents", [agent, provider, k], cfg[k], listOf[k], colName[k] + " – " + agent + " (" + plabel + ")"));
     body.append(tr);
   }
   table.append(body);
@@ -161,15 +248,24 @@ function opencodeTable() {
   table.append(el("thead", {}, el("tr", {}, el("th", { scope: "col", textContent: "Položka" }), el("th", { scope: "col", textContent: "Model" }), el("th", { scope: "col", textContent: "Varianta" }))));
   const body = el("tbody");
   for (const k of ["model", "small_model"]) {
-    if (d[k] !== undefined) body.append(el("tr", {}, el("th", { scope: "row", textContent: k }), field("opencode", [k], d[k], cat.models || [], colName[k] + " – hlavní session (OpenCode)"), el("td", { textContent: "–" })));
+    if (d[k] !== undefined) body.append(el("tr", {}, el("th", { scope: "row", textContent: k }), field("opencode", [k], d[k], cat.models || [], colName[k] + " – hlavní session (OpenCode)"), el("td", { class: "empty", textContent: "–" })));
   }
   for (const [id, cfg] of Object.entries(d.agent || {})) {
     body.append(el("tr", {}, el("th", { scope: "row", textContent: id }),
-      cfg.model === undefined ? el("td", { textContent: "–" }) : field("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (OpenCode built-in agent)"),
-      cfg.variant === undefined ? el("td", { textContent: "–" }) : field("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (OpenCode built-in agent)")));
+      cfg.model === undefined ? el("td", { class: "empty", textContent: "–" }) : field("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (OpenCode built-in agent)"),
+      cfg.variant === undefined ? el("td", { class: "empty", textContent: "–" }) : field("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (OpenCode built-in agent)")));
   }
   table.append(body);
   return wrap(table, "Hlavní session a built-in agenti (OpenCode)");
+}
+
+// Number of the user's own values for a provider (and, for opencode, its session and built-in agents).
+function countOwn(provider) {
+  const leaves = (o) => o && typeof o === "object" ? Object.values(o).reduce((n, v) => n + leaves(v), 0) : 1;
+  let n = 0;
+  for (const tables of Object.values(draft.agents)) if (tables && typeof tables === "object" && provider in tables) n += leaves(tables[provider]);
+  if (provider === "opencode") n += leaves(draft.opencode);
+  return n;
 }
 
 function renderTables() {
@@ -177,7 +273,9 @@ function renderTables() {
   box.replaceChildren();
   for (const p of state.providers) {
     if (!draft.providers.has(p.id)) continue;
-    const sec = el("section", {}, el("h2", { textContent: p.label }));
+    const own = countOwn(p.id);
+    const sec = el("section", { class: "card" }, el("div", { class: "card-head" }, el("h2", { textContent: p.label }),
+      el("span", { class: "pill plain " + (own ? "own" : ""), textContent: own ? own + " " + (own === 1 ? "vlastní hodnota" : own < 5 ? "vlastní hodnoty" : "vlastních hodnot") : "jen defaulty" })));
     if (p.id === "opencode") sec.append(opencodeTable());
     sec.append(agentTable(p.id, p.label));
     box.append(sec);
@@ -212,7 +310,7 @@ async function load() {
   } catch (e) {
     const retry = el("button", { type: "button", textContent: "Zkusit znovu" });
     retry.onclick = load;
-    box.append(el("p", { class: "bad", textContent: "Nelze načíst nastavení (neplatný token nebo server neodpovídá). Otevřete znovu adresu, kterou vypsal `make setup`, nebo to zkuste znovu. " }), retry);
+    box.append(el("div", { class: "alert" }, el("p", { textContent: "Nelze načíst nastavení (neplatný token nebo server neodpovídá). Otevřete znovu adresu, kterou vypsal `make setup`, nebo to zkuste znovu." }), retry));
     return;
   }
   const s = state.settings;
