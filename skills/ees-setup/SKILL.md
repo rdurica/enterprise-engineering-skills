@@ -13,7 +13,7 @@ effort: high
 
 Optional. The pipeline works with no configuration: tracker and monorepo are detected, the language follows the conversation and the analysis, and branches, pushing and PRs follow `{skills-root}/ees-pipeline/delivery.md` (see `{skills-root}/ees-pipeline/config.md`, the single description of settings, resolution order and detection). Run `/ees-setup` inside the **target project** (not the skills repo) to check the install or set `language`.
 
-The shared pack is one git checkout with `skills/` (one folder per skill), `agents/` (one subagent per file) and `generated/` (agents built per provider). Its `install.sh` asks which tools to link and puts each selected tool's skills and agents in its own directories. Pack root is the parent of the `skills/` directory containing this skill. `/ees-setup` never pulls or updates the pack.
+The shared pack is one git checkout with `skills/` (one folder per skill), `agents/` (one subagent per file) and `generated/` (agents built per provider; a local, gitignored build output, never committed). Its `install.sh` asks which tools to link and puts each selected tool's skills and agents in its own directories. Pack root is the parent of the `skills/` directory containing this skill. `/ees-setup` never pulls or updates the pack.
 
 Every step shows a preview and waits for confirmation before writing or deleting anything. Ask one question at a time with a recommended option using `AskUserQuestion`, with a text fallback.
 
