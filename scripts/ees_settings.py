@@ -17,6 +17,8 @@ check_defaults, check_opencode_defaults, check_top_level, prune, write_settings,
 CLI (used by install.sh, which must only write JSON through Python):
     python3 scripts/ees_settings.py path                    print the settings.json path
     python3 scripts/ees_settings.py set-providers [<id>...] rewrite only `providers`, keep every other key
+    python3 scripts/ees_settings.py get-providers           print the stored providers, one per line; exit 3
+                                                            when settings.json has no valid `providers` list
 Stdlib only, Python 3.11+.
 """
 import copy
@@ -280,7 +282,13 @@ def main(argv):
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(path, (json.dumps(settings, indent=2, ensure_ascii=False) + "\n").encode("utf-8"), mode_for(path))
         return 0
-    print("usage: ees_settings.py path | set-providers [<id>...]", file=sys.stderr)
+    if argv[:1] == ["get-providers"] and len(argv) == 1:
+        stored = load_settings()[0].get("providers")
+        if not isinstance(stored, list):
+            return 3
+        print("\n".join(p for p in dict.fromkeys(stored) if p in providers))
+        return 0
+    print("usage: ees_settings.py path | set-providers [<id>...] | get-providers", file=sys.stderr)
     return 2
 
 

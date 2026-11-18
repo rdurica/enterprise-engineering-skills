@@ -7,7 +7,10 @@
 #                with opencode installed, the pack's models are merged into opencode.json (scripts/opencode-config)
 #   Pi           ~/.pi/agent/agents/<agent>.md, prompts and the subagent tool in ~/.pi/agent/extensions/subagent/
 # Agents link to generated/<provider>/agents/, built by scripts/build-agents.
-# Without a terminal and without flags the installer links every provider. Re-run after changing a
+# generated/ is a local build output: the installer builds it (scripts/build-agents, scripts/build-pi-prompts) first.
+# The selection is stored in settings.json (`providers`) and is the default for the next run; without it
+# the installer links every provider when there is no terminal.
+# Without a terminal and without flags the installer links the stored providers, else every provider. Re-run after changing a
 # skill or agent: missing links are added, broken ones repaired and links of unselected tools removed.
 set -euo pipefail
 
@@ -37,7 +40,8 @@ Usage: ./install.sh [--all | --providers <list>] [--interactive] [--yes] [--dry-
   --dry-run            print the plan and write nothing
   --help               show this help
 
-Without --all or --providers the installer asks on a terminal and behaves like --all otherwise.
+Without --all or --providers the installer asks on a terminal and uses the providers stored in
+settings.json (or all of them when none are stored) otherwise. --all and --providers store the selection.
 EOF
 }
 
@@ -273,22 +277,44 @@ parse_providers() {
   select_from ${want[@]+"${want[@]}"}
 }
 
+# Providers stored in settings.json, in provider order, into $stored. Fails when none are stored (a stored
+# empty list is a selection of nothing and succeeds).
+stored=()
+load_stored_providers() {
+  local out p
+  stored=()
+  out="$(python3 "$pack/scripts/ees_settings.py" get-providers 2>/dev/null)" || return 1
+  for p in "${provider_order[@]}"; do
+    if in_list "$p" $out; then stored+=("$p"); fi
+  done
+  return 0
+}
+
+build_outputs() { # generated/ is local: build it before planning links
+  "$pack/scripts/build-agents" >/dev/null
+  "$pack/scripts/build-pi-prompts" >/dev/null
+}
+
 # Numbered provider picker. An empty answer keeps the default, `all` and `none` replace it, and
 # numbers (comma or space separated) replace it. Invalid input re-prompts; EOF aborts.
 wizard() {
   local p i marker note line trimmed token valid
   local -a defaults=() tokens=() want=()
-  for p in "${provider_order[@]}"; do
-    if is_linked "$p"; then defaults+=("$p"); fi
-  done
-  if (( ${#defaults[@]} == 0 )); then defaults=("${provider_order[@]}"); fi
+  if load_stored_providers; then
+    defaults=(${stored[@]+"${stored[@]}"})
+  else
+    for p in "${provider_order[@]}"; do
+      if is_linked "$p"; then defaults+=("$p"); fi
+    done
+  fi
+  if (( ${#defaults[@]} == 0 )) && ! load_stored_providers; then defaults=("${provider_order[@]}"); fi
 
   while true; do
     printf '\nSelect the tools to link (x = preselected):\n'
     for i in "${!provider_order[@]}"; do
       p="${provider_order[$i]}"
       marker=" "
-      if in_list "$p" "${defaults[@]}"; then marker="x"; fi
+      if in_list "$p" ${defaults[@]+"${defaults[@]}"}; then marker="x"; fi
       note="$(provider_note "$p")"
       printf '  %d) %-12s [%s] %s\n' "$((i + 1))" "$(provider_label "$p")" "$marker" "$note"
     done
@@ -302,7 +328,7 @@ wizard() {
     trimmed="${line#"${line%%[![:space:]]*}"}"
     trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
     if [[ -z "$trimmed" ]]; then
-      selection=("${defaults[@]}")
+      selection=(${defaults[@]+"${defaults[@]}"})
       return 0
     fi
     case "$(lower "$trimmed")" in
@@ -457,10 +483,13 @@ elif (( have_providers )); then
 elif (( flag_interactive )) || [[ -t 0 ]]; then
   wizard
   used_wizard=1
+elif load_stored_providers; then
+  selection=(${stored[@]+"${stored[@]}"})
 else
   selection=("${provider_order[@]}")
 fi
 
+build_outputs
 build_plan
 
 if (( dry_run )); then
@@ -472,6 +501,9 @@ else
     confirm_plan
   fi
   apply_plan
+  if (( flag_all || have_providers )); then
+    python3 "$pack/scripts/ees_settings.py" set-providers ${selection[@]+"${selection[@]}"}
+  fi
   if is_selected opencode && command -v opencode >/dev/null 2>&1; then
     opencode_config
   fi

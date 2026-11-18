@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# After git pull: rebuild the local generated/ output and refresh opencode.json when opencode is selected in
+# settings.json and installed. Never fails the git operation; problems are only warnings.
+pack="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+"$pack/scripts/build-agents" >/dev/null || echo "warn    post-merge: scripts/build-agents failed; run ./install.sh" >&2
+"$pack/scripts/build-pi-prompts" >/dev/null || echo "warn    post-merge: scripts/build-pi-prompts failed; run ./install.sh" >&2
+if command -v opencode >/dev/null 2>&1 &&
+  python3 "$pack/scripts/ees_settings.py" get-providers 2>/dev/null | grep -qx opencode; then
+  "$pack/scripts/opencode-config" >/dev/null || echo "warn    post-merge: scripts/opencode-config failed" >&2
+fi
+exit 0
