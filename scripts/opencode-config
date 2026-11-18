@@ -85,7 +85,9 @@ def main():
     catalog = ees_settings.load_catalog(pack)
     user, problems = ees_settings.load_settings()
     problems += ees_settings.check_opencode_defaults(fragment, catalog)
-    fragment, more = ees_settings.merge_opencode(fragment, user, catalog)
+    local, local_problems = ees_settings.load_local_models()
+    problems += local_problems
+    fragment, more = ees_settings.merge_opencode(fragment, user, ees_settings.with_local(catalog, local))
     for problem in problems + more:
         ees_settings.warn(problem)
 

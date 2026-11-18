@@ -11,7 +11,12 @@ default. Merging is per key, so a `codex.model` deviation leaves the default `co
 Unknown agents, providers, keys and values of the wrong type warn and are ignored; a value outside the
 catalog warns and is still used. Warnings are plain strings, printed by callers as `warn    <text>`.
 
+Models the user loads from their own tools on the setup page (Load models) live next to it in models.json,
+{"<provider>": {"models": [...], "efforts"|"variants": [...], "source": ..., "loaded_at": ...}}. They extend
+the pack catalog for the user's own values only; pack defaults must still be in config/models.toml.
+
 API: settings_path, load_catalog, load_defaults, load_settings, merge_agents, merge_opencode,
+local_models_path, load_local_models, with_local,
 check_defaults, check_opencode_defaults, check_top_level, prune, write_settings, atomic_write, warn.
 
 CLI (used by install.sh, which must only write JSON through Python):
@@ -56,6 +61,45 @@ def settings_path():
 
 def load_catalog(root=pack):
     return tomllib.loads((root / "config" / "models.toml").read_text(encoding="utf-8"))
+
+
+def local_models_path():
+    return settings_path().with_name("models.json")
+
+
+def load_local_models(path=None):
+    """Return (models.json as {provider: entry}, warnings). Missing is {}; unreadable or malformed parts warn."""
+    path = path or local_models_path()
+    if not path.is_file():
+        return {}, []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        return {}, [f"{path} cannot be read ({error}); ignored"]
+    if not isinstance(data, dict):
+        return {}, [f"{path} is not a JSON object; ignored"]
+    out, warnings = {}, []
+    for provider, entry in data.items():
+        if provider not in providers or not isinstance(entry, dict):
+            warnings.append(f"{path}: {provider!r} is not a known provider entry; ignored")
+            continue
+        lists = {k: v for k, v in entry.items() if k in catalog_list.values()}
+        if not all(isinstance(v, list) and all(isinstance(x, str) for x in v) for v in lists.values()):
+            warnings.append(f"{path}: {provider} lists must hold strings; ignored")
+            continue
+        out[provider] = entry
+    return out, warnings
+
+
+def with_local(catalog, local):
+    """The pack catalog extended by the lists loaded from the user's tools; pack entries keep their order first."""
+    merged = copy.deepcopy(catalog)
+    for provider, entry in local.items():
+        target = merged.setdefault(provider, {})
+        for key in catalog_list.values():
+            if isinstance(entry.get(key), list):
+                target[key] = list(dict.fromkeys(target.get(key, []) + entry[key]))
+    return merged
 
 
 def load_defaults(root=pack):
@@ -159,7 +203,12 @@ def merge_agents(agents_toml, settings, catalog):
 
 
 def merge_opencode(fragment, settings, catalog):
-    """Return (config/opencode.json copy with the `opencode` deviations applied, warnings)."""
+    """Return (config/opencode.json copy with the `opencode` deviations applied, warnings).
+
+    A built-in agent whose default model is the default `model` (build, plan) or `small_model` (general,
+    explore, compaction, title, summary) follows the user's `model` or `small_model`, unless the user set that
+    agent's model directly.
+    """
     merged, out = copy.deepcopy(fragment), []
     section = settings.get("opencode")
     if section is None:
@@ -194,6 +243,16 @@ def merge_opencode(fragment, settings, catalog):
                             out.append(f"settings opencode agent {agent_id} key {k!r} is not editable; ignored")
         else:
             out.append(f"settings opencode key {key!r} is unknown; ignored")
+    own_agents = section.get("agent") if isinstance(section.get("agent"), dict) else {}
+    for session_key in ("model", "small_model"):
+        if session_key not in section or merged.get(session_key) == fragment.get(session_key):
+            continue
+        for agent_id, cfg in merged.get("agent", {}).items():
+            own = own_agents.get(agent_id)
+            if isinstance(own, dict) and "model" in own:
+                continue
+            if fragment["agent"][agent_id].get("model") == fragment.get(session_key):
+                cfg["model"] = merged[session_key]
     return merged, out
 
 
