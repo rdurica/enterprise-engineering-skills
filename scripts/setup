@@ -139,11 +139,59 @@ def unchanged(stored, value):
     return stored is not _missing and stored == value
 
 
+def fill(out, items, old, problem_of, accept):
+    """Copy items into out. problem_of(key, value) names why an entry is not editable (or returns None).
+
+    Such a stale entry is kept as it is when it is unchanged from the stored settings (the build ignores it with a
+    warning) and rejected when it is new. Editable entries go through accept(key, value, stored_value).
+    """
+    for key, value in items.items():
+        stored = sub(old, key)
+        problem = problem_of(key, value)
+        if problem is None:
+            accept(key, value, stored)
+        elif unchanged(stored, value):
+            out[key] = value
+        else:
+            raise Invalid(problem)
+
+
+def fill(items, old, problem_of, build):
+    """Return the validated copy of items.
+
+    problem_of(key, value) names why an entry is not editable (or returns None). Such a stale entry, which the build
+    only warns about and ignores, is kept as it is when unchanged from the stored settings and rejected when new.
+    Editable entries become build(key, value, stored_value); None or an empty object drops them.
+    """
+    out = {}
+    for key, value in items.items():
+        stored = sub(old, key)
+        problem = problem_of(key, value)
+        if problem is None:
+            built = build(key, value, stored)
+            if built is not None and built != {}:
+                out[key] = built
+        elif unchanged(stored, value):
+            out[key] = value
+        else:
+            raise Invalid(problem)
+    return out
+
+
+def objects(known, unknown_msg, shape_msg):
+    """problem_of for a level whose keys must be in known and whose values must be objects."""
+    def problem_of(key, value):
+        if key not in known:
+            return unknown_msg(key)
+        return None if isinstance(value, dict) else shape_msg(key)
+    return problem_of
+
+
 def validate(body, current):
     """Return the new settings dict, or raise Invalid. Nothing is written here.
 
-    Entries that ees_settings.merge_* would only warn about and ignore (stale or hand-written) are dropped
-    when they are unchanged from the stored settings, and rejected when they are new.
+    Entries that ees_settings.merge_* would only warn about and ignore (stale or hand-written) are kept when they
+    are unchanged from the stored settings, and rejected when they are new.
     """
     body = obj(body, "request")
     catalog = es.load_catalog()
@@ -156,86 +204,60 @@ def validate(body, current):
         raise Invalid(f"unknown provider: {', '.join(unknown)}")
     agents = obj(body.get("agents", {}), "agents")
     opencode = obj(body.get("opencode", {}), "opencode")
-    old_agents = sub(current, "agents")
-    old_oc = sub(current, "opencode")
 
-    def drop_or_raise(stored, value, message):
-        if not unchanged(stored, value):
-            raise Invalid(message)
+    def strings(provider, allowed, label, catalog_key=None):
+        """problem_of and build for the string values of one object."""
+        def build(key, value, stored):
+            checked_value(catalog, provider, catalog_key or key, value, stored, label(key))
+            return value
+        return (lambda key, value: None if key in allowed else f"{label(key)} is not editable"), build
 
-    new_agents = {}
-    for agent, tables in agents.items():
-        old_tables = sub(old_agents, agent)
+    def agent_tables(agent, tables, stored):
+        def provider_cfg(provider, cfg, stored_cfg):
+            label = lambda key: f"agent {agent} {provider}.{key}"
+            return fill(cfg, stored_cfg, *strings(provider, es.editable[provider], label))
+        known = {p for p in es.editable if p in agents_toml[agent]}
+        problem_of = objects(
+            known, lambda p: f"agent {agent} has no provider {p!r}", lambda p: f"agents.{agent}.{p} must be an object"
+        )
+        return fill(tables, stored, problem_of, provider_cfg)
+
+    def agent_problem(agent, tables):
         if agent not in agents_toml:
-            drop_or_raise(old_tables, tables, f"unknown agent {agent!r}")
-            continue
-        if not isinstance(tables, dict):
-            drop_or_raise(old_tables, tables, f"agents.{agent} must be an object")
-            continue
-        kept_tables = {}
-        for provider, cfg in tables.items():
-            old_cfg = sub(old_tables, provider)
-            if provider not in es.editable or provider not in agents_toml[agent]:
-                drop_or_raise(old_cfg, cfg, f"agent {agent} has no provider {provider!r}")
-                continue
-            if not isinstance(cfg, dict):
-                drop_or_raise(old_cfg, cfg, f"agents.{agent}.{provider} must be an object")
-                continue
-            kept = {}
-            for key, value in cfg.items():
-                old_value = sub(old_cfg, key)
-                if key not in es.editable[provider]:
-                    drop_or_raise(old_value, value, f"agent {agent} {provider}.{key} is not editable")
-                    continue
-                if not isinstance(value, str) and unchanged(old_value, value):
-                    continue
-                checked_value(catalog, provider, key, value, old_value, f"agent {agent} {provider}.{key}")
-                kept[key] = value
-            if kept:
-                kept_tables[provider] = kept
-        if kept_tables:
-            new_agents[agent] = kept_tables
+            return f"unknown agent {agent!r}"
+        return None if isinstance(tables, dict) else f"agents.{agent} must be an object"
 
-    new_oc = {}
-    for key, value in opencode.items():
-        old_value = sub(old_oc, key)
+    def opencode_agents(agents_cfg, stored):
+        def agent_cfg(agent_id, cfg, stored_cfg):
+            label = lambda key: f"opencode agent {agent_id} {key!r}"
+            problem_of, build = strings("opencode", es.opencode_agent_keys, label)
+            return fill(cfg, stored_cfg, problem_of, build)
+        problem_of = objects(
+            set(fragment.get("agent", {})),
+            lambda a: f"unknown opencode agent {a!r}",
+            lambda a: f"opencode.agent.{a} must be an object",
+        )
+        return fill(agents_cfg, stored, problem_of, agent_cfg)
+
+    def opencode_problem(key, value):
         if key in ("model", "small_model"):
-            if not isinstance(value, str) and unchanged(old_value, value):
-                continue
-            checked_value(catalog, "opencode", "model", value, old_value, f"opencode {key}")
-            new_oc[key] = value
-        elif key == "agent":
-            if not isinstance(value, dict):
-                drop_or_raise(old_value, value, "opencode.agent must be an object")
-                continue
-            kept_agents = {}
-            for agent_id, cfg in value.items():
-                old_cfg = sub(old_value, agent_id)
-                if agent_id not in fragment.get("agent", {}):
-                    drop_or_raise(old_cfg, cfg, f"unknown opencode agent {agent_id!r}")
-                    continue
-                if not isinstance(cfg, dict):
-                    drop_or_raise(old_cfg, cfg, f"opencode.agent.{agent_id} must be an object")
-                    continue
-                kept = {}
-                for k, v in cfg.items():
-                    old_v = sub(old_cfg, k)
-                    if k not in es.opencode_agent_keys:
-                        drop_or_raise(old_v, v, f"opencode agent {agent_id} {k!r} is not editable")
-                        continue
-                    if not isinstance(v, str) and unchanged(old_v, v):
-                        continue
-                    checked_value(catalog, "opencode", k, v, old_v, f"opencode agent {agent_id} {k}")
-                    kept[k] = v
-                if kept:
-                    kept_agents[agent_id] = kept
-            if kept_agents:
-                new_oc["agent"] = kept_agents
-        else:
-            drop_or_raise(old_value, value, f"opencode key {key!r} is unknown")
+            return None
+        if key == "agent":
+            return None if isinstance(value, dict) else "opencode.agent must be an object"
+        return f"opencode key {key!r} is unknown"
+
+    def opencode_build(key, value, stored):
+        if key == "agent":
+            return opencode_agents(value, stored)
+        checked_value(catalog, "opencode", "model", value, stored, f"opencode {key}")
+        return value
 
     new = {k: v for k, v in current.items() if k not in es.top_level}  # keep keys written by hand
-    new.update(providers=list(dict.fromkeys(chosen)), agents=new_agents, opencode=new_oc)
+    new.update(
+        providers=list(dict.fromkeys(chosen)),
+        agents=fill(agents, sub(current, "agents"), agent_problem, agent_tables),
+        opencode=fill(opencode, sub(current, "opencode"), opencode_problem, opencode_build),
+    )
     return new
 
 
@@ -268,6 +290,7 @@ def save(body):
 
 
 def make_handler(token, origin):
+    token_hint = "The token is missing or wrong. Reopen the URL printed by `make setup`."
     page = pack / "setup" / "index.html"
 
     host = origin[len("http://"):]
@@ -288,7 +311,8 @@ def make_handler(token, origin):
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header(
                 "Content-Security-Policy",
-                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
             )
             self.end_headers()
             self.wfile.write(body)
@@ -324,11 +348,11 @@ def make_handler(token, origin):
             if url.path == "/":
                 given = (parse_qs(url.query).get("token") or [""])[0]
                 if not hmac.compare_digest(given.encode(), token.encode()):
-                    return self.error(403, "invalid_token")
+                    return self.error(403, "invalid_token", token_hint)
                 return self.send(200, page.read_bytes(), "text/html; charset=utf-8")
             if url.path == "/api/state":
                 if not self.header_token_ok():
-                    return self.error(403, "invalid_token")
+                    return self.error(403, "invalid_token", token_hint)
                 return self.json(200, build_state())
             self.error(404, "not_found")
 
@@ -336,7 +360,7 @@ def make_handler(token, origin):
             if urlsplit(self.path).path != "/api/save":
                 return self.error(404, "not_found")
             if not self.header_token_ok():
-                return self.error(403, "invalid_token")
+                return self.error(403, "invalid_token", token_hint)
             if self.headers.get("Origin") != origin:
                 return self.error(403, "invalid_origin")
             try:

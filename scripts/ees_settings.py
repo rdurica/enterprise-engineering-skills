@@ -197,31 +197,35 @@ def merge_opencode(fragment, settings, catalog):
     return merged, out
 
 
+def prune_values(values, defaults):
+    """Copy of values without entries equal to defaults (recursively) and without objects emptied by that."""
+    if not isinstance(values, dict):
+        return values
+    out = {}
+    for key, value in values.items():
+        default = defaults.get(key) if isinstance(defaults, dict) else None
+        if isinstance(value, dict) and value:
+            value = prune_values(value, default)
+            if not value:
+                continue
+        elif value == default:
+            continue
+        out[key] = value
+    return out
+
+
 def prune(settings, agents_toml, fragment):
-    """Copy of settings without values equal to the defaults and without emptied objects."""
+    """Copy of settings without values equal to the defaults and without emptied objects.
+
+    Stale entries the build only warns about (unknown agent, provider or key, wrong type) are kept as written.
+    """
     out = {}
     if isinstance(settings.get("providers"), list):
         out["providers"] = settings["providers"]
-    agents = {}
-    for agent, tables in (settings.get("agents") or {}).items():
-        for provider, cfg in (tables or {}).items():
-            default = agents_toml.get(agent, {}).get(provider, {})
-            kept = {k: v for k, v in cfg.items() if default.get(k) != v}
-            if kept:
-                agents.setdefault(agent, {})[provider] = kept
-    if agents:
-        out["agents"] = agents
-    section = settings.get("opencode") or {}
-    oc = {k: v for k, v in section.items() if k in ("model", "small_model") and fragment.get(k) != v}
-    oc_agents = {}
-    for agent_id, cfg in (section.get("agent") or {}).items():
-        kept = {k: v for k, v in cfg.items() if fragment.get("agent", {}).get(agent_id, {}).get(k) != v}
-        if kept:
-            oc_agents[agent_id] = kept
-    if oc_agents:
-        oc["agent"] = oc_agents
-    if oc:
-        out["opencode"] = oc
+    for key, defaults in (("agents", agents_toml), ("opencode", fragment)):
+        kept = prune_values(settings.get(key), defaults)
+        if kept and isinstance(kept, dict):
+            out[key] = kept
     # Keys this module does not know are kept as the user wrote them.
     out.update({k: v for k, v in settings.items() if k not in top_level})
     return out
