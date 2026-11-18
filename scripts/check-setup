@@ -755,7 +755,7 @@ area_real_pack() {
 #   [G-codex]    codex model deviation saved: only the deviation in settings.json, agent gets the model
 #   [G-reset]    reset the deviation: key gone from settings.json, agent back to the default
 #   [G-default]  a value identical to the default is not stored
-#   [G-catalog]  a deviation outside the catalog is reported in /api/state warnings and shown as "mimo katalog"
+#   [G-catalog]  a deviation outside the catalog is reported in /api/state warnings and shown as "not in catalog"
 #   [G-provider] unticking a provider removes its links and updates settings.json providers
 #   [G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json
 #   [G-stale]    stale stored entries (unknown agent/key) do not block a save; new unknown ones are still 400
@@ -1145,7 +1145,7 @@ JSON
   json_is "$f" 'any("ees-code-reviewer" in json.dumps(w) and "gpt-5-gone" in json.dumps(w) for w in c["warnings"])' 'true' || return 1
   api "$d" GET "/?token=$(<"$d/token")" - -
   status_is "$d" 200 || return 1
-  grep -Fq 'mimo katalog' "$d/r.body" || { echo 'the page has no "mimo katalog" label for out-of-catalog values'; return 1; }
+  grep -Fq 'not in catalog' "$d/r.body" || { echo 'the page has no "not in catalog" label for out-of-catalog values'; return 1; }
   gui_stop "$d" || true
 }
 
@@ -1299,7 +1299,7 @@ area_gui() {
   check "[G-origin] POST /api/save with a foreign or missing Origin: 403 invalid_origin, settings and links unchanged" c_gui_foreign_origin_rejected
   check "[G-invalid] POST /api/save with a value outside the catalog, unknown provider or bad shape: 400 invalid_settings, nothing written" c_gui_invalid_settings_rejected
   check "[G-codex] [G-reset] [G-default] codex model deviation saved, reset and identical-to-default handling in settings.json and the linked agent" c_gui_codex_deviation_reset_and_default
-  check "[G-catalog] deviation outside the catalog is a warning in /api/state and the page labels it \"mimo katalog\"" c_gui_outside_catalog_reported
+  check "[G-catalog] deviation outside the catalog is a warning in /api/state and the page labels it \"not in catalog\"" c_gui_outside_catalog_reported
   check "[G-provider] unticking a provider and saving removes its links and updates settings.json providers" c_gui_untick_provider
   check "[G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json" c_gui_opencode_variant_reaches_opencode_json
   check "[G-stale] stale stored agent/key does not block a save that sends them back unchanged; a new unknown agent/key is still 400" c_gui_stale_stored_entries_do_not_block_save
