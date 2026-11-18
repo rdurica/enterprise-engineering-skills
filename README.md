@@ -1,5 +1,21 @@
 # Enterprise Engineering Skills
 
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-D97757?logo=claude&logoColor=white)](#agents-for-each-provider)
+[![Codex](https://img.shields.io/badge/Codex-supported-111111)](#agents-for-each-provider)
+[![Cursor](https://img.shields.io/badge/Cursor-supported-111111?logo=cursor&logoColor=white)](#agents-for-each-provider)
+[![opencode](https://img.shields.io/badge/opencode-supported-111111)](#agents-for-each-provider)
+[![Pi](https://img.shields.io/badge/Pi-supported-111111)](#agents-for-each-provider)
+<br>
+[![Workflow](https://img.shields.io/badge/workflow-analyze_→_implement_→_verify-5b4ff5)](#workflow)
+[![Python](https://img.shields.io/badge/python-3.11+_stdlib-3776AB?logo=python&logoColor=white)](#choosing-providers-and-models)
+[![Bash](https://img.shields.io/badge/installer-bash-4EAA25?logo=gnubash&logoColor=white)](#quick-start)
+[![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](#quick-start)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/setup-dark.png">
+  <img alt="The setup page: provider switches on top, then one tab per provider with a card for each agent, its model and its effort" src="docs/images/setup-light.png">
+</picture>
+
 Claude Code skills and agents for changes in an existing codebase. You make the decisions; agents write the tests and code, review them and deliver the result.
 
 The goal is not just working code. Whoever owns the project should understand the change well enough to explain it, so behaviour and boundaries are agreed first and implemented second. Trivial fixes skip the pipeline.
@@ -12,11 +28,6 @@ git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/en
 ```
 
 Prefer clicking to flags? `make setup` opens a local page where you switch providers on and pick the model and effort of every agent — see [Choosing providers and models](#choosing-providers-and-models).
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/setup-dark.png">
-  <img alt="The setup page: provider switches on top, then one tab per provider with a card for each agent, its model and its effort" src="docs/images/setup-light.png">
-</picture>
 
 Run the installer from a terminal: a numbered wizard asks which tools to link — Claude Code, Codex, Cursor, opencode and Pi — and preselects the ones already linked into the pack; installed tools are still shown, but not preselected. Pick several tools by typing one or more numbers separated by commas or spaces (for example `1,3`), type `all` or `none`, or press Enter for the default.
 
