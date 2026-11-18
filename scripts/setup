@@ -31,6 +31,10 @@ class Invalid(Exception):
     pass
 
 
+class Unreadable(Exception):
+    pass
+
+
 def is_pack_link(path):
     if not path.is_symlink():
         return False
@@ -123,8 +127,24 @@ def checked_value(catalog, provider, key, value, stored, where):
         raise Invalid(f"{where} = {value!r} is not in the catalog")
 
 
+_missing = object()
+
+
+def sub(container, key):
+    return container.get(key, _missing) if isinstance(container, dict) else _missing
+
+
+def unchanged(stored, value):
+    """True when value is exactly what settings.json already holds (a stale entry the page sent back)."""
+    return stored is not _missing and stored == value
+
+
 def validate(body, current):
-    """Return the new settings dict, or raise Invalid. Nothing is written here."""
+    """Return the new settings dict, or raise Invalid. Nothing is written here.
+
+    Entries that ees_settings.merge_* would only warn about and ignore (stale or hand-written) are dropped
+    when they are unchanged from the stored settings, and rejected when they are new.
+    """
     body = obj(body, "request")
     catalog = es.load_catalog()
     agents_toml, fragment = es.load_defaults()
@@ -136,38 +156,86 @@ def validate(body, current):
         raise Invalid(f"unknown provider: {', '.join(unknown)}")
     agents = obj(body.get("agents", {}), "agents")
     opencode = obj(body.get("opencode", {}), "opencode")
-    old_agents = current.get("agents") if isinstance(current.get("agents"), dict) else {}
-    old_oc = current.get("opencode") if isinstance(current.get("opencode"), dict) else {}
+    old_agents = sub(current, "agents")
+    old_oc = sub(current, "opencode")
 
+    def drop_or_raise(stored, value, message):
+        if not unchanged(stored, value):
+            raise Invalid(message)
+
+    new_agents = {}
     for agent, tables in agents.items():
+        old_tables = sub(old_agents, agent)
         if agent not in agents_toml:
-            raise Invalid(f"unknown agent {agent!r}")
-        for provider, cfg in obj(tables, f"agents.{agent}").items():
+            drop_or_raise(old_tables, tables, f"unknown agent {agent!r}")
+            continue
+        if not isinstance(tables, dict):
+            drop_or_raise(old_tables, tables, f"agents.{agent} must be an object")
+            continue
+        kept_tables = {}
+        for provider, cfg in tables.items():
+            old_cfg = sub(old_tables, provider)
             if provider not in es.editable or provider not in agents_toml[agent]:
-                raise Invalid(f"agent {agent} has no provider {provider!r}")
-            for key, value in obj(cfg, f"agents.{agent}.{provider}").items():
+                drop_or_raise(old_cfg, cfg, f"agent {agent} has no provider {provider!r}")
+                continue
+            if not isinstance(cfg, dict):
+                drop_or_raise(old_cfg, cfg, f"agents.{agent}.{provider} must be an object")
+                continue
+            kept = {}
+            for key, value in cfg.items():
+                old_value = sub(old_cfg, key)
                 if key not in es.editable[provider]:
-                    raise Invalid(f"agent {agent} {provider}.{key} is not editable")
-                stored = ((old_agents.get(agent) or {}).get(provider) or {}).get(key) if isinstance(old_agents.get(agent), dict) else None
-                checked_value(catalog, provider, key, value, stored, f"agent {agent} {provider}.{key}")
+                    drop_or_raise(old_value, value, f"agent {agent} {provider}.{key} is not editable")
+                    continue
+                if not isinstance(value, str) and unchanged(old_value, value):
+                    continue
+                checked_value(catalog, provider, key, value, old_value, f"agent {agent} {provider}.{key}")
+                kept[key] = value
+            if kept:
+                kept_tables[provider] = kept
+        if kept_tables:
+            new_agents[agent] = kept_tables
 
+    new_oc = {}
     for key, value in opencode.items():
+        old_value = sub(old_oc, key)
         if key in ("model", "small_model"):
-            checked_value(catalog, "opencode", "model", value, old_oc.get(key), f"opencode {key}")
+            if not isinstance(value, str) and unchanged(old_value, value):
+                continue
+            checked_value(catalog, "opencode", "model", value, old_value, f"opencode {key}")
+            new_oc[key] = value
         elif key == "agent":
-            for agent_id, cfg in obj(value, "opencode.agent").items():
+            if not isinstance(value, dict):
+                drop_or_raise(old_value, value, "opencode.agent must be an object")
+                continue
+            kept_agents = {}
+            for agent_id, cfg in value.items():
+                old_cfg = sub(old_value, agent_id)
                 if agent_id not in fragment.get("agent", {}):
-                    raise Invalid(f"unknown opencode agent {agent_id!r}")
-                for k, v in obj(cfg, f"opencode.agent.{agent_id}").items():
+                    drop_or_raise(old_cfg, cfg, f"unknown opencode agent {agent_id!r}")
+                    continue
+                if not isinstance(cfg, dict):
+                    drop_or_raise(old_cfg, cfg, f"opencode.agent.{agent_id} must be an object")
+                    continue
+                kept = {}
+                for k, v in cfg.items():
+                    old_v = sub(old_cfg, k)
                     if k not in es.opencode_agent_keys:
-                        raise Invalid(f"opencode agent {agent_id} {k!r} is not editable")
-                    stored = ((old_oc.get("agent") or {}).get(agent_id) or {}).get(k) if isinstance(old_oc.get("agent"), dict) else None
-                    checked_value(catalog, "opencode", k, v, stored, f"opencode agent {agent_id} {k}")
+                        drop_or_raise(old_v, v, f"opencode agent {agent_id} {k!r} is not editable")
+                        continue
+                    if not isinstance(v, str) and unchanged(old_v, v):
+                        continue
+                    checked_value(catalog, "opencode", k, v, old_v, f"opencode agent {agent_id} {k}")
+                    kept[k] = v
+                if kept:
+                    kept_agents[agent_id] = kept
+            if kept_agents:
+                new_oc["agent"] = kept_agents
         else:
-            raise Invalid(f"opencode key {key!r} is unknown")
+            drop_or_raise(old_value, value, f"opencode key {key!r} is unknown")
 
     new = {k: v for k, v in current.items() if k not in es.top_level}  # keep keys written by hand
-    new.update(providers=list(dict.fromkeys(chosen)), agents=agents, opencode=opencode)
+    new.update(providers=list(dict.fromkeys(chosen)), agents=new_agents, opencode=new_oc)
     return new
 
 
@@ -183,7 +251,9 @@ def run_install(providers):
 
 def save(body):
     with save_lock:
-        current, _ = es.load_settings()
+        current, load_warnings = es.load_settings()
+        if load_warnings:
+            raise Unreadable("; ".join(load_warnings) + ". Fix or remove settings.json, then save again")
         new = validate(body, current)
         es.write_settings(new)
         code, log = run_install(new["providers"])
@@ -200,8 +270,11 @@ def save(body):
 def make_handler(token, origin):
     page = pack / "setup" / "index.html"
 
+    host = origin[len("http://"):]
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "ees-setup"
+        timeout = 30
 
         def log_message(self, *args):
             pass
@@ -212,6 +285,11 @@ def make_handler(token, origin):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header(
+                "Content-Security-Policy",
+                "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+            )
             self.end_headers()
             self.wfile.write(body)
 
@@ -224,7 +302,24 @@ def make_handler(token, origin):
         def header_token_ok(self):
             return hmac.compare_digest((self.headers.get("X-Setup-Token") or "").encode(), token.encode())
 
+        def guarded(self, handle):
+            try:
+                if self.headers.get("Host") != host:
+                    return self.error(403, "invalid_host")
+                handle()
+            except Exception as error:  # an unexpected failure must still answer, not drop the connection
+                try:
+                    self.error(500, "internal_error", f"{type(error).__name__}: {error}")
+                except Exception:
+                    pass
+
         def do_GET(self):
+            self.guarded(self.get)
+
+        def do_POST(self):
+            self.guarded(self.post)
+
+        def get(self):
             url = urlsplit(self.path)
             if url.path == "/":
                 given = (parse_qs(url.query).get("token") or [""])[0]
@@ -237,7 +332,7 @@ def make_handler(token, origin):
                 return self.json(200, build_state())
             self.error(404, "not_found")
 
-        def do_POST(self):
+        def post(self):
             if urlsplit(self.path).path != "/api/save":
                 return self.error(404, "not_found")
             if not self.header_token_ok():
@@ -249,12 +344,16 @@ def make_handler(token, origin):
                 if not 0 < length <= max_body:
                     raise ValueError
                 body = json.loads(self.rfile.read(length))
-            except ValueError:
+            except (ValueError, RecursionError):
                 return self.error(400, "invalid_settings", "request body is not valid JSON")
             try:
                 result = save(body)
             except Invalid as error:
                 return self.error(400, "invalid_settings", str(error))
+            except RecursionError:
+                return self.error(400, "invalid_settings", "request body is nested too deeply")
+            except Unreadable as error:
+                return self.error(409, "settings_unreadable", str(error))
             except OSError as error:
                 return self.error(500, "save_failed", str(error))
             self.json(200, result)

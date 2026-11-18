@@ -41,6 +41,7 @@
 "use strict";
 const token = new URLSearchParams(location.search).get("token") || "";
 const headers = { "X-Setup-Token": token };
+try { history.replaceState(null, "", location.pathname); } catch (e) { /* the token stays in memory */ }
 let state, draft;
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...kids) => {
