@@ -217,6 +217,8 @@ rebuild_picks_up_toml() {
   local n
   "$stale/scripts/build-agents" >/dev/null 2>&1 || return 1                  # copy starts built from the original agents.toml
   sed -i -e "s#deepseek-v4\.1-flash#deepseek-v4.1-flash-changed#g" -e "s#claude-agent/sonnet#claude-agent/sonnet-changed#g" "$stale/agents.toml"
+  # The new defaults must be in the catalog too, or the build rejects them.
+  sed -i 's#^models *= *\[#models = ["opencode-go/deepseek-v4.1-flash-changed", "claude-agent/sonnet-changed", #' "$stale/config/models.toml"
   "$stale/scripts/build-agents" >/dev/null 2>&1 || return 1
   for n in "${agent_names[@]}"; do
     grep -qE '^model: .*-changed$' "$stale/generated/opencode/agents/$n.md" || return 1
