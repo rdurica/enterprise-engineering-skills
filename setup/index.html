@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nastavení enterprise-engineering-skills</title>
+<title>enterprise-engineering-skills setup</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -144,22 +144,22 @@
 <main>
   <header>
     <p class="eyebrow">enterprise-engineering-skills</p>
-    <h1>Poskytovatelé a modely</h1>
-    <p class="lead">Vyberte nástroje a modely agentů. Ukládají se jen odchylky od defaultů packu – co nezměníte, se řídí aktuálními defaulty.</p>
+    <h1>Providers and models</h1>
+    <p class="lead">Pick your tools and the models of each agent. Only deviations from the pack defaults are saved – anything you leave alone follows the current defaults.</p>
   </header>
   <div id="warnings"></div>
   <div id="load-error" role="alert"></div>
-  <section class="card"><fieldset id="providers"><legend>Poskytovatelé</legend></fieldset></section>
+  <section class="card"><fieldset id="providers"><legend>Providers</legend></fieldset></section>
   <div id="tables"></div>
-  <p id="no-provider" class="warnings" hidden>Není vybrán žádný poskytovatel – uložením se odstraní všechny linky.</p>
+  <p id="no-provider" class="warnings" hidden>No provider is selected – saving removes all links.</p>
   <div class="actions">
-    <button class="primary" id="save" type="button" aria-describedby="save-hint">Uložit a nainstalovat</button>
-    <span id="dirty" class="pill dirty dot" hidden>Neuložené změny</span>
+    <button class="primary" id="save" type="button" aria-describedby="save-hint">Save and install</button>
+    <span id="dirty" class="pill dirty dot" hidden>Unsaved changes</span>
     <span id="status" role="status" aria-live="polite"></span>
     <span id="error" role="alert" class="bad"></span>
-    <p class="muted" id="save-hint">Uložení přegeneruje agenty a spustí <code>install.sh</code>.</p>
+    <p class="muted" id="save-hint">Saving rebuilds the agents and runs <code>install.sh</code>.</p>
   </div>
-  <section id="result" class="card" hidden aria-live="polite"><div class="card-head"><h2>Výsledek instalace</h2></div><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Log instalace"></pre></section>
+  <section id="result" class="card" hidden aria-live="polite"><div class="card-head"><h2>Install result</h2></div><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Install log"></pre></section>
   <div class="spacer"></div>
 </main>
 <script>
@@ -175,29 +175,29 @@ const el = (tag, attrs = {}, ...kids) => {
   e.append(...kids);
   return e;
 };
-const colName = { model: "Model", effort: "Úroveň", variant: "Varianta", small_model: "Malý model" };
-const noteCs = { linked: "nalinkováno", installed: "nainstalováno", "not found": "nenalezeno" };
+const colName = { model: "Model", effort: "Effort", variant: "Variant", small_model: "Small model" };
+const noteText = { linked: "linked", installed: "installed", "not found": "not found" };
 // What each agent does, in one sentence. An agent missing here simply shows no description.
 const about = {
-  "ees-check-runner": "Spouští testy, lintery a typové kontroly projektu a vrací stručný souhrn s výpisem chyb.",
-  "ees-code-reviewer": "Prochází diff kvůli správnosti, bezpečnosti, návrhu a čitelnosti a vrací nálezy s návrhem opravy; nic neupravuje.",
-  "ees-functional-reviewer": "Porovnává změnu s analýzou – úplnost Acceptance, rozsah, API kontrakty a pokrytí testy.",
-  "ees-implementer": "Píše produkční kód přidělené části proti hotovým testům a opravuje nálezy z review.",
-  "ees-test-writer": "Píše testy a fixtures pro přidělenou část a dokládá, že nejdřív selhávají; produkční kód nemění.",
-  "ees-ux-reviewer": "Kontroluje UX a přístupnost frontendových změn podle WCAG 2.2 AA, v kódu i v prohlížeči.",
+  "ees-check-runner": "Runs the project's tests, linters and type checks and returns a compact pass/fail summary.",
+  "ees-code-reviewer": "Reviews a diff for correctness, security, design and readability and returns findings with fixes; never edits.",
+  "ees-functional-reviewer": "Checks a change against its analysis – Acceptance, scope, API contracts and test coverage.",
+  "ees-implementer": "Writes production code for its cluster against committed tests and fixes review findings.",
+  "ees-test-writer": "Writes tests and fixtures for its cluster and shows they fail first; never touches production code.",
+  "ees-ux-reviewer": "Reviews UX and accessibility of frontend changes against WCAG 2.2 AA, in code and in a browser.",
 };
 const aboutOpencode = {
-  model: "Model hlavní session, ve které běží orchestrace pipeline.",
-  small_model: "Levnější model pro drobné úlohy, jako jsou názvy a shrnutí.",
-  build: "Výchozí agent opencode pro práci s kódem.",
-  plan: "Plánovací agent opencode, který jen čte a navrhuje.",
-  general: "Obecný subagent pro vícekrokové úlohy.",
-  explore: "Rychlý subagent pro hledání v kódu.",
-  compaction: "Zhušťuje dlouhou konverzaci, aby se vešla do kontextu.",
-  title: "Vymýšlí názvy sessions.",
-  summary: "Shrnuje sessions.",
+  model: "Model of the main session that orchestrates the pipeline.",
+  small_model: "Cheaper model for small tasks such as titles and summaries.",
+  build: "opencode's default agent for working on code.",
+  plan: "opencode's planning agent; reads and proposes, never edits.",
+  general: "General-purpose subagent for multi-step tasks.",
+  explore: "Fast subagent for searching the codebase.",
+  compaction: "Compacts a long conversation so it fits the context.",
+  title: "Generates session titles.",
+  summary: "Summarizes sessions.",
 };
-const sessionName = { model: "Hlavní model", small_model: "Malý model" };
+const sessionName = { model: "Main model", small_model: "Small model" };
 let dirty = false, saving = false;
 function setDirty(v) { dirty = v; $("dirty").hidden = !v; }
 function edited() {
@@ -243,7 +243,7 @@ function control(section, path, def, list, label, kind) {
   if (kind === "select") {
     input = el("select", { id });
     input.setAttribute("aria-label", label);
-    for (const o of options) input.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (mimo katalog)" : "") }));
+    for (const o of options) input.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (not in catalog)" : "") }));
     input.onchange = () => choose(input.value);
   } else {
     input = el("fieldset", { id, class: "seg" }, el("legend", { class: "sr-only", textContent: label }));
@@ -253,12 +253,12 @@ function control(section, path, def, list, label, kind) {
       radio.onchange = () => choose(o);
       const text = el("label", { htmlFor: rid, class: (o === def ? "is-default" : "") + (o === value && outside ? " is-outside" : ""), title: o === def ? "default" : "" }, o);
       if (o === def) text.append(el("span", { class: "sr-only", textContent: " (default)" }));
-      if (o === value && outside) text.append(el("span", { class: "sr-only", textContent: " (mimo katalog)" }));
+      if (o === value && outside) text.append(el("span", { class: "sr-only", textContent: " (not in catalog)" }));
       input.append(radio, text);
     }
   }
-  const reset = el("button", { type: "button", class: "ghost", textContent: "Obnovit", hidden: !isOwn, id: id + "-reset", title: "Vrátit default: " + def });
-  reset.setAttribute("aria-label", "Obnovit default: " + label);
+  const reset = el("button", { type: "button", class: "ghost", textContent: "Reset", hidden: !isOwn, id: id + "-reset", title: "Back to default: " + def });
+  reset.setAttribute("aria-label", "Reset to default: " + label);
   reset.onclick = () => { delPath(draft[section], path); edited(); };
   const box = el("div", { class: "control" + (outside ? " outside" : "") },
     el("span", { class: "control-label", textContent: colName[path[path.length - 1]] || "" }),
@@ -270,8 +270,8 @@ function control(section, path, def, list, label, kind) {
 // One agent row: name, what it does, and its controls.
 function row(name, desc, controls, plain) {
   const pills = [];
-  if (controls.some((c) => c.outside)) pills.push(el("span", { class: "pill outside", textContent: "mimo katalog" }));
-  else if (controls.some((c) => c.own)) pills.push(el("span", { class: "pill own", textContent: "vlastní" }));
+  if (controls.some((c) => c.outside)) pills.push(el("span", { class: "pill outside", textContent: "not in catalog" }));
+  else if (controls.some((c) => c.own)) pills.push(el("span", { class: "pill own", textContent: "custom" }));
   const cls = "row" + (controls.some((c) => c.outside) ? " outside" : controls.some((c) => c.own) ? " own" : "");
   return el("li", { class: cls },
     el("div", {}, el("div", { class: "agent-name" + (plain ? " plain" : "") }, name, ...pills), desc ? el("p", { class: "agent-desc", textContent: desc }) : ""),
@@ -281,7 +281,7 @@ function row(name, desc, controls, plain) {
 function renderProviders() {
   const box = $("providers");
   const tiles = el("div", { class: "tiles" });
-  box.replaceChildren(el("legend", { textContent: "Poskytovatelé" }), tiles);
+  box.replaceChildren(el("legend", { textContent: "Providers" }), tiles);
   for (const p of state.providers) {
     const cb = el("input", { type: "checkbox", id: "prov-" + p.id, checked: draft.providers.has(p.id) });
     cb.onchange = () => { cb.checked ? draft.providers.add(p.id) : draft.providers.delete(p.id); edited(); };
@@ -290,7 +290,7 @@ function renderProviders() {
     tiles.append(el("label", { class: "tile", htmlFor: cb.id },
       el("span", { class: "tile-top" }, logo, cb),
       el("span", { class: "tile-name", textContent: p.label }),
-      el("span", { class: "pill dot " + (p.note === "not found" ? "" : p.note), textContent: noteCs[p.note] || p.note })));
+      el("span", { class: "pill dot " + (p.note === "not found" ? "" : p.note), textContent: noteText[p.note] || p.note })));
   }
 }
 
@@ -317,13 +317,13 @@ function opencodeRows() {
   const list = el("ul", { class: "rows" });
   for (const k of ["model", "small_model"]) {
     if (d[k] === undefined) continue;
-    const c = control("opencode", [k], d[k], cat.models || [], sessionName[k] + " – hlavní session (OpenCode)", "select");
+    const c = control("opencode", [k], d[k], cat.models || [], sessionName[k] + " – main session (opencode)", "select");
     list.append(row(sessionName[k], aboutOpencode[k], [c], true));
   }
   for (const [id, cfg] of Object.entries(d.agent || {})) {
     const controls = [];
-    if (cfg.model !== undefined) controls.push(control("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (OpenCode built-in agent)", "select"));
-    if (cfg.variant !== undefined) controls.push(control("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (OpenCode built-in agent)", "seg"));
+    if (cfg.model !== undefined) controls.push(control("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (opencode built-in agent)", "select"));
+    if (cfg.variant !== undefined) controls.push(control("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (opencode built-in agent)", "seg"));
     list.append(row(id, aboutOpencode[id], controls));
   }
   return list;
@@ -347,11 +347,11 @@ function renderTables() {
     const logo = el("span", { class: "logo " + p.id, textContent: p.label.slice(0, 2) });
     logo.setAttribute("aria-hidden", "true");
     const sec = el("section", { class: "card" }, el("div", { class: "card-head" }, logo,
-      el("div", { class: "head-text" }, el("h2", { textContent: p.label }), el("p", { class: "sub", textContent: "Modely a úrovně agentů" })),
-      el("span", { class: "pill " + (own ? "own" : ""), textContent: own ? own + " " + (own === 1 ? "vlastní hodnota" : own < 5 ? "vlastní hodnoty" : "vlastních hodnot") : "jen defaulty" })));
+      el("div", { class: "head-text" }, el("h2", { textContent: p.label }), el("p", { class: "sub", textContent: "Agent models and effort levels" })),
+      el("span", { class: "pill " + (own ? "own" : ""), textContent: own ? own + " custom " + (own === 1 ? "value" : "values") : "defaults only" })));
     if (p.id === "opencode") {
-      sec.append(el("h3", { class: "group-title", textContent: "Hlavní session a built-in agenti" }), opencodeRows(),
-        el("h3", { class: "group-title", textContent: "Agenti packu" }));
+      sec.append(el("h3", { class: "group-title", textContent: "Main session and built-in agents" }), opencodeRows(),
+        el("h3", { class: "group-title", textContent: "Pack agents" }));
     }
     sec.append(agentRows(p.id, p.label));
     box.append(sec);
@@ -361,7 +361,7 @@ function renderTables() {
 function showWarnings(target, list) {
   target.replaceChildren();
   if (!list.length) return;
-  target.append(el("div", { class: "warnings" }, el("strong", { textContent: "Varování" }), el("ul", {}, ...list.map((w) => el("li", { textContent: w })))));
+  target.append(el("div", { class: "warnings" }, el("strong", { textContent: "Warnings" }), el("ul", {}, ...list.map((w) => el("li", { textContent: w })))));
 }
 
 function render() {
@@ -385,9 +385,9 @@ async function load() {
     if (!r.ok) throw new Error("HTTP " + r.status);
     state = await r.json();
   } catch (e) {
-    const retry = el("button", { type: "button", textContent: "Zkusit znovu" });
+    const retry = el("button", { type: "button", textContent: "Try again" });
     retry.onclick = load;
-    box.append(el("div", { class: "alert" }, el("p", { textContent: "Nelze načíst nastavení (neplatný token nebo server neodpovídá). Otevřete znovu adresu, kterou vypsal `make setup`, nebo to zkuste znovu." }), retry));
+    box.append(el("div", { class: "alert" }, el("p", { textContent: "Cannot load the settings (invalid token or the server is not answering). Reopen the URL printed by `make setup`, or try again." }), retry));
     return;
   }
   const s = state.settings;
@@ -405,26 +405,26 @@ async function load() {
 $("save").onclick = async () => {
   const btn = $("save");
   if (!state || !draft || saving) return;
-  if (!draft.providers.size && !confirm("Není vybrán žádný poskytovatel. Uložením se odstraní všechny linky. Pokračovat?")) return;
+  if (!draft.providers.size && !confirm("No provider is selected. Saving removes all links. Continue?")) return;
   saving = true;
   btn.disabled = true;
   $("status").className = ""; $("error").textContent = "";
-  $("status").textContent = "Ukládám a instaluji…";
+  $("status").textContent = "Saving and installing…";
   try {
     const order = state.providers.map((p) => p.id).filter((id) => draft.providers.has(id));
     const r = await fetch("/api/save", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ providers: order, agents: draft.agents, opencode: draft.opencode }) });
     const data = await r.json();
-    if (!r.ok) { $("status").textContent = ""; $("error").textContent = "Nelze uložit: " + (data.message || data.error); return; }
+    if (!r.ok) { $("status").textContent = ""; $("error").textContent = "Cannot save: " + (data.message || data.error); return; }
     setDirty(false);
-    if (data.ok) { $("status").textContent = "Uloženo."; $("status").className = "ok"; }
-    else { $("status").textContent = ""; $("error").textContent = "Instalace skončila chybou."; }
+    if (data.ok) { $("status").textContent = "Saved."; $("status").className = "ok"; }
+    else { $("status").textContent = ""; $("error").textContent = "The install failed."; }
     $("result").hidden = false;
     $("log").textContent = data.log;
     showWarnings($("result-warnings"), data.warnings);
     const s = await fetch("/api/state", { headers });
     if (s.ok) { state = await s.json(); showWarnings($("warnings"), state.warnings); render(); }
   } catch (e) {
-    $("status").textContent = ""; $("error").textContent = "Chyba: " + e;
+    $("status").textContent = ""; $("error").textContent = "Error: " + e;
   } finally { saving = false; btn.disabled = false; }
 };
 load();
