@@ -3,7 +3,12 @@
 # pruning, conflicts, the numbered wizard, the confirmation, --dry-run and the documentation. Labels
 # [1]..[18] map to the first 18 of the 19 installer Acceptance items in order; item 19 (the other
 # scripts/check-* still pass) is run separately. [harness] labels are setup checks.
+# Labels [i12-...] cover the installer and git hook part of issue #12 (settings.json providers, build
+# before linking, generated/ not tracked, post-merge / post-rewrite hooks, pre-commit validation).
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
+#
+# generated/ is a local build output (not committed): the sandbox tree is built with scripts/build-agents
+# and scripts/build-pi-prompts, under the sandbox environment so a real settings.json is never read.
 #
 # Behavioural checks run in a sandbox: a mktemp dir is used as HOME and every provider directory is
 # redirected with CLAUDE_CONFIG_DIR, CODEX_HOME, XDG_CONFIG_HOME and PI_CODING_AGENT_DIR. The installer
@@ -40,8 +45,12 @@ trap 'rm -rf "$sb"' EXIT
 # here, never in the checkout under test.
 tree="$sb/tree"
 mkdir -p "$tree"
-tar --exclude=./.git -cf - . | tar -xf - -C "$tree"
+tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$tree"
 tree="$(cd "$tree" && pwd -P)"
+# A pristine source snapshot without .git and generated/, the base of every git fixture below.
+src="$sb/src"
+mkdir -p "$src"
+tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$src"
 git init -q "$tree" >/dev/null 2>&1
 : >"$sb/gitconfig"
 
@@ -77,6 +86,15 @@ run_install() { # run_install <dir> [args...]; stdin from <dir>/stdin, else /dev
   scenario_env "$d" "$tree/install.sh" "$@" <"$input" >"$d/out" 2>"$d/err" || rc=$?
   echo "$rc" >"$d/rc"
 }
+
+# generated/ is not committed: build it in the sandbox tree, as install.sh, the setup GUI and the git
+# hooks do for a real checkout.
+build_generated() { # build_generated <pack> <scenario-dir>
+  scenario_env "$2" "$1/scripts/build-agents" && scenario_env "$2" "$1/scripts/build-pi-prompts"
+}
+prep="$(scenario build-prep)"
+build_prep_rc=0
+build_generated "$tree" "$prep" >"$prep/out" 2>"$prep/err" || build_prep_rc=$?
 
 # pty.fork helper: runs a wrapper with stdin and stdout on a terminal, merges the output and returns the
 # child's exit code, or 124 when the child stops producing output for TIMEOUT seconds (a regressed prompt
@@ -386,6 +404,8 @@ hooks_set() {
 
 check "[harness] sandbox PATH exposes no provider CLI" no_provider_cli
 check "[harness] python3 is available for the PTY wizard checks" command -v python3
+check "[harness] the sandbox tree builds generated/ without a committed copy" \
+  bash -c '[[ "$1" == 0 && -f "$2/generated/claude/agents/ees-test-writer.md" && -d "$2/generated/pi/prompts" ]] || { cat "$3/err"; exit 1; }' _ "$build_prep_rc" "$tree" "$prep"
 
 # ---------------------------------------------------------------- [1] and [2] --all
 
@@ -827,6 +847,397 @@ setup_step1_runs_in_terminal() { # step 1 points the user at install.sh in a ter
     { echo "step 1 does not forbid running install.sh from the session"; return 1; }
 }
 check "[18] ees-setup step 1 tells the user to run install.sh in a terminal and not from the session" setup_step1_runs_in_terminal
+
+# ================================================================ issue #12: settings, build, hooks
+
+settings_file() { echo "$1/xdg/enterprise-engineering-skills/settings.json"; }
+
+write_settings() { # write_settings <scenario> <json>
+  mkdir -p "$(dirname "$(settings_file "$1")")"
+  printf '%s\n' "$2" >"$(settings_file "$1")"
+}
+
+settings_providers() { # settings_providers <scenario>: sorted, comma separated `providers` of settings.json
+  python3 - "$(settings_file "$1")" 2>/dev/null <<'PY'
+import json, sys
+print(",".join(sorted(json.load(open(sys.argv[1])).get("providers", []))))
+PY
+}
+
+has_settings_providers() { # has_settings_providers <scenario> <sorted comma list>
+  local got
+  [[ -f "$(settings_file "$1")" ]] || { echo "settings.json was not written"; return 1; }
+  got="$(settings_providers "$1")" || { echo "settings.json is not valid JSON with a providers list"; return 1; }
+  [[ "$got" == "$2" ]] || { echo "settings.json providers = [$got], want [$2]"; return 1; }
+}
+
+run_install_at() { # run_install_at <pack> <scenario> [args...]: install.sh of another pack checkout
+  local pk="$1" d="$2"; shift 2
+  local input=/dev/null rc=0
+  if [[ -f "$d/stdin" ]]; then input="$d/stdin"; fi
+  scenario_env "$d" "$pk/install.sh" "$@" <"$input" >"$d/out" 2>"$d/err" || rc=$?
+  echo "$rc" >"$d/rc"
+}
+
+sgit() { # sgit <scenario> <git args...>: git in the sandbox environment with a committer identity
+  local d="$1"; shift
+  scenario_env "$d" env GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.test GIT_COMMITTER_NAME=t \
+    GIT_COMMITTER_EMAIL=t@example.test GIT_EDITOR=true git "$@"
+}
+
+# make_pair <scenario> <tracked 0|1>: dev/ (working repo), origin.git (bare) and user/ (a clone of it),
+# all from the pristine snapshot. tracked=0 models the repository after this change (generated/ ignored and
+# not committed), tracked=1 the one before it (generated/ committed).
+make_pair() {
+  local d="$1" tracked="$2" dev="$1/dev"
+  mkdir -p "$dev"
+  tar -C "$src" -cf - . | tar -xf - -C "$dev"
+  if [[ "$tracked" == 1 ]]; then
+    { grep -vxF 'generated/' "$dev/.gitignore" || true; } >"$dev/.gitignore.new"
+    mv "$dev/.gitignore.new" "$dev/.gitignore"
+    build_generated "$dev" "$d" >/dev/null 2>&1 || true
+  elif ! grep -qxF 'generated/' "$dev/.gitignore"; then
+    printf 'generated/\n' >>"$dev/.gitignore"
+  fi
+  sgit "$d" init -q -b main "$dev"
+  sgit "$d" -C "$dev" add -A
+  sgit "$d" -C "$dev" commit -q -m base
+  sgit "$d" clone -q --bare "$dev" "$d/origin.git"
+  sgit "$d" -C "$dev" remote add origin "$d/origin.git"
+  sgit "$d" -C "$dev" fetch -q origin
+  sgit "$d" -C "$dev" branch -q -u origin/main
+  sgit "$d" clone -q "$d/origin.git" "$d/user"
+  sgit "$d" -C "$d/user" config core.hooksPath .githooks
+}
+
+# A user checkout that already has a built generated/ (the state before a pull), independent of install.sh.
+build_user() { # build_user <scenario>
+  build_generated "$1/user" "$1" >/dev/null 2>&1 || true
+}
+
+# The pack author moves the codex default of two agents to another catalog model (gpt-6.2-terra), then
+# pushes: ees-implementer is not overridden by the user, ees-code-reviewer is.
+dev_publish_new_defaults() { # dev_publish_new_defaults <scenario>
+  local d="$1" dev="$1/dev"
+  awk '/^\[/ { sec = $0 }
+       (sec == "[ees-implementer]" || sec == "[ees-code-reviewer]") && /^codex =/ { sub(/gpt-6\.1-terra/, "gpt-6.2-terra") }
+       { print }' "$dev/agents.toml" >"$dev/agents.toml.new"
+  mv "$dev/agents.toml.new" "$dev/agents.toml"
+  sgit "$d" -C "$dev" commit -q -am "new codex defaults"
+  sgit "$d" -C "$dev" push -q origin main
+}
+
+hook_pair() { # hook_pair <scenario>: user/ with claude+codex linked, a codex override on the reviewer
+  local d="$1"
+  make_pair "$d" 0
+  build_user "$d"
+  run_install_at "$d/user" "$d" --providers claude,codex --yes
+  write_settings "$d" '{"providers": ["claude", "codex"], "agents": {"ees-code-reviewer": {"codex": {"model": "gpt-6-luna"}}}}'
+}
+
+pulled_defaults() { # pulled_defaults <scenario>: new default reached the plain agent, the override survived
+  local d="$1" u="$1/user" f
+  f="$u/generated/codex/agents/ees-implementer.toml"
+  [[ -f "$f" ]] || { echo "missing $f"; return 1; }
+  grep -qx 'model = "gpt-6.2-terra"' "$f" || { echo "ees-implementer did not get the new default: $(grep '^model' "$f")"; return 1; }
+  grep -qx 'model_reasoning_effort = "medium"' "$f" || { echo "ees-implementer effort changed"; return 1; }
+  grep -qx 'model = "gpt-6.2-terra"' "$d/codex/agents/ees-implementer.toml" ||
+    { echo "~/.codex/agents/ees-implementer.toml does not show the new default"; return 1; }
+  f="$u/generated/codex/agents/ees-code-reviewer.toml"
+  [[ -f "$f" ]] || { echo "missing $f"; return 1; }
+  grep -qx 'model = "gpt-6-luna"' "$f" || { echo "overridden ees-code-reviewer lost its override: $(grep '^model' "$f")"; return 1; }
+  grep -qx 'model_reasoning_effort = "high"' "$f" || { echo "ees-code-reviewer effort changed"; return 1; }
+}
+
+# ---------------------------------------------------------------- [i12-1] unticking a provider
+
+ci1="$(scenario i12-untick)"
+run_install "$ci1" --providers claude,codex --yes
+ci1_first_claude=0
+if [[ -L "$ci1/claude/agents/ees-test-writer.md" && -L "$ci1/codex/agents/ees-test-writer.toml" ]]; then ci1_first_claude=1; fi
+run_install "$ci1" --providers codex --yes
+untick_removes_links() {
+  local d="$1" p
+  [[ "$ci1_first_claude" == 1 ]] || { echo "first run did not link claude and codex"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  assert_no_pack_links "$d/claude/agents" || return 1
+  assert_agent_dir "$d" codex || return 1
+  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  has_settings_providers "$d" codex
+}
+check "[i12-1] --providers <subset> --yes removes the links of the others and settings.json providers follows" untick_removes_links "$ci1"
+
+# ---------------------------------------------------------------- [i12-2] --providers writes settings.json
+
+ci2="$(scenario i12-writes)"
+run_install "$ci2" --providers codex --yes
+writes_codex_selection() { has_rc "$1" 0 && has_settings_providers "$1" codex; }
+check "[i12-2] --providers codex --yes writes providers [codex] to settings.json" writes_codex_selection "$ci2"
+
+# The other settings keys are not the installer's to touch: only `providers` is rewritten. --all replaces
+# the stored selection too.
+ci2b="$(scenario i12-keeps-keys)"
+write_settings "$ci2b" '{"providers": ["claude"], "opencode": {"agent": {"explore": {"variant": "medium"}}}}'
+run_install "$ci2b" --providers codex --yes
+keeps_other_keys() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  has_settings_providers "$d" codex || return 1
+  python3 - "$(settings_file "$d")" <<'PY' || { echo "settings.json lost its opencode override"; return 1; }
+import json, sys
+s = json.load(open(sys.argv[1]))
+assert s["opencode"] == {"agent": {"explore": {"variant": "medium"}}}, s
+PY
+}
+check "[i12-2] --providers rewrites only providers and keeps the other settings.json keys" keeps_other_keys "$ci2b"
+
+ci2c="$(scenario i12-all-writes)"
+write_settings "$ci2c" '{"providers": ["codex"]}'
+run_install "$ci2c" --all --yes
+check "[i12-2] --all --yes overrides the stored selection and writes all five providers" \
+  has_settings_providers "$ci2c" "claude,codex,cursor,opencode,pi"
+
+# ---------------------------------------------------------------- [i12-3] default selection from settings.json
+
+# On a terminal the wizard preselects the providers of settings.json, even when nothing is linked yet.
+ci3a="$(scenario i12-pty-settings)"
+write_settings "$ci3a" '{"providers": ["codex", "pi"]}'
+printf '\n\n' >"$ci3a/stdin"
+run_pty "$ci3a"
+pty_preselects_settings() {
+  local d="$1" i
+  has_rc "$d" 0 || return 1
+  grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
+  for i in 2 5; do
+    wizard_preselects "$d/out" "$i" || { echo "provider $i from settings.json is not preselected"; return 1; }
+  done
+  for i in 1 3 4; do
+    wizard_does_not_preselect "$d/out" "$i" || { echo "provider $i is preselected but not in settings.json"; return 1; }
+  done
+  assert_agent_dir "$d" codex || return 1
+  assert_pi_bundle "$d" || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for i in claude cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$i")" || return 1; done
+}
+check "[i12-3] on a terminal the wizard preselects the providers from settings.json" pty_preselects_settings "$ci3a"
+
+# settings.json wins over what happens to be linked.
+ci3b="$(scenario i12-pty-settings-vs-links)"
+write_settings "$ci3b" '{"providers": ["codex"]}'
+mkdir -p "$ci3b/claude/agents"
+ln -s "$tree/generated/claude/agents/ees-test-writer.md" "$ci3b/claude/agents/ees-test-writer.md"
+printf '\n\n' >"$ci3b/stdin"
+run_pty "$ci3b"
+pty_settings_beats_links() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  wizard_preselects "$d/out" 2 || { echo "codex from settings.json is not preselected"; return 1; }
+  wizard_does_not_preselect "$d/out" 1 ||
+    { echo "linked claude is preselected although settings.json omits it"; return 1; }
+  assert_agent_dir "$d" codex || return 1
+  assert_no_pack_links "$d/claude/agents" || return 1
+}
+check "[i12-3] the providers of settings.json take precedence over existing links in the wizard default" pty_settings_beats_links "$ci3b"
+
+# Without a terminal and without flags settings.json decides too, instead of linking everything.
+ci3c="$(scenario i12-noflags-settings)"
+write_settings "$ci3c" '{"providers": ["pi"]}'
+run_install "$ci3c"
+noflags_uses_settings() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_pi_bundle "$d" || return 1
+  for p in claude codex cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$d/claude/skills" || return 1
+}
+check "[i12-3] no flags and no terminal links only the providers from settings.json" noflags_uses_settings "$ci3c"
+
+# ---------------------------------------------------------------- [i12-4] no settings.json: unchanged behaviour
+
+# [10] (no terminal = all) and [11] (wizard preselects the linked ones, else all) cover the rest of this
+# item; this one pins the no-flags run against a missing settings.json and a freshly built generated/.
+ci4="$(scenario i12-no-settings)"
+run_install "$ci4"
+no_settings_like_today() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d" || return 1
+}
+check "[i12-4] without settings.json and without flags install.sh still links every provider" no_settings_like_today "$ci4"
+
+# ---------------------------------------------------------------- [i12-5] clean clone: generated/ not tracked, built by install.sh
+
+repo_does_not_track_generated() {
+  local tracked
+  tracked="$(git -C "$pack" ls-files generated | head -n 3)"
+  [[ -z "$tracked" ]] || { echo "generated/ is still tracked in git: $(echo "$tracked" | tr '\n' ' ')"; return 1; }
+}
+check "[i12-5] generated/ is not tracked in this repository" repo_does_not_track_generated
+
+repo_ignores_generated() {
+  grep -qxE '/?generated/?' "$pack/.gitignore" || { echo ".gitignore has no generated/ entry"; return 1; }
+}
+check "[i12-5] .gitignore lists generated/" repo_ignores_generated
+
+ci5="$(scenario i12-clean-clone)"
+make_pair "$ci5" 0
+run_install_at "$ci5/user" "$ci5" --all --yes
+clean_clone_builds() {
+  local d="$1" u="$1/user" p
+  [[ -z "$(git -C "$u" ls-files generated)" ]] || { echo "clone tracks generated/"; return 1; }
+  has_rc "$d" 0 || return 1
+  for p in "${providers[@]}"; do
+    [[ -n "$(find "$u/generated/$p/agents" -maxdepth 1 -type f 2>/dev/null | head -n 1)" ]] ||
+      { echo "install.sh did not build $u/generated/$p/agents"; return 1; }
+    assert_dir_links "$(agent_dest "$d" "$p")" "$u/generated/$p/agents" || return 1
+  done
+  assert_dir_links "$d/pi/agent/prompts" "$u/generated/pi/prompts" || return 1
+  [[ -z "$(git -C "$u" status --porcelain)" ]] ||
+    { echo "git status is not clean after the build: $(git -C "$u" status --porcelain | head -n 3)"; return 1; }
+}
+check "[i12-5] install.sh in a clean clone builds generated/, links point into it and git status stays clean" clean_clone_builds "$ci5"
+
+# ---------------------------------------------------------------- [i12-6] post-merge hook
+
+ci6="$(scenario i12-post-merge)"
+hook_pair "$ci6"
+ci6_before="$(grep -x 'model = "gpt-6.1-terra"' "$ci6/user/generated/codex/agents/ees-implementer.toml" 2>/dev/null || true)"
+dev_publish_new_defaults "$ci6"
+ci6_rc=0
+sgit "$ci6" -C "$ci6/user" pull -q >"$ci6/pull.out" 2>&1 || ci6_rc=$?
+post_merge_rebuilds() {
+  local d="$1"
+  [[ -n "$ci6_before" ]] || { echo "precondition: the clone did not start with the old default"; return 1; }
+  [[ "$ci6_rc" == 0 ]] || { echo "git pull failed: $(cat "$d/pull.out")"; return 1; }
+  pulled_defaults "$d"
+}
+check "[i12-6] git pull rebuilds generated/ via post-merge: new default for plain agents, override kept" post_merge_rebuilds "$ci6"
+
+# ---------------------------------------------------------------- [i12-7] post-rewrite hook
+
+ci7="$(scenario i12-post-rewrite)"
+hook_pair "$ci7"
+ci7_before="$(grep -x 'model = "gpt-6.1-terra"' "$ci7/user/generated/codex/agents/ees-implementer.toml" 2>/dev/null || true)"
+printf 'local work\n' >"$ci7/user/LOCAL.txt"
+sgit "$ci7" -C "$ci7/user" add LOCAL.txt
+sgit "$ci7" -C "$ci7/user" -c core.hooksPath=/dev/null commit -q -m "local commit"
+dev_publish_new_defaults "$ci7"
+ci7_rc=0
+sgit "$ci7" -C "$ci7/user" pull -q --rebase >"$ci7/pull.out" 2>&1 || ci7_rc=$?
+post_rewrite_rebuilds() {
+  local d="$1"
+  [[ -n "$ci7_before" ]] || { echo "precondition: the clone did not start with the old default"; return 1; }
+  [[ "$ci7_rc" == 0 ]] || { echo "git pull --rebase failed: $(cat "$d/pull.out")"; return 1; }
+  [[ -f "$d/user/LOCAL.txt" ]] || { echo "the local commit was lost"; return 1; }
+  pulled_defaults "$d"
+}
+check "[i12-7] git pull --rebase rebuilds generated/ via post-rewrite: new default for plain agents, override kept" post_rewrite_rebuilds "$ci7"
+
+# ---------------------------------------------------------------- [i12-8] hooks refresh opencode.json only when opencode is selected
+
+opencode_stub() { # opencode_stub <scenario>
+  printf '#!/usr/bin/env bash\ncase "${1:-} ${2:-}" in "debug agents") printf "[]\\n" ;; esac\n' >"$1/bin/opencode"
+  chmod +x "$1/bin/opencode"
+}
+
+hook_opencode_pair() { # hook_opencode_pair <scenario> <providers>: opencode.json holds a user model before the pull
+  local d="$1"
+  make_pair "$d" 0
+  build_user "$d"
+  opencode_stub "$d"
+  run_install_at "$d/user" "$d" --providers "$2" --yes
+  mkdir -p "$d/xdg/opencode"
+  printf '{"model": "user/model"}\n' >"$d/xdg/opencode/opencode.json"
+  printf 'note\n' >"$d/dev/NOTE.txt"
+  sgit "$d" -C "$d/dev" add NOTE.txt
+  sgit "$d" -C "$d/dev" commit -q -m "unrelated change"
+  sgit "$d" -C "$d/dev" push -q origin main
+  sgit "$d" -C "$d/user" pull -q >"$d/pull.out" 2>&1 || true
+}
+
+ci8a="$(scenario i12-hook-opencode)"
+hook_opencode_pair "$ci8a" claude,opencode
+hook_runs_opencode_config() {
+  python3 - "$1/xdg/opencode/opencode.json" 2>/dev/null <<'PY' ||
+import json, sys
+assert json.load(open(sys.argv[1]))["model"] == "claude-agent/opus"
+PY
+    { echo "post-merge did not run opencode-config (opencode.json still has the user model)"; return 1; }
+}
+check "[i12-8] post-merge runs opencode-config when opencode is selected and installed" hook_runs_opencode_config "$ci8a"
+
+ci8b="$(scenario i12-hook-no-opencode)"
+hook_opencode_pair "$ci8b" claude
+hook_skips_opencode_config() {
+  [[ "$(cat "$1/xdg/opencode/opencode.json")" == '{"model": "user/model"}' ]] ||
+    { echo "post-merge touched opencode.json although opencode is not selected"; return 1; }
+}
+check "[i12-8] post-merge leaves opencode.json alone when opencode is not selected" hook_skips_opencode_config "$ci8b"
+
+# ---------------------------------------------------------------- [i12-9] migration: generated/ stops being tracked
+
+ci9="$(scenario i12-migration)"
+make_pair "$ci9" 1
+run_install_at "$ci9/user" "$ci9" --providers claude,codex --yes
+ci9_tracked="$(git -C "$ci9/user" ls-files generated | wc -l)"
+ci9_linked=0
+if [[ -L "$ci9/claude/agents/ees-test-writer.md" && -e "$ci9/claude/agents/ees-test-writer.md" ]]; then ci9_linked=1; fi
+# The commit of the change: git rm -r --cached generated/ plus the .gitignore entry.
+sgit "$ci9" -C "$ci9/dev" rm -r -q --cached generated
+printf 'generated/\n' >>"$ci9/dev/.gitignore"
+sgit "$ci9" -C "$ci9/dev" add .gitignore
+sgit "$ci9" -C "$ci9/dev" commit -q -m "stop committing generated/"
+sgit "$ci9" -C "$ci9/dev" push -q origin main
+ci9_rc=0
+sgit "$ci9" -C "$ci9/user" pull -q >"$ci9/pull.out" 2>&1 || ci9_rc=$?
+migration_keeps_links_valid() {
+  local d="$1" u="$1/user" link
+  [[ "$ci9_tracked" -gt 0 && "$ci9_linked" == 1 ]] ||
+    { echo "precondition: generated/ was not tracked and linked before the pull"; return 1; }
+  [[ "$ci9_rc" == 0 ]] || { echo "git pull failed: $(cat "$d/pull.out")"; return 1; }
+  [[ -z "$(git -C "$u" ls-files generated)" ]] || { echo "generated/ is still tracked after the pull"; return 1; }
+  for link in "$d"/claude/agents/*.md "$d"/codex/agents/*.toml; do
+    [[ -e "$link" ]] || { echo "dangling link after the pull: $link"; return 1; }
+  done
+  assert_dir_links "$d/claude/agents" "$u/generated/claude/agents" || return 1
+  assert_dir_links "$d/codex/agents" "$u/generated/codex/agents" || return 1
+}
+check "[i12-9] the pull that untracks generated/ deletes the files and post-merge rebuilds them, links stay valid" migration_keeps_links_valid "$ci9"
+
+# ---------------------------------------------------------------- [i12-10] pre-commit validates sources
+
+ci10="$(scenario i12-pre-commit)"
+make_pair "$ci10" 0
+repo10="$ci10/dev"
+sgit "$ci10" -C "$repo10" config core.hooksPath .githooks
+# A valid change without a generated/ directory: the old hook rejected it as stale, the new one validates sources.
+printf '\nA note.\n' >>"$repo10/README.md"
+sgit "$ci10" -C "$repo10" add README.md
+ci10_ok_rc=0
+sgit "$ci10" -C "$repo10" commit -q -m "docs" >"$ci10/commit-ok.out" 2>&1 || ci10_ok_rc=$?
+pre_commit_accepts_valid() {
+  [[ "$ci10_ok_rc" == 0 ]] || { echo "commit rejected: $(head -n 5 "$ci10/commit-ok.out")"; return 1; }
+}
+check "[i12-10] pre-commit accepts a valid commit although generated/ is not built or tracked" pre_commit_accepts_valid
+
+before10="$(git -C "$repo10" rev-parse HEAD)"
+awk '/^\[/ { sec = $0 } sec == "[ees-check-runner]" && /^codex =/ { sub(/gpt-6-luna/, "gpt-bogus-9") } { print }' \
+  "$repo10/agents.toml" >"$repo10/agents.toml.new"
+mv "$repo10/agents.toml.new" "$repo10/agents.toml"
+sgit "$ci10" -C "$repo10" add agents.toml
+ci10_bad_rc=0
+sgit "$ci10" -C "$repo10" commit -q -m "bad default" >"$ci10/commit-bad.out" 2>&1 || ci10_bad_rc=$?
+pre_commit_rejects_missing_default() {
+  [[ "$ci10_bad_rc" != 0 ]] || { echo "commit with a default missing from the catalog was accepted"; return 1; }
+  [[ "$(git -C "$repo10" rev-parse HEAD)" == "$before10" ]] || { echo "HEAD moved"; return 1; }
+  grep -qF 'ees-check-runner' "$ci10/commit-bad.out" ||
+    { echo "output does not name the agent: $(head -n 5 "$ci10/commit-bad.out")"; return 1; }
+  grep -qF 'gpt-bogus-9' "$ci10/commit-bad.out" ||
+    { echo "output does not name the value: $(head -n 5 "$ci10/commit-bad.out")"; return 1; }
+}
+check "[i12-10] pre-commit rejects a default missing from the catalog and names the agent and value" pre_commit_rejects_missing_default
 
 # ---------------------------------------------------------------- summary
 

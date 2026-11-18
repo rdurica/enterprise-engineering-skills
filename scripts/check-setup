@@ -1,0 +1,1169 @@
+#!/usr/bin/env bash
+# Verify the settings, catalog, build and opencode-config parts of issue #12 (setup GUI and user
+# deviations). Prints one PASS/FAIL line per check and exits 1 when any check fails.
+#
+# The checks are black-box: they run scripts/build-agents, scripts/build-pi-prompts and
+# scripts/opencode-config the way a user does and look at the files and output they produce. They know
+# nothing about the internals of scripts/ees_settings.py.
+#
+# Every behavioural check builds its own tiny fixture tree (agents/, agents.toml, config/models.toml,
+# config/opencode.json, skills/) inside a mktemp sandbox and copies scripts/ into it, so the result does not
+# depend on the real catalog. HOME, XDG_CONFIG_HOME, CLAUDE_CONFIG_DIR and CODEX_HOME point into the
+# sandbox, so the user's settings.json (<sandbox>/xdg/enterprise-engineering-skills/settings.json) and
+# every provider directory are never read or touched. A stub `opencode` on PATH answers `debug agents`
+# with an empty list. The [real] checks use a sandboxed copy of the whole pack instead.
+#
+# Areas are separate functions (area_*), run from main at the bottom. Add the GUI / HTTP API checks of the
+# setup server as one more area function and one more line in main.
+#
+# Labels map to Acceptance items of #12:
+#   [A-settings]  settings hold only deviations; an absent key means the pack default
+#   [A-codex]     codex model override changes only `model`, not the effort
+#   [A-default]   a new pack default reaches agents the user did not override, overrides persist
+#   [A-catalog]   a value outside the catalog warns and is still used; a default outside it fails the build
+#   [A-validate]  build-agents --validate checks sources only and writes nothing; --check is gone
+#   [A-opencode]  opencode deviations land in opencode.json instead of the config/opencode.json default
+#   [A-unknown]   unknown agent, provider or key in settings.json warns and is ignored
+#   [real]        the real pack: catalog present and every default in it
+# Not covered here (writer side, owned by the GUI/HTTP area): identical-to-default not stored and reset
+# removing the key; both go through POST /api/save, whose API contract is the public interface.
+set -euo pipefail
+shopt -s nullglob
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  local out
+  if out="$("$@" 2>&1)"; then
+    echo "PASS  $desc"
+  else
+    echo "FAIL  $desc"
+    fails=$((fails + 1))
+    if [[ -n "$out" ]]; then
+      awk 'NR <= 14 { print "      " $0 }' <<<"$out"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------- sandbox
+
+sb="$(mktemp -d)"
+trap 'rm -rf "$sb"' EXIT
+
+# Stub bin dir in front of PATH: an opencode that reports no agents, so opencode-config never talks to a
+# real opencode.
+stubbin="$sb/stubbin"
+mkdir -p "$stubbin"
+cat >"$stubbin/opencode" <<'STUB'
+#!/usr/bin/env bash
+echo '[]'
+STUB
+chmod +x "$stubbin/opencode"
+
+counter=0
+
+# in_env <scenario-dir> <command...>: run in the scenario tree with every config location in the sandbox.
+in_env() {
+  local d="$1"; shift
+  (cd "$d/tree" && timeout 120 env HOME="$d/home" XDG_CONFIG_HOME="$d/xdg" CLAUDE_CONFIG_DIR="$d/claude" \
+    CODEX_HOME="$d/codex" PATH="$stubbin:$PATH" "$@")
+}
+
+# run <scenario-dir> <command...>: combined output in <dir>/out, exit code in <dir>/rc; never fails itself.
+run() {
+  local d="$1"; shift
+  local rc=0
+  in_env "$d" "$@" >"$d/out" 2>&1 || rc=$?
+  echo "$rc" >"$d/rc"
+}
+
+settings_file() { echo "$1/xdg/enterprise-engineering-skills/settings.json"; }
+
+write_settings() { # write_settings <scenario-dir> <json on stdin>
+  mkdir -p "$1/xdg/enterprise-engineering-skills"
+  cat >"$(settings_file "$1")"
+}
+
+# ---------------------------------------------------------------- assertions (each returns 1 with a message)
+
+ran_ok() { # ran_ok <dir>: the last run exited 0
+  [[ "$(<"$1/rc")" == 0 ]] && return 0
+  echo "expected exit 0, got $(<"$1/rc"); output:"
+  cat "$1/out"
+  return 1
+}
+
+ran_failed() { # ran_failed <dir>: the last run exited non-zero
+  [[ "$(<"$1/rc")" != 0 ]] && return 0
+  echo "expected a non-zero exit, got 0; output:"
+  cat "$1/out"
+  return 1
+}
+
+has_line() { # has_line <file> <exact line>
+  grep -Fxq -- "$2" "$1" && return 0
+  echo "missing line in ${1#"$sb"/}: $2"
+  return 1
+}
+
+lacks_line() { # lacks_line <file> <exact line>
+  grep -Fxq -- "$2" "$1" || return 0
+  echo "unexpected line in ${1#"$sb"/}: $2"
+  return 1
+}
+
+# lines_with <file> <regex> <needle>...: lines matching regex that contain every needle.
+lines_with() {
+  local file="$1" regex="$2" lines needle
+  shift 2
+  lines="$(grep -E -- "$regex" "$file" || true)"
+  for needle in "$@"; do
+    lines="$(grep -F -- "$needle" <<<"$lines" || true)"
+  done
+  printf '%s' "$lines"
+}
+
+warned() { # warned <dir> <needle>...: the run printed a `warn` line naming every needle
+  [[ -n "$(lines_with "$1/out" '^warn([[:space:]]|:)' "${@:2}")" ]] && return 0
+  echo "no 'warn' line naming: ${*:2}; output:"
+  cat "$1/out"
+  return 1
+}
+
+did_not_warn() { # did_not_warn <dir>
+  grep -Eq '^warn([[:space:]]|:)' "$1/out" || return 0
+  echo "unexpected warn; output:"
+  cat "$1/out"
+  return 1
+}
+
+names() { # names <dir> <needle>...: the output has one line naming every needle (an error message)
+  [[ -n "$(lines_with "$1/out" '.' "${@:2}")" ]] && return 0
+  echo "no output line naming: ${*:2}; output:"
+  cat "$1/out"
+  return 1
+}
+
+gen_hash() { # gen_hash <dir>: checksum of every file under generated/ (empty when there is none)
+  [[ -d "$1/tree/generated" ]] || return 0
+  (cd "$1/tree/generated" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+}
+
+json_get() { # json_get <file> <python expr over `c`> -> value (JSON) or the word MISSING
+  python3 -I -c '
+import json, sys
+c = json.load(open(sys.argv[1]))
+try:
+    print(json.dumps(eval(sys.argv[2])))
+except (KeyError, IndexError, TypeError):
+    print("MISSING")
+' "$1" "$2"
+}
+
+json_is() { # json_is <file> <python expr over `c`> <expected JSON>
+  local got
+  got="$(json_get "$1" "$2")"
+  [[ "$got" == "$3" ]] && return 0
+  echo "${1#"$sb"/}: $2 is $got, expected $3"
+  return 1
+}
+
+edit() { # edit <file> <sed expression>: portable sed -i
+  sed -i.bak "$2" "$1" && rm -f "$1.bak"
+}
+
+# ---------------------------------------------------------------- fixture tree
+
+# new_fx <name>: a fresh scenario dir with a fixture pack in <dir>/tree; prints the dir.
+new_fx() {
+  counter=$((counter + 1))
+  local d="$sb/$counter-$1" t
+  t="$d/tree"
+  mkdir -p "$d"/{home,xdg,claude,codex} "$t"/{agents,config,scripts,skills/ees-demo}
+
+  local f
+  for f in "$pack"/scripts/*; do
+    [[ "$(basename "$f")" == check-* ]] && continue
+    cp -a "$f" "$t/scripts/"
+  done
+
+  local name
+  for name in ees-code-reviewer ees-implementer; do
+    cat >"$t/agents/$name.md" <<AGENT
+---
+name: $name
+description: Fixture agent $name.
+---
+
+Instructions of $name.
+AGENT
+  done
+
+  cat >"$t/skills/ees-demo/SKILL.md" <<'SKILL'
+---
+name: ees-demo
+description: Fixture skill.
+---
+
+Demo.
+SKILL
+
+  cat >"$t/agents.toml" <<'TOML'
+[ees-code-reviewer]
+readonly = true
+claude = { model = "opus", effort = "low", tools = ["Read", "Grep"], color = "red" }
+codex = { model = "gpt-6.1-terra", effort = "high" }
+cursor = { model = "grok-4.7-high" }
+opencode = { model = "claude-agent/sonnet", variant = "high" }
+pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+
+[ees-implementer]
+claude = { model = "sonnet", effort = "medium", color = "green" }
+codex = { model = "gpt-6.1-terra", effort = "medium" }
+opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+TOML
+
+  cat >"$t/config/models.toml" <<'TOML'
+[claude]
+models  = ["opus", "sonnet", "haiku"]
+efforts = ["low", "medium", "high", "xhigh", "max"]
+
+[codex]
+models  = ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-terra"]
+efforts = ["low", "medium", "high", "xhigh"]
+
+[cursor]
+models  = ["grok-4.7-low", "grok-4.7-medium", "grok-4.7-high"]
+
+[opencode]
+models   = ["claude-agent/opus", "claude-agent/sonnet", "opencode-go/deepseek-v4.1-flash"]
+variants = ["low", "medium", "high"]
+
+[pi]
+models   = ["opencode-go/deepseek-v4.1-flash"]
+variants = ["low", "medium", "high"]
+TOML
+
+  cat >"$t/config/opencode.json" <<'JSON'
+{
+  "model": "claude-agent/opus",
+  "small_model": "opencode-go/deepseek-v4.1-flash",
+  "agent": {
+    "build":   { "model": "claude-agent/opus" },
+    "general": { "model": "opencode-go/deepseek-v4.1-flash", "variant": "low" },
+    "explore": { "model": "opencode-go/deepseek-v4.1-flash", "variant": "low" }
+  }
+}
+JSON
+  echo "$d"
+}
+
+gen() { echo "$1/tree/generated/$2"; } # gen <dir> <path under generated/>
+
+codex_reviewer() { gen "$1" codex/agents/ees-code-reviewer.toml; }
+
+# ---------------------------------------------------------------- area: settings overlay in build-agents
+
+c_defaults_without_settings() {
+  local d; d="$(new_fx defaults)"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-6.1-terra"' || return 1
+  has_line "$(codex_reviewer "$d")" 'model_reasoning_effort = "high"' || return 1
+  has_line "$(gen "$d" claude/agents/ees-code-reviewer.md)" 'model: opus' || return 1
+  has_line "$(gen "$d" claude/agents/ees-code-reviewer.md)" 'effort: low' || return 1
+  has_line "$(gen "$d" opencode/agents/ees-code-reviewer.md)" 'model: claude-agent/sonnet' || return 1
+  has_line "$(gen "$d" opencode/agents/ees-code-reviewer.md)" 'variant: high' || return 1
+  has_line "$(gen "$d" pi/agents/ees-code-reviewer.md)" 'model: opencode-go/deepseek-v4.1-flash:high' || return 1
+  has_line "$(gen "$d" cursor/agents/ees-code-reviewer.md)" 'model: grok-4.7-high' || return 1
+  [[ ! -e "$(settings_file "$d")" ]] || { echo "build-agents created a settings.json"; return 1; }
+}
+
+c_codex_model_override() { # [A-codex] [A-settings]
+  local d; d="$(new_fx codex-override)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } } }
+JSON
+  cp "$(settings_file "$d")" "$d/settings.before"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  local f; f="$(codex_reviewer "$d")"
+  has_line "$f" 'model = "gpt-6.2-terra"' || return 1
+  lacks_line "$f" 'model = "gpt-6.1-terra"' || return 1
+  has_line "$f" 'model_reasoning_effort = "high"' || return 1   # effort stays the pack default
+  # Nothing else moves: the same agent on other providers and the other agent keep their defaults.
+  has_line "$(gen "$d" claude/agents/ees-code-reviewer.md)" 'model: opus' || return 1
+  has_line "$(gen "$d" opencode/agents/ees-code-reviewer.md)" 'model: claude-agent/sonnet' || return 1
+  has_line "$(gen "$d" codex/agents/ees-implementer.toml)" 'model = "gpt-6.1-terra"' || return 1
+  has_line "$(gen "$d" codex/agents/ees-implementer.toml)" 'model_reasoning_effort = "medium"' || return 1
+  cmp -s "$d/settings.before" "$(settings_file "$d")" || { echo "build-agents modified settings.json"; return 1; }
+}
+
+c_effort_and_variant_override() { # [A-settings]
+  local d; d="$(new_fx effort-override)"
+  write_settings "$d" <<'JSON'
+{
+  "agents": {
+    "ees-code-reviewer": { "claude": { "effort": "max" } },
+    "ees-implementer": { "opencode": { "variant": "medium" } }
+  }
+}
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  has_line "$(gen "$d" claude/agents/ees-code-reviewer.md)" 'effort: max' || return 1
+  has_line "$(gen "$d" claude/agents/ees-code-reviewer.md)" 'model: opus' || return 1
+  has_line "$(gen "$d" opencode/agents/ees-implementer.md)" 'variant: medium' || return 1
+  has_line "$(gen "$d" opencode/agents/ees-implementer.md)" 'model: opencode-go/deepseek-v4.1-flash' || return 1
+  has_line "$(gen "$d" pi/agents/ees-implementer.md)" 'model: opencode-go/deepseek-v4.1-flash:high' || return 1
+}
+
+c_new_default_reaches_unchanged_agents() { # [A-default]
+  local d; d="$(new_fx new-default)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-6.2-terra"' || return 1
+  has_line "$(gen "$d" codex/agents/ees-implementer.toml)" 'model = "gpt-6.1-terra"' || return 1
+  # A new pack version: the defaults of both agents move to gpt-6-luna.
+  edit "$d/tree/agents.toml" 's/model = "gpt-6.1-terra"/model = "gpt-6-luna"/'
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  has_line "$(gen "$d" codex/agents/ees-implementer.toml)" 'model = "gpt-6-luna"' || return 1   # no override: new default
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-6.2-terra"' || return 1                       # override persists
+  has_line "$(codex_reviewer "$d")" 'model_reasoning_effort = "high"' || return 1
+}
+
+c_override_removed_returns_default() { # [A-settings] reset: a settings.json without the key builds the default
+  local d; d="$(new_fx reset)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-6.2-terra"' || return 1
+  echo '{}' | write_settings "$d"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-6.1-terra"' || return 1
+  lacks_line "$(codex_reviewer "$d")" 'model = "gpt-6.2-terra"' || return 1
+}
+
+c_override_outside_catalog_warns_and_applies() { # [A-catalog]
+  local d; d="$(new_fx outside-catalog)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-5-gone" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  warned "$d" ees-code-reviewer gpt-5-gone || return 1
+  has_line "$(codex_reviewer "$d")" 'model = "gpt-5-gone"' || return 1   # still used
+  has_line "$(codex_reviewer "$d")" 'model_reasoning_effort = "high"' || return 1
+}
+
+c_effort_outside_catalog_warns_and_applies() { # [A-catalog]
+  local d; d="$(new_fx effort-outside-catalog)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-implementer": { "claude": { "effort": "turbo" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  warned "$d" ees-implementer turbo || return 1
+  has_line "$(gen "$d" claude/agents/ees-implementer.md)" 'effort: turbo' || return 1
+}
+
+# ---------------------------------------------------------------- area: catalog validation of defaults
+
+c_default_outside_catalog_fails_build() { # [A-catalog]
+  local d; d="$(new_fx default-model-missing)"
+  edit "$d/tree/agents.toml" 's/gpt-6.1-terra", effort = "high"/gpt-7-ghost", effort = "high"/'
+  run "$d" scripts/build-agents
+  ran_failed "$d" || return 1
+  names "$d" ees-code-reviewer gpt-7-ghost || return 1
+}
+
+c_default_outside_catalog_fails_validate() { # [A-catalog] [A-validate]
+  local d; d="$(new_fx default-model-missing-validate)"
+  edit "$d/tree/agents.toml" 's/gpt-6.1-terra", effort = "high"/gpt-7-ghost", effort = "high"/'
+  run "$d" scripts/build-agents --validate
+  ran_failed "$d" || return 1
+  names "$d" ees-code-reviewer gpt-7-ghost || return 1
+  [[ ! -e "$d/tree/generated" ]] || { echo "--validate wrote generated/"; return 1; }
+}
+
+c_default_effort_outside_catalog_fails_validate() { # [A-catalog]
+  local d; d="$(new_fx default-effort-missing)"
+  edit "$d/tree/agents.toml" 's/effort = "high" }$/effort = "turbo" }/'
+  run "$d" scripts/build-agents --validate
+  ran_failed "$d" || return 1
+  names "$d" ees-code-reviewer turbo || return 1
+}
+
+c_default_variant_outside_catalog_fails_build() { # [A-catalog]
+  local d; d="$(new_fx default-variant-missing)"
+  edit "$d/tree/agents.toml" 's/variant = "high" }$/variant = "ultra" }/'
+  run "$d" scripts/build-agents
+  ran_failed "$d" || return 1
+  names "$d" ees-code-reviewer ultra || return 1
+}
+
+# ---------------------------------------------------------------- area: --validate and the removed --check
+
+c_validate_writes_nothing_on_fresh_tree() { # [A-validate]
+  local d; d="$(new_fx validate-fresh)"
+  run "$d" scripts/build-agents --validate
+  ran_ok "$d" || return 1
+  [[ ! -e "$d/tree/generated" ]] || { echo "--validate created generated/:"; find "$d/tree/generated" -type f; return 1; }
+}
+
+c_validate_leaves_existing_output_alone() { # [A-validate]
+  local d before after
+  d="$(new_fx validate-existing)"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  before="$(gen_hash "$d")"
+  [[ -n "$before" ]] || { echo "build wrote no generated/ files"; return 1; }
+  # Settings and a stale/extra file that a real build would rewrite or remove.
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } } }
+JSON
+  echo stale >"$d/tree/generated/codex/agents/ees-removed.toml"
+  before="$(gen_hash "$d")"
+  run "$d" scripts/build-agents --validate
+  ran_ok "$d" || return 1
+  after="$(gen_hash "$d")"
+  [[ "$before" == "$after" ]] || { echo "--validate changed generated/"; diff <(echo "$before") <(echo "$after") || true; return 1; }
+}
+
+c_validate_ignores_stale_output_and_settings() { # [A-validate] --validate checks sources, not generated/
+  local d; d="$(new_fx validate-sources-only)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-5-gone" } } } }
+JSON
+  run "$d" scripts/build-agents --validate
+  ran_ok "$d" || return 1   # no generated/ at all is not an error; a deviation outside the catalog is only a build warning
+  [[ ! -e "$d/tree/generated" ]] || { echo "--validate created generated/"; return 1; }
+}
+
+c_validate_agent_without_settings() { # [A-validate] agents <-> agents.toml
+  local d; d="$(new_fx validate-missing-toml)"
+  cp "$d/tree/agents/ees-implementer.md" "$d/tree/agents/ees-extra.md"
+  edit "$d/tree/agents/ees-extra.md" 's/ees-implementer/ees-extra/g'
+  run "$d" scripts/build-agents --validate
+  ran_failed "$d" || return 1
+  names "$d" ees-extra || return 1
+  [[ ! -e "$d/tree/generated" ]] || { echo "--validate wrote generated/"; return 1; }
+}
+
+c_validate_settings_without_agent() { # [A-validate] agents <-> agents.toml
+  local d; d="$(new_fx validate-missing-md)"
+  rm "$d/tree/agents/ees-implementer.md"
+  run "$d" scripts/build-agents --validate
+  ran_failed "$d" || return 1
+  names "$d" ees-implementer || return 1
+}
+
+c_check_option_removed() { # [A-validate] --check of build-agents and build-pi-prompts is gone
+  local d; d="$(new_fx check-removed)"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  run "$d" scripts/build-agents --check
+  ran_failed "$d" || { echo "(build-agents still accepts --check)"; return 1; }
+  run "$d" scripts/build-pi-prompts
+  ran_ok "$d" || return 1
+  run "$d" scripts/build-pi-prompts --check
+  ran_failed "$d" || { echo "(build-pi-prompts still accepts --check)"; return 1; }
+}
+
+c_pi_prompts_still_build() { # build-pi-prompts keeps building without --check
+  local d; d="$(new_fx pi-prompts)"
+  run "$d" scripts/build-pi-prompts
+  ran_ok "$d" || return 1
+  [[ -f "$d/tree/generated/pi/prompts/ees-demo.md" ]] || { echo "generated/pi/prompts/ees-demo.md not written"; return 1; }
+}
+
+# ---------------------------------------------------------------- area: unknown names in settings.json
+
+baseline_hash() { # checksum of generated/ built without any settings
+  local d; d="$(new_fx baseline)"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  gen_hash "$d"
+}
+
+# unknown_case <name> <settings JSON> <needle>...: build warns naming every needle and ignores the settings.
+unknown_case() {
+  local d want got json="$2"
+  d="$(new_fx "$1")"; shift 2
+  want="$(baseline_hash)" || return 1
+  printf '%s\n' "$json" | write_settings "$d"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  warned "$d" "$@" || return 1
+  got="$(gen_hash "$d")"
+  [[ "$want" == "$got" ]] || { echo "unknown settings changed the generated output:"; diff <(echo "$want") <(echo "$got") || true; return 1; }
+}
+
+c_unknown_agent() { # [A-unknown]
+  unknown_case unknown-agent '{ "agents": { "ees-ghost-agent": { "codex": { "model": "gpt-6.2-terra" } } } }' ees-ghost-agent
+}
+
+c_unknown_provider_for_agent() { # [A-unknown]
+  unknown_case unknown-provider '{ "agents": { "ees-code-reviewer": { "nonesuch": { "model": "x" } } } }' ees-code-reviewer nonesuch
+}
+
+c_unknown_key() { # [A-unknown] tools is not editable
+  unknown_case unknown-key '{ "agents": { "ees-code-reviewer": { "claude": { "tools": ["Bash"] } } } }' ees-code-reviewer tools
+}
+
+c_provider_the_agent_does_not_have() { # [A-unknown] ees-implementer has no cursor table in agents.toml
+  unknown_case missing-provider-table '{ "agents": { "ees-implementer": { "cursor": { "model": "grok-4.7-low" } } } }' ees-implementer cursor
+}
+
+c_unknown_top_level_key() { # [A-unknown]
+  unknown_case unknown-top-level '{ "frobnicate": true }' frobnicate
+}
+
+c_unknown_provider_in_selection() { # [A-unknown]
+  unknown_case unknown-selected-provider '{ "providers": ["claude", "ghostprov"] }' ghostprov
+}
+
+# ---------------------------------------------------------------- area: opencode-config
+
+# oc <dir>: run opencode-config against <dir>/xdg/opencode with the settings of the scenario.
+oc() {
+  run "$1" scripts/opencode-config "$1/xdg/opencode"
+}
+
+oc_file() { echo "$1/xdg/opencode/opencode.json"; }
+
+c_opencode_default_without_settings() { # [A-opencode]
+  local d; d="$(new_fx oc-default)"
+  oc "$d"
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["explore"]["variant"]' '"low"' || return 1
+  json_is "$(oc_file "$d")" 'c["model"]' '"claude-agent/opus"' || return 1
+}
+
+c_opencode_agent_variant_override() { # [A-opencode]
+  local d f; d="$(new_fx oc-variant)"
+  write_settings "$d" <<'JSON'
+{ "opencode": { "agent": { "explore": { "variant": "medium" } } } }
+JSON
+  oc "$d"
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  f="$(oc_file "$d")"
+  json_is "$f" 'c["agent"]["explore"]["variant"]' '"medium"' || return 1                          # deviation, not the default "low"
+  json_is "$f" 'c["agent"]["explore"]["model"]' '"opencode-go/deepseek-v4.1-flash"' || return 1   # model stays the default
+  json_is "$f" 'c["agent"]["general"]["variant"]' '"low"' || return 1                              # another agent keeps its default
+  json_is "$f" 'c["model"]' '"claude-agent/opus"' || return 1
+  json_is "$f" 'c["small_model"]' '"opencode-go/deepseek-v4.1-flash"' || return 1
+  [[ -n "$(lines_with "$d/out" '.' agent.explore.variant medium)" ]] \
+    || { echo "output does not report agent.explore.variant -> medium:"; cat "$d/out"; return 1; }
+}
+
+c_opencode_session_model_override() { # [A-opencode]
+  local d f; d="$(new_fx oc-model)"
+  write_settings "$d" <<'JSON'
+{ "opencode": { "model": "claude-agent/sonnet" } }
+JSON
+  oc "$d"
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  f="$(oc_file "$d")"
+  json_is "$f" 'c["model"]' '"claude-agent/sonnet"' || return 1
+  json_is "$f" 'c["small_model"]' '"opencode-go/deepseek-v4.1-flash"' || return 1
+  json_is "$f" 'c["agent"]["explore"]["variant"]' '"low"' || return 1
+}
+
+c_opencode_override_outside_catalog_warns_and_applies() { # [A-catalog] [A-opencode]
+  local d; d="$(new_fx oc-outside-catalog)"
+  write_settings "$d" <<'JSON'
+{ "opencode": { "agent": { "explore": { "variant": "ultra" } } } }
+JSON
+  oc "$d"
+  ran_ok "$d" || return 1
+  warned "$d" explore ultra || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["explore"]["variant"]' '"ultra"' || return 1
+}
+
+c_opencode_unknown_agent_ignored() { # [A-unknown] [A-opencode]
+  local d; d="$(new_fx oc-unknown)"
+  write_settings "$d" <<'JSON'
+{ "opencode": { "agent": { "ghost-agent": { "variant": "medium" } }, "frobnicate": 1 } }
+JSON
+  oc "$d"
+  ran_ok "$d" || return 1
+  warned "$d" ghost-agent || return 1
+  warned "$d" frobnicate || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["ghost-agent"]' 'MISSING' || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["explore"]["variant"]' '"low"' || return 1
+}
+
+c_opencode_override_keeps_user_config() { # [A-opencode] the merge still preserves keys the pack does not own
+  local d; d="$(new_fx oc-keeps)"
+  mkdir -p "$d/xdg/opencode"
+  echo '{ "theme": "dark", "agent": { "explore": { "temperature": 0.2 } } }' >"$(oc_file "$d")"
+  write_settings "$d" <<'JSON'
+{ "opencode": { "agent": { "explore": { "variant": "medium" } } } }
+JSON
+  oc "$d"
+  ran_ok "$d" || return 1
+  json_is "$(oc_file "$d")" 'c["theme"]' '"dark"' || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["explore"]["temperature"]' '0.2' || return 1
+  json_is "$(oc_file "$d")" 'c["agent"]["explore"]["variant"]' '"medium"' || return 1
+}
+
+# ---------------------------------------------------------------- area: the real pack
+
+# real_tree: a sandboxed copy of the whole pack with generated/ removed, as after a clean clone; prints the dir.
+real_tree() {
+  counter=$((counter + 1))
+  local d="$sb/$counter-real"
+  mkdir -p "$d"/{tree,home,xdg,claude,codex}
+  tar --exclude=./.git -cf - . | tar -xf - -C "$d/tree"
+  rm -rf "$d/tree/generated"
+  echo "$d"
+}
+
+c_real_catalog_covers_every_provider() { # [real]
+  [[ -f config/models.toml ]] || { echo "config/models.toml does not exist"; return 1; }
+  python3 -I - <<'PY'
+import sys, tomllib
+cat = tomllib.load(open("config/models.toml", "rb"))
+need = {"claude": "efforts", "codex": "efforts", "cursor": None, "opencode": "variants", "pi": "variants"}
+bad = []
+for provider, extra in need.items():
+    table = cat.get(provider)
+    if not isinstance(table, dict):
+        bad.append(f"[{provider}] missing")
+        continue
+    for key in ("models", extra):
+        if key and not (isinstance(table.get(key), list) and table[key] and all(isinstance(v, str) for v in table[key])):
+            bad.append(f"[{provider}].{key} is not a non-empty list of strings")
+if bad:
+    sys.exit("\n".join(bad))
+PY
+}
+
+c_real_validate_passes_on_clean_clone() { # [real] [A-validate]
+  local d; d="$(real_tree)"
+  run "$d" scripts/build-agents --validate
+  ran_ok "$d" || return 1
+  [[ ! -e "$d/tree/generated" ]] || { echo "--validate wrote generated/"; return 1; }
+}
+
+c_real_build_is_clean_and_complete() { # [real]
+  local d f; d="$(real_tree)"
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  for f in claude/agents/ees-code-reviewer.md codex/agents/ees-code-reviewer.toml cursor/agents/ees-code-reviewer.md \
+    opencode/agents/ees-code-reviewer.md pi/agents/ees-code-reviewer.md; do
+    [[ -f "$d/tree/generated/$f" ]] || { echo "generated/$f missing"; return 1; }
+  done
+  has_line "$d/tree/generated/codex/agents/ees-code-reviewer.toml" 'model = "gpt-6.1-terra"' || return 1
+  run "$d" scripts/build-pi-prompts
+  ran_ok "$d" || return 1
+}
+
+c_real_opencode_config_has_no_catalog_warnings() { # [real]
+  local d; d="$(real_tree)"
+  oc "$d"
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
+  json_is "$(oc_file "$d")" 'c["model"]' "$(json_get config/opencode.json 'c["model"]')" || return 1
+}
+
+# ---------------------------------------------------------------- areas
+
+area_settings_overlay() {
+  check "[A-settings] no settings.json builds the pack defaults and creates none" c_defaults_without_settings
+  check "[A-codex] codex model override changes only model; effort, other providers and other agents unchanged" c_codex_model_override
+  check "[A-settings] effort and variant overrides apply per provider" c_effort_and_variant_override
+  check "[A-default] new pack default reaches agents without an override; overrides persist" c_new_default_reaches_unchanged_agents
+  check "[A-settings] reset: settings without the key builds the default again" c_override_removed_returns_default
+  check "[A-catalog] model outside the catalog warns naming agent and value and is still used" c_override_outside_catalog_warns_and_applies
+  check "[A-catalog] effort outside the catalog warns naming agent and value and is still used" c_effort_outside_catalog_warns_and_applies
+}
+
+area_catalog_defaults() {
+  check "[A-catalog] default model missing from catalog: build-agents exits non-zero naming agent and value" c_default_outside_catalog_fails_build
+  check "[A-catalog] default model missing from catalog: build-agents --validate exits non-zero naming agent and value" c_default_outside_catalog_fails_validate
+  check "[A-catalog] default effort missing from catalog: --validate exits non-zero naming agent and value" c_default_effort_outside_catalog_fails_validate
+  check "[A-catalog] default variant missing from catalog: build-agents exits non-zero naming agent and value" c_default_variant_outside_catalog_fails_build
+}
+
+area_validate() {
+  check "[A-validate] --validate on a tree without generated/ exits 0 and writes nothing" c_validate_writes_nothing_on_fresh_tree
+  check "[A-validate] --validate leaves existing generated/ untouched (no rewrite, no removal)" c_validate_leaves_existing_output_alone
+  check "[A-validate] --validate checks sources only: no generated/, deviation outside catalog is not an error" c_validate_ignores_stale_output_and_settings
+  check "[A-validate] --validate fails for an agent without agents.toml settings" c_validate_agent_without_settings
+  check "[A-validate] --validate fails for agents.toml settings without an agent file" c_validate_settings_without_agent
+  check "[A-validate] --check is gone from build-agents and build-pi-prompts" c_check_option_removed
+  check "[A-validate] build-pi-prompts still writes generated/pi/prompts" c_pi_prompts_still_build
+}
+
+area_unknown_settings() {
+  check "[A-unknown] unknown agent in settings: warn naming it, output unchanged" c_unknown_agent
+  check "[A-unknown] unknown provider under an agent: warn naming agent and provider, output unchanged" c_unknown_provider_for_agent
+  check "[A-unknown] unknown key (tools) under an agent: warn naming agent and key, output unchanged" c_unknown_key
+  check "[A-unknown] provider the agent has no table for: warn, nothing generated for it" c_provider_the_agent_does_not_have
+  check "[A-unknown] unknown top-level key: warn naming it" c_unknown_top_level_key
+  check "[A-unknown] unknown provider in providers: warn naming it" c_unknown_provider_in_selection
+}
+
+area_opencode_config() {
+  check "[A-opencode] opencode-config without settings writes the config/opencode.json defaults" c_opencode_default_without_settings
+  check "[A-opencode] opencode.agent.explore.variant deviation lands in opencode.json instead of the default" c_opencode_agent_variant_override
+  check "[A-opencode] opencode.model deviation lands in opencode.json; the rest stays default" c_opencode_session_model_override
+  check "[A-catalog] opencode variant outside the catalog warns naming agent and value and is still written" c_opencode_override_outside_catalog_warns_and_applies
+  check "[A-unknown] opencode settings with an unknown agent or key: warn and ignore" c_opencode_unknown_agent_ignored
+  check "[A-opencode] a deviation does not disturb keys the pack does not own" c_opencode_override_keeps_user_config
+}
+
+area_real_pack() {
+  check "[real] config/models.toml lists models and efforts/variants for every provider" c_real_catalog_covers_every_provider
+  check "[real] build-agents --validate passes on a clean clone (no generated/) and writes nothing" c_real_validate_passes_on_clean_clone
+  check "[real] build-agents and build-pi-prompts build the pack without warnings" c_real_build_is_clean_and_complete
+  check "[real] opencode-config on the real pack warns about nothing" c_real_opencode_config_has_no_catalog_warnings
+}
+
+# ---------------------------------------------------------------- area: setup GUI and its local HTTP API
+#
+# Black-box: the server is started from a sandboxed copy of the whole pack (no .git, no generated/, own
+# git repository) with `make setup` or scripts/setup, every config location and BROWSER redirected into the
+# sandbox, and a PATH that hides the real provider CLIs. The checks only talk HTTP (X-Setup-Token header,
+# Origin header) and look at settings.json and the links install.sh leaves in the sandbox provider dirs.
+#
+# Labels:
+#   [G-start]    make setup: listens on 127.0.0.1, prints the URL with the token, opens it, SIGINT ends it
+#   [G-token]    GET / and /api/state, POST /api/save without or with a wrong token: 403 invalid_token
+#   [G-origin]   POST /api/save with a foreign or missing Origin: 403 invalid_origin, nothing changes
+#   [G-invalid]  POST /api/save with a value outside the catalog or a bad shape: 400 invalid_settings
+#   [G-state]    /api/state without settings.json returns settings {} and the defaults
+#   [G-codex]    codex model deviation saved: only the deviation in settings.json, agent gets the model
+#   [G-reset]    reset the deviation: key gone from settings.json, agent back to the default
+#   [G-default]  a value identical to the default is not stored
+#   [G-catalog]  a deviation outside the catalog is reported in /api/state warnings and shown as "mimo katalog"
+#   [G-provider] unticking a provider removes its links and updates settings.json providers
+#   [G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json
+
+: >"$sb/gitconfig"
+
+# Stub bin dir for the server and the installer it spawns: the tools they need (and make), no provider CLI
+# except a fake opencode that reports no agents.
+guibin="$sb/guibin"
+mkdir -p "$guibin"
+for tool in bash sh env git python3 dirname basename readlink realpath stat ln mkdir rmdir rm cat grep head sed awk \
+  mktemp cp mv date touch sort uniq wc tr cut find chmod tar seq xargs nl getconf stty tput make uname id ls sleep \
+  true false tee diff cmp; do
+  path="$(command -v "$tool" 2>/dev/null || true)"
+  if [[ -n "$path" ]]; then ln -sf "$path" "$guibin/$tool"; fi
+done
+cp "$stubbin/opencode" "$guibin/opencode"
+
+# The browser the server asks webbrowser to open: records the URL, shows nothing.
+cat >"$sb/browser-stub" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$1" >>"$sb/browser-opened"
+STUB
+chmod +x "$sb/browser-stub"
+
+# spawn.py <scenario-dir> <command...>: starts the server in its own session and process group (like a
+# terminal job) with SIGINT at its default, which a bash background job would not have; prints the group id.
+cat >"$sb/gui-spawn.py" <<'PY'
+import os, signal, subprocess, sys
+d, *cmd = sys.argv[1:]
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+env = {
+    "HOME": f"{d}/home", "XDG_CONFIG_HOME": f"{d}/xdg", "CLAUDE_CONFIG_DIR": f"{d}/claude",
+    "CODEX_HOME": f"{d}/codex", "PI_CODING_AGENT_DIR": f"{d}/pi/agent", "XDG_DATA_HOME": f"{d}/data",
+    "XDG_CACHE_HOME": f"{d}/cache", "XDG_STATE_HOME": f"{d}/state", "PATH": os.environ["GUI_PATH"],
+    "BROWSER": os.environ["GUI_BROWSER"], "PYTHONUNBUFFERED": "1", "GIT_CONFIG_GLOBAL": os.environ["GUI_GITCONFIG"],
+    "GIT_CONFIG_NOSYSTEM": "1", "TERM": "dumb",
+}
+out = open(f"{d}/server.out", "wb")
+try:
+    p = subprocess.Popen(cmd, cwd=f"{d}/tree", env=env, stdin=subprocess.DEVNULL, stdout=out,
+                         stderr=subprocess.STDOUT, start_new_session=True)
+except OSError as e:
+    out.write(f"cannot start {cmd}: {e}\n".encode())
+    sys.exit(0)
+print(p.pid)
+PY
+
+# api.py <prefix> <METHOD> <url> <token|-> <origin|-> [body-file]: one request; writes <prefix>.status (0 when
+# the connection failed), <prefix>.ctype and <prefix>.body.
+cat >"$sb/gui-api.py" <<'PY'
+import http.client, sys
+from urllib.parse import urlsplit
+prefix, method, url, token, origin, *rest = sys.argv[1:]
+u = urlsplit(url)
+headers = {}
+if token != "-":
+    headers["X-Setup-Token"] = token
+if origin != "-":
+    headers["Origin"] = origin
+body = None
+if rest:
+    body = open(rest[0], "rb").read()
+    headers["Content-Type"] = "application/json"
+status, ctype, data = 0, "", b""
+try:
+    conn = http.client.HTTPConnection(u.hostname, u.port, timeout=60)
+    conn.request(method, u.path + (f"?{u.query}" if u.query else ""), body=body, headers=headers)
+    r = conn.getresponse()
+    status, ctype, data = r.status, r.getheader("Content-Type") or "", r.read()
+except OSError as e:
+    data = str(e).encode()
+open(prefix + ".status", "w").write(str(status))
+open(prefix + ".ctype", "w").write(ctype)
+open(prefix + ".body", "wb").write(data)
+PY
+
+# gui_new <name>: a scenario dir with a sandboxed copy of the pack (no .git, no generated/, own repo).
+gui_new() {
+  local d="$sb/gui-$1"
+  mkdir -p "$d"/{home,xdg,claude,codex,pi,data,cache,state,tree}
+  tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$d/tree"
+  git init -q "$d/tree" >/dev/null 2>&1
+  echo "$d"
+}
+
+# gui_start <dir> <command...>: start the server, wait for the printed URL, set <dir>/{pgid,url,port,token}.
+gui_start() {
+  local d="$1" i url
+  shift
+  rm -f "$sb/browser-opened"
+  GUI_PATH="$guibin" GUI_BROWSER="$sb/browser-stub" GUI_GITCONFIG="$sb/gitconfig" \
+    python3 -I "$sb/gui-spawn.py" "$d" "$@" >"$d/pgid"
+  [[ "$(<"$d/pgid")" =~ ^[0-9]+$ ]] && echo "$(<"$d/pgid")" >>"$sb/gui-pgids"
+  for i in $(seq 1 100); do
+    url="$(grep -Eo 'http://127\.0\.0\.1:[0-9]+/\?token=[^[:space:]]+' "$d/server.out" 2>/dev/null | head -n 1 || true)"
+    [[ -n "$url" ]] && break
+    gui_alive "$d" || break
+    sleep 0.2
+  done
+  if [[ -z "$url" ]]; then
+    echo "server did not print http://127.0.0.1:<port>/?token=<token>; server output:"
+    cat "$d/server.out"
+    return 1
+  fi
+  echo "$url" >"$d/url"
+  [[ "$url" =~ ^http://127\.0\.0\.1:([0-9]+)/\?token=(.+)$ ]]
+  echo "${BASH_REMATCH[1]}" >"$d/port"
+  echo "${BASH_REMATCH[2]}" >"$d/token"
+}
+
+gui_alive() { # gui_alive <dir>: some non-zombie process of the server's group is running
+  local pg; pg="$(<"$1/pgid")"
+  ps -eo pgid=,stat= | awk -v g="$pg" '$1 == g && $2 !~ /^Z/ { f = 1 } END { exit !f }'
+}
+
+port_open() { # port_open <port>
+  python3 -I -c 'import socket, sys
+s = socket.socket(); s.settimeout(1)
+sys.exit(0 if s.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0 else 1)' "$1"
+}
+
+# gui_stop <dir>: Ctrl+C for the whole group; fails when the server is still there after 10 s (and kills it).
+gui_stop() {
+  local d="$1" i pg
+  pg="$(<"$d/pgid")"
+  kill -INT -- "-$pg" 2>/dev/null || true
+  for i in $(seq 1 50); do
+    gui_alive "$d" || return 0
+    sleep 0.2
+  done
+  kill -KILL -- "-$pg" 2>/dev/null || true
+  echo "server still running 10 s after SIGINT; output:"
+  cat "$d/server.out"
+  return 1
+}
+
+gui_cleanup() {
+  local pg
+  [[ -f "$sb/gui-pgids" ]] || return 0
+  while read -r pg; do
+    [[ -n "$pg" ]] && kill -KILL -- "-$pg" 2>/dev/null || true
+  done <"$sb/gui-pgids"
+}
+
+# api <dir> <METHOD> <path> <token|-> <origin|-> [body-file]: result in <dir>/r.{status,ctype,body}
+api() {
+  local d="$1" method="$2" path="$3"
+  shift 3
+  python3 -I "$sb/gui-api.py" "$d/r" "$method" "http://127.0.0.1:$(<"$d/port")$path" "$@"
+}
+
+origin_of() { echo "http://127.0.0.1:$(<"$1/port")"; }
+
+# save <dir> <json>: a valid POST /api/save (right token, own Origin).
+save() {
+  printf '%s\n' "$2" >"$1/req.json"
+  api "$1" POST /api/save "$(<"$1/token")" "$(origin_of "$1")" "$1/req.json"
+}
+
+saved_ok() { # saved_ok <dir>: the last response was 200 with ok = true
+  local st; st="$(<"$1/r.status")"
+  if [[ "$st" != 200 ]] || [[ "$(json_get "$1/r.body" 'c["ok"]')" != true ]]; then
+    echo "expected 200 and ok=true from /api/save, got status $st; body:"
+    cat "$1/r.body"
+    return 1
+  fi
+}
+
+status_is() { # status_is <dir> <code> <error-code-or-empty>: status and the error name in the body
+  local st; st="$(<"$1/r.status")"
+  [[ "$st" == "$2" ]] || { echo "expected HTTP $2, got $st; body: $(head -c 300 "$1/r.body")"; return 1; }
+  [[ -z "${3:-}" ]] || grep -Fq -- "$3" "$1/r.body" || { echo "expected error $3 in the body: $(head -c 300 "$1/r.body")"; return 1; }
+}
+
+snapshot() { # snapshot <dir>: settings.json and every provider link, for before/after comparison
+  local d="$1" f
+  if [[ -f "$(settings_file "$d")" ]]; then cat "$(settings_file "$d")"; else echo "no settings.json"; fi
+  find "$d/claude" "$d/codex" "$d/home" "$d/xdg/opencode" "$d/pi" -mindepth 1 2>/dev/null | sort | while read -r f; do
+    if [[ -L "$f" ]]; then echo "$f -> $(readlink "$f")"; else echo "$f"; fi
+  done
+}
+
+settings_is() { json_is "$(settings_file "$1")" "$2" "$3"; } # settings_is <dir> <expr> <expected JSON>
+
+# ---------------------------------------------------------------- checks
+
+c_gui_make_setup_start_open_stop() { # [G-start]
+  local d url port i opened=""
+  d="$(gui_new make-setup)"
+  gui_start "$d" make setup || return 1
+  url="$(<"$d/url")"; port="$(<"$d/port")"
+  [[ "$url" =~ ^http://127\.0\.0\.1:[0-9]+/\?token=.{8,}$ ]] || { echo "unexpected URL: $url"; return 1; }
+  for i in $(seq 1 50); do
+    [[ -f "$sb/browser-opened" ]] && opened="$(<"$sb/browser-opened")" && break
+    sleep 0.2
+  done
+  [[ "$opened" == "$url" ]] || { echo "browser was asked to open '${opened:-nothing}', expected the printed URL $url"; gui_stop "$d" || true; return 1; }
+  api "$d" GET "/?token=$(<"$d/token")" - -
+  status_is "$d" 200 || { gui_stop "$d" || true; return 1; }
+  gui_stop "$d" || return 1
+  ! port_open "$port" || { echo "port $port still accepts connections after Ctrl+C"; return 1; }
+}
+
+c_gui_token_required() { # [G-token]
+  local d tok
+  d="$(gui_new token)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  api "$d" GET /api/state - -;                 status_is "$d" 403 invalid_token || return 1
+  api "$d" GET /api/state wrong -;             status_is "$d" 403 invalid_token || return 1
+  api "$d" GET /api/state "${tok}x" -;         status_is "$d" 403 invalid_token || return 1
+  api "$d" GET "/api/state?token=$tok" - -;    status_is "$d" 403 invalid_token || return 1   # the query token is for the page only
+  api "$d" GET / - -;                          status_is "$d" 403 invalid_token || return 1
+  api "$d" GET "/?token=wrong" - -;            status_is "$d" 403 invalid_token || return 1
+  printf '%s\n' '{"providers":["codex"],"agents":{},"opencode":{}}' >"$d/req.json"
+  api "$d" POST /api/save - "$(origin_of "$d")" "$d/req.json"; status_is "$d" 403 invalid_token || return 1
+  api "$d" POST /api/save wrong "$(origin_of "$d")" "$d/req.json"; status_is "$d" 403 invalid_token || return 1
+  [[ ! -e "$(settings_file "$d")" ]] || { echo "settings.json written by a request without a valid token"; return 1; }
+  [[ ! -e "$d/codex/agents" ]] || { echo "install ran for a request without a valid token"; return 1; }
+  api "$d" GET /api/state "$tok" -;            status_is "$d" 200 || return 1
+  api "$d" GET "/?token=$tok" - -;             status_is "$d" 200 || return 1
+  grep -Fiq 'text/html' "$d/r.ctype" || { echo "GET /?token=... Content-Type is '$(<"$d/r.ctype")', expected text/html"; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_state_without_settings() { # [G-state]
+  local d f
+  d="$(gui_new state-defaults)"
+  gui_start "$d" scripts/setup || return 1
+  api "$d" GET /api/state "$(<"$d/token")" -
+  status_is "$d" 200 || return 1
+  f="$d/r.body"
+  json_is "$f" 'c["settings"]' '{}' || return 1
+  json_is "$f" '"gpt-6.1-terra" in c["catalog"]["codex"]["models"]' 'true' || return 1
+  json_is "$f" '"ees-code-reviewer" in json.dumps(c["defaults"]) and "gpt-6.1-terra" in json.dumps(c["defaults"])' 'true' || return 1
+  json_is "$f" '"claude-agent/opus" in json.dumps(c["defaults"])' 'true' || return 1   # config/opencode.json
+  json_is "$f" 'sorted(p["id"] for p in c["providers"])' '["claude", "codex", "cursor", "opencode", "pi"]' || return 1
+  json_is "$f" 'all(set(p) >= {"id", "label", "selected", "note"} and isinstance(p["selected"], bool) and p["note"] in ("linked", "installed", "not found") for p in c["providers"])' 'true' || return 1
+  json_is "$f" 'c["warnings"]' '[]' || return 1
+  [[ ! -e "$(settings_file "$d")" ]] || { echo "GET /api/state created settings.json"; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_foreign_origin_rejected() { # [G-origin]
+  local d before after
+  d="$(gui_new origin)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["claude"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  before="$(snapshot "$d")"
+  printf '%s\n' '{"providers":["codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{}}' >"$d/req.json"
+  api "$d" POST /api/save "$(<"$d/token")" "http://evil.example" "$d/req.json"; status_is "$d" 403 invalid_origin || return 1
+  api "$d" POST /api/save "$(<"$d/token")" "http://127.0.0.1:1" "$d/req.json";  status_is "$d" 403 invalid_origin || return 1
+  api "$d" POST /api/save "$(<"$d/token")" - "$d/req.json";                     status_is "$d" 403 invalid_origin || return 1
+  after="$(snapshot "$d")"
+  [[ "$before" == "$after" ]] || { echo "settings or links changed by a foreign-Origin POST:"; diff <(echo "$before") <(echo "$after") || true; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_invalid_settings_rejected() { # [G-invalid]
+  local d before after body
+  d="$(gui_new invalid)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["claude"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  before="$(snapshot "$d")"
+  for body in \
+    '{"providers":["codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-0-nonexistent"}}},"opencode":{}}' \
+    '{"providers":["codex"],"agents":{"ees-code-reviewer":{"codex":{"effort":"turbo"}}},"opencode":{}}' \
+    '{"providers":["opencode"],"agents":{},"opencode":{"agent":{"explore":{"variant":"ultra"}}}}' \
+    '{"providers":["opencode"],"agents":{},"opencode":{"model":"nonesuch/model"}}' \
+    '{"providers":["ghostprov"],"agents":{},"opencode":{}}' \
+    '{"providers":"codex","agents":{},"opencode":{}}' \
+    '{"providers":["codex"],"agents":"nope","opencode":{}}'; do
+    save "$d" "$body"
+    status_is "$d" 400 invalid_settings || { echo "(request: $body)"; return 1; }
+  done
+  after="$(snapshot "$d")"
+  [[ "$before" == "$after" ]] || { echo "settings or links changed by rejected requests:"; diff <(echo "$before") <(echo "$after") || true; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_codex_deviation_reset_and_default() { # [G-codex] [G-reset] [G-default]
+  local d s f
+  d="$(gui_new codex)"
+  gui_start "$d" scripts/setup || return 1
+  s="$(settings_file "$d")"
+  f="$d/codex/agents/ees-code-reviewer.toml"
+
+  # [G-codex] gpt-6.1-terra -> gpt-6.2-terra, saved
+  save "$d" '{"providers":["claude","codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{}}'
+  saved_ok "$d" || return 1
+  json_is "$d/r.body" 'type(c["log"]).__name__' '"str"' || return 1
+  json_is "$d/r.body" 'type(c["warnings"]).__name__' '"list"' || return 1
+  settings_is "$d" 'c["providers"]' '["claude", "codex"]' || return 1
+  settings_is "$d" 'c["agents"]' '{"ees-code-reviewer": {"codex": {"model": "gpt-6.2-terra"}}}' || return 1
+  settings_is "$d" '(c.get("opencode") or {})' '{}' || return 1
+  [[ -L "$f" ]] || { echo "$f is not a link"; return 1; }
+  has_line "$f" 'model = "gpt-6.2-terra"' || return 1
+  has_line "$f" 'model_reasoning_effort = "high"' || return 1
+  has_line "$d/claude/agents/ees-code-reviewer.md" 'model: opus' || return 1
+  has_line "$d/codex/agents/ees-implementer.toml" 'model = "gpt-6.1-terra"' || return 1
+  api "$d" GET /api/state "$(<"$d/token")" -
+  json_is "$d/r.body" 'c["settings"]["agents"]' '{"ees-code-reviewer": {"codex": {"model": "gpt-6.2-terra"}}}' || return 1
+
+  # [G-reset] the GUI resets to the default: the deviation is gone from the request, the key from the file
+  save "$d" '{"providers":["claude","codex"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" '(c.get("agents") or {}).get("ees-code-reviewer", {}).get("codex", {}).get("model", "ABSENT")' '"ABSENT"' || return 1
+  ! grep -Fq gpt-6.2-terra "$s" || { echo "settings.json still mentions gpt-6.2-terra:"; cat "$s"; return 1; }
+  has_line "$f" 'model = "gpt-6.1-terra"' || return 1
+  lacks_line "$f" 'model = "gpt-6.2-terra"' || return 1
+  has_line "$f" 'model_reasoning_effort = "high"' || return 1
+
+  # [G-default] values identical to the pack defaults are not stored; a real deviation next to them is
+  save "$d" '{"providers":["claude","codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-6.1-terra","effort":"high"}},"ees-implementer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{"model":"claude-agent/opus","agent":{"explore":{"variant":"low"}}}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["agents"]' '{"ees-implementer": {"codex": {"model": "gpt-6.2-terra"}}}' || return 1
+  settings_is "$d" '(c.get("opencode") or {})' '{}' || return 1
+  has_line "$f" 'model = "gpt-6.1-terra"' || return 1
+  has_line "$d/codex/agents/ees-implementer.toml" 'model = "gpt-6.2-terra"' || return 1
+  save "$d" '{"providers":["claude","codex"],"agents":{"ees-code-reviewer":{"codex":{"model":"gpt-6.1-terra"}}},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" '(c.get("agents") or {})' '{}' || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_outside_catalog_reported() { # [G-catalog]
+  local d f
+  d="$(gui_new catalog)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-5-gone" } } } }
+JSON
+  gui_start "$d" scripts/setup || return 1
+  api "$d" GET /api/state "$(<"$d/token")" -
+  status_is "$d" 200 || return 1
+  f="$d/r.body"
+  json_is "$f" 'c["settings"]["agents"]["ees-code-reviewer"]["codex"]["model"]' '"gpt-5-gone"' || return 1
+  json_is "$f" 'any("ees-code-reviewer" in json.dumps(w) and "gpt-5-gone" in json.dumps(w) for w in c["warnings"])' 'true' || return 1
+  api "$d" GET "/?token=$(<"$d/token")" - -
+  status_is "$d" 200 || return 1
+  grep -Fq 'mimo katalog' "$d/r.body" || { echo 'the page has no "mimo katalog" label for out-of-catalog values'; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_untick_provider() { # [G-provider]
+  local d
+  d="$(gui_new untick)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["claude","codex"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  [[ -L "$d/codex/agents/ees-code-reviewer.toml" ]] || { echo "codex agent not linked after the first save"; return 1; }
+  [[ -L "$d/claude/agents/ees-code-reviewer.md" ]] || { echo "claude agent not linked after the first save"; return 1; }
+  settings_is "$d" 'c["providers"]' '["claude", "codex"]' || return 1
+  save "$d" '{"providers":["claude"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  [[ ! -e "$d/codex/agents/ees-code-reviewer.toml" && ! -L "$d/codex/agents/ees-code-reviewer.toml" ]] \
+    || { echo "codex agent link still there after unticking codex"; return 1; }
+  [[ -z "$(find "$d/codex/agents" -type l 2>/dev/null)" ]] || { echo "codex links left:"; find "$d/codex/agents" -type l; return 1; }
+  [[ -L "$d/claude/agents/ees-code-reviewer.md" ]] || { echo "claude link removed although claude stays ticked"; return 1; }
+  settings_is "$d" 'c["providers"]' '["claude"]' || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_opencode_variant_reaches_opencode_json() { # [G-opencode]
+  local d f
+  d="$(gui_new opencode)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["opencode"],"agents":{},"opencode":{"agent":{"explore":{"variant":"medium"}}}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["opencode"]' '{"agent": {"explore": {"variant": "medium"}}}' || return 1
+  settings_is "$d" 'c["providers"]' '["opencode"]' || return 1
+  f="$d/xdg/opencode/opencode.json"
+  [[ -f "$f" ]] || { echo "$f not written"; return 1; }
+  json_is "$f" 'c["agent"]["explore"]["variant"]' '"medium"' || return 1                          # not the default "low"
+  json_is "$f" 'c["agent"]["explore"]["model"]' '"opencode-go/deepseek-v4.1-flash"' || return 1   # model stays the default
+  json_is "$f" 'c["agent"]["general"]["variant"]' '"low"' || return 1
+  json_is "$f" 'c["model"]' '"claude-agent/opus"' || return 1
+  gui_stop "$d" || true
+}
+
+area_gui() {
+  trap 'gui_cleanup; rm -rf "$sb"' EXIT
+  check "[G-start] make setup listens on 127.0.0.1, prints the URL with token, opens it in the browser; Ctrl+C ends it and closes the port" c_gui_make_setup_start_open_stop
+  check "[G-token] GET /, GET /api/state and POST /api/save without or with a wrong token: 403 invalid_token, nothing written" c_gui_token_required
+  check "[G-state] /api/state without settings.json: settings {}, catalog, defaults, providers, no warnings; nothing written" c_gui_state_without_settings
+  check "[G-origin] POST /api/save with a foreign or missing Origin: 403 invalid_origin, settings and links unchanged" c_gui_foreign_origin_rejected
+  check "[G-invalid] POST /api/save with a value outside the catalog, unknown provider or bad shape: 400 invalid_settings, nothing written" c_gui_invalid_settings_rejected
+  check "[G-codex] [G-reset] [G-default] codex model deviation saved, reset and identical-to-default handling in settings.json and the linked agent" c_gui_codex_deviation_reset_and_default
+  check "[G-catalog] deviation outside the catalog is a warning in /api/state and the page labels it \"mimo katalog\"" c_gui_outside_catalog_reported
+  check "[G-provider] unticking a provider and saving removes its links and updates settings.json providers" c_gui_untick_provider
+  check "[G-opencode] opencode.agent.explore.variant saved via the API lands in the sandbox opencode.json" c_gui_opencode_variant_reaches_opencode_json
+}
+
+main() {
+  area_settings_overlay
+  area_catalog_defaults
+  area_validate
+  area_unknown_settings
+  area_opencode_config
+  area_real_pack
+  area_gui
+
+  if (( fails )); then
+    echo "$fails check(s) failed"
+    exit 1
+  fi
+  echo "all checks passed"
+}
+
+main

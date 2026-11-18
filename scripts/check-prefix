@@ -156,15 +156,35 @@ toml_skills() { # every skills = [...] entry is a prefixed, existing skill direc
   return "$bad"
 }
 
-# ---------------------------------------------------------------- generated/
+# ---------------------------------------------------------------- built output
 
-generated_prefixed() { # all four providers have agents/ with only ees-* files
-  local prov dir f base bad=0
+# generated/ is gitignored local build output, so the checks run against a copy of the tree (without
+# generated/) that scripts/build-agents and scripts/build-pi-prompts have built; the working tree's
+# generated/ is never read.
+built_tree() { # prints the path of the built copy, building it on first use
+  local b="$sandbox/built"
+  if [[ ! -d "$b" ]]; then
+    mkdir -p "$b"
+    (cd "$pack" && tar --exclude=./.git --exclude=./generated -cf - .) | tar -xf - -C "$b"
+    "$b/scripts/build-agents" >"$sandbox/build.out" 2>&1 &&
+      "$b/scripts/build-pi-prompts" >>"$sandbox/build.out" 2>&1 || { rm -rf "$b"; return 1; }
+  fi
+  echo "$b"
+}
+
+build_validates() { # the built copy passes build-agents --validate
+  local b; b="$(built_tree)" || return 1
+  "$b/scripts/build-agents" --validate
+}
+
+generated_prefixed() { # all four providers have agents/ with only ees-* files in the built output
+  local prov dir f base bad=0 b
+  b="$(built_tree)" || { echo "building agents in the sandbox copy failed"; return 1; }
   for prov in claude codex cursor opencode; do
-    [[ -d "generated/$prov/agents" ]] ||
+    [[ -d "$b/generated/$prov/agents" ]] ||
       { echo "missing directory: generated/$prov/agents"; bad=1; }
   done
-  for dir in generated/*/agents; do
+  for dir in "$b"/generated/*/agents; do
     for f in "$dir"/*; do
       [[ -f "$f" ]] || continue
       base="$(basename "$f")"
@@ -212,11 +232,13 @@ skills_refs() { unprefixed_refs "$(ident_ere "$(printf '%s|' "${skill_names[@]}"
 agents_refs() { unprefixed_refs "$(ident_ere "$(printf '%s|' "${agent_names[@]}" | sed 's/|$//')")"; }
 
 docs_not_prefixed_docs() { # docs/ees does not exist, in content or as a path
-  local needle="docs/ees" hits bad=0
+  local needle="docs/ees" hits bad=0 b
   local -a files=()
+  b="$(built_tree)" || { echo "building agents in the sandbox copy failed"; return 1; }
   [[ -e "$needle" ]] && { echo "path exists: $needle"; bad=1; }
-  mapfile -t files < <(find README.md skills agents scripts generated config agents.toml install.sh .githooks \
-    -type f ! -path 'scripts/check-prefix' ! -path 'skills/personal/*' -print)
+  mapfile -t files < <(find README.md skills agents scripts config agents.toml install.sh .githooks \
+    -type f ! -path 'scripts/check-prefix' ! -path 'skills/personal/*' -print
+    find "$b/generated" -type f -print)
   if [[ ${#files[@]} -gt 0 ]]; then
     hits="$(grep -nHF -- "$needle" "${files[@]}" 2>/dev/null || true)"
     if [[ -n "$hits" ]]; then
@@ -383,8 +405,8 @@ check "agents/: exactly six ees-*.md files and no other agent files" agents_pref
 check "agents/: each frontmatter name matches its file" agents_frontmatter
 check "agents.toml: prefixed keys match the agent files exactly" toml_keys
 check "agents.toml: every skills entry names an existing prefixed skill" toml_skills
-check "generated/: every provider has agents/ with only ees-* files" generated_prefixed
-check "generated/: scripts/build-agents --check is green" "$pack/scripts/build-agents" --check
+check "built output: every provider has agents/ with only ees-* files" generated_prefixed
+check "built output: scripts/build-agents --validate exits 0" build_validates
 check "docs: no unprefixed skill identifiers in README, skills, agents, scripts/check-*" skills_refs
 check "docs: no unprefixed agent identifiers in README, skills, agents, scripts/check-*" agents_refs
 check "docs: no docs/ees path or reference" docs_not_prefixed_docs
