@@ -2,3 +2,6 @@
 skills/personal/
 personal/
 .system
+
+# Local build output of scripts/build-agents and scripts/build-pi-prompts (defaults + user settings).
+generated/
