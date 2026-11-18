@@ -988,7 +988,6 @@ json_body() { # json_body <dir>: the last response body is a JSON object
   [[ "$(json_get "$1/r.body" 'isinstance(c, dict)')" == true ]] || { echo "response body is not a JSON object: $(head -c 300 "$1/r.body")"; return 1; }
 }
 
-
 # ---------------------------------------------------------------- checks
 
 c_gui_make_setup_start_open_stop() { # [G-start]
@@ -1208,6 +1207,10 @@ JSON
   save "$d" '{"providers":["claude","codex"],"agents":{'"$stale_agents"',"ees-code-reviewer":{"codex":{"model":"gpt-6.2-terra"}}},"opencode":{'"$stale_oc"'}}'
   saved_ok "$d" || return 1
   settings_is "$d" 'c["agents"]["ees-code-reviewer"]["codex"]["model"]' '"gpt-6.2-terra"' || return 1
+  # the stale entries are warned about and ignored, never deleted: settings.json still holds them
+  settings_is "$d" 'c["agents"]["ees-gone"]["codex"]["model"]' '"gpt-6.2-terra"' || return 1
+  settings_is "$d" 'c["agents"]["ees-implementer"]["codex"]["tools"]' '["Read"]' || return 1
+  settings_is "$d" 'c["opencode"]["agent"]["ghost"]["variant"]' '"low"' || return 1
   has_line "$d/codex/agents/ees-code-reviewer.toml" 'model = "gpt-6.2-terra"' || return 1
 
   # a NEW unknown agent or key (not in the stored settings) is still rejected, stale ones next to it or not
