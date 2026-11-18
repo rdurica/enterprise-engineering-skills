@@ -6,6 +6,8 @@ the browser. GET / needs the token in the query, /api/* the X-Setup-Token header
 Origin equal to this server's own address (Save and Load models run commands). Runs until Ctrl+C.
 POST /api/models {"provider": id} asks that provider's own CLI which models this machine and account can use
 and stores the answer in models.json next to settings.json (see ees_settings).
+POST /api/save answers with one JSON result; with "Accept: application/x-ndjson" it streams the installer's
+output instead, one {"line": ...} object per line, and ends with the same result object.
 Stdlib only, Python 3.11+.
 """
 import hmac
@@ -401,24 +403,34 @@ def validate(body, current):
     return new
 
 
-def run_install(providers):
+def run_install(providers, on_line=None):
+    """Run install.sh; on_line gets each output line as it comes. A failing on_line (the browser went away)
+    stops the live output but never the install."""
     arg = ",".join(providers) if providers else "none"
-    proc = subprocess.run(
+    lines = []
+    with subprocess.Popen(
         ["bash", str(pack / "install.sh"), "--providers", arg, "--yes"],
         cwd=pack, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        errors="replace",
-    )
-    return proc.returncode, proc.stdout
+        errors="replace", bufsize=1,
+    ) as proc:
+        for line in proc.stdout:
+            lines.append(line)
+            if on_line:
+                try:
+                    on_line(line.rstrip("\n"))
+                except OSError:
+                    on_line = None
+    return proc.returncode, "".join(lines)
 
 
-def save(body):
+def save(body, on_line=None):
     with save_lock:
         current, load_warnings = es.load_settings()
         if load_warnings:
             raise Unreadable("; ".join(load_warnings) + ". Fix or remove settings.json, then save again")
         new = validate(body, current)
         es.write_settings(new)
-        code, log = run_install(new["providers"])
+        code, log = run_install(new["providers"], on_line)
         settings, load_warnings = es.load_settings()
         catalog = user_catalog()[0]
         agents_toml, fragment = es.load_defaults()
@@ -442,10 +454,13 @@ def make_handler(token, origin):
         def log_message(self, *args):
             pass
 
-        def send(self, status, body, ctype):
+        streaming = False
+
+        def head(self, status, ctype, length=None):
             self.send_response(status)
             self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(body)))
+            if length is not None:  # a stream has none: HTTP/1.0 ends it by closing the connection
+                self.send_header("Content-Length", str(length))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
@@ -455,12 +470,25 @@ def make_handler(token, origin):
                 "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
             )
             self.end_headers()
+
+        def send(self, status, body, ctype):
+            self.head(status, ctype, len(body))
             self.wfile.write(body)
+
+        def stream(self, data):
+            """One NDJSON object of a 200 stream; the first call sends the headers."""
+            if not self.streaming:
+                self.head(200, "application/x-ndjson; charset=utf-8")
+                self.streaming = True
+            self.wfile.write((json.dumps(data, ensure_ascii=False) + "\n").encode())
+            self.wfile.flush()
 
         def json(self, status, data):
             self.send(status, json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8")
 
         def error(self, status, code, message=""):
+            if self.streaming:  # the status is already sent: the error becomes the stream's last object
+                return self.stream({"error": code, "message": message})
             self.json(status, {"error": code, "message": message})
 
         def header_token_ok(self):
@@ -520,8 +548,9 @@ def make_handler(token, origin):
                     return self.error(502, "discovery_failed", str(error))
                 except OSError as error:
                     return self.error(500, "save_failed", str(error))
+            live = "application/x-ndjson" in (self.headers.get("Accept") or "")
             try:
-                result = save(body)
+                result = save(body, (lambda line: self.stream({"line": line})) if live else None)
             except Invalid as error:
                 return self.error(400, "invalid_settings", str(error))
             except RecursionError:
@@ -530,6 +559,8 @@ def make_handler(token, origin):
                 return self.error(409, "settings_unreadable", str(error))
             except OSError as error:
                 return self.error(500, "save_failed", str(error))
+            if live:
+                return self.stream(result)
             self.json(200, result)
 
     return Handler

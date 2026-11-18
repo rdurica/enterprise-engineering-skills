@@ -184,7 +184,27 @@
   .alert p { margin:0; flex:1 1 20rem; }
   pre { font-family:var(--mono); font-size:.82rem; background:var(--code-bg); color:var(--code-fg); padding:1rem 1.1rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:14px; margin:0; }
 
+  /* Install dialog: live installer output, closable once the install has ended */
+  dialog.install { width:min(46rem, calc(100vw - 2rem)); max-height:calc(100vh - 2rem); padding:0; border:0; border-radius:20px; background:var(--surface); color:var(--fg); box-shadow:0 24px 64px -16px rgb(0 0 0 / .45); }
+  dialog.install[open] { display:flex; flex-direction:column; }
+  dialog.install::backdrop { background:rgb(11 12 16 / .55); backdrop-filter:blur(3px); }
+  .install-head { display:flex; align-items:center; gap:.8rem; padding:1.25rem 1.5rem .25rem; }
+  .install-head h2 { margin:0; font-size:1.1rem; letter-spacing:-.01em; }
+  .install-sub { margin:0; padding:0 1.5rem 1rem 4.3rem; color:var(--muted); font-size:.88rem; }
+  .install-state { display:grid; place-items:center; width:2rem; height:2rem; border-radius:50%; flex:none; background:var(--accent-soft); color:var(--accent-soft-fg); }
+  .install-state svg { width:16px; height:16px; }
+  .install-state.busy::before { content:""; width:14px; height:14px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; animation:spin .8s linear infinite; }
+  .install-state.ok { background:color-mix(in srgb, var(--ok) 16%, transparent); color:var(--ok); }
+  .install-state.bad { background:var(--bad-soft); color:var(--bad); }
+  @keyframes spin { to { transform:rotate(1turn); } }
+  .install-body { padding:0 1.5rem; min-height:0; display:flex; flex-direction:column; flex:1; }
+  .install-body .warnings { margin-bottom:1rem; }
+  .install-body pre { flex:1; min-height:12rem; max-height:none; height:22rem; }
+  .install-foot { display:flex; justify-content:flex-end; align-items:center; gap:.75rem; padding:1rem 1.5rem 1.25rem; }
+  .install-foot .follow { margin-right:auto; font-size:.82rem; color:var(--muted); }
+
   @media (max-width: 40rem) {
+    .install-sub { padding-left:1.5rem; }
     .topbar-inner { padding:.6rem 1rem; gap:.6rem; }
     .brand-sub { display:none; }
     main { padding:1.5rem 1rem 3rem; }
@@ -197,7 +217,7 @@
     .agents { grid-template-columns:1fr; }
     .bar-status #status { display:none; }
   }
-  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } .install-state.busy::before { animation-duration:2.4s; } }
 </style>
 </head>
 <body>
@@ -225,8 +245,13 @@
   <fieldset id="providers"></fieldset>
   <p id="no-provider" class="warnings" hidden>No provider is selected – saving removes all links.</p>
   <div id="tables"></div>
-  <section id="result" class="card" hidden aria-live="polite"><div class="card-head"><h2>Install result</h2></div><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Install log"></pre></section>
 </main>
+<dialog id="install" class="install" aria-labelledby="install-title" aria-describedby="install-sub">
+  <div class="install-head"><span id="install-state" class="install-state busy" aria-hidden="true"></span><h2 id="install-title">Installing…</h2></div>
+  <p id="install-sub" class="install-sub" role="status">Saving your choices, rebuilding the agents and running <code>install.sh</code>.</p>
+  <div class="install-body"><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Install log"></pre></div>
+  <div class="install-foot"><button id="follow" class="follow" type="button" hidden>Jump to the latest output</button><button id="install-close" class="primary" type="button" disabled>Close</button></div>
+</dialog>
 <script>
 "use strict";
 const token = new URLSearchParams(location.search).get("token") || "";
@@ -630,6 +655,52 @@ async function load() {
   render();
 }
 
+// The install dialog: the log follows new output while the reader stays at its end (scrolling up pauses it),
+// and the dialog can only be closed once the install has ended.
+const log = $("log"), dialog = $("install");
+let follow = true;
+const atEnd = () => log.scrollHeight - log.scrollTop - log.clientHeight < 24;
+log.addEventListener("scroll", () => { follow = atEnd(); $("follow").hidden = follow; });
+$("follow").onclick = () => { follow = true; log.scrollTop = log.scrollHeight; $("follow").hidden = true; };
+const append = (text) => { log.append(text + "\n"); if (follow) log.scrollTop = log.scrollHeight; };
+dialog.addEventListener("cancel", (e) => { if (saving) e.preventDefault(); });
+$("install-close").onclick = () => dialog.close();
+const okIcon = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+const badIcon = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
+function finishDialog(ok, title, sub) {
+  const mark = $("install-state");
+  mark.className = "install-state " + (ok ? "ok" : "bad"); mark.innerHTML = ok ? okIcon : badIcon;
+  $("install-title").textContent = title; $("install-sub").textContent = sub;
+  $("install-close").disabled = false; $("install-close").focus();
+}
+function openDialog() {
+  log.textContent = ""; follow = true; $("follow").hidden = true;
+  showWarnings($("result-warnings"), []);
+  const mark = $("install-state"); mark.className = "install-state busy"; mark.innerHTML = "";
+  $("install-title").textContent = "Installing…";
+  $("install-sub").innerHTML = "Saving your choices, rebuilding the agents and running <code>install.sh</code>.";
+  $("install-close").disabled = true;
+  dialog.showModal(); log.focus();
+}
+
+// POST /api/save as an NDJSON stream: {"line"} objects while install.sh runs, then the result (or an error).
+async function saveStreaming(body) {
+  const r = await fetch("/api/save", { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/x-ndjson" }, body });
+  if (!r.ok || !(r.headers.get("Content-Type") || "").includes("ndjson")) return { refused: await r.json() };
+  const reader = r.body.getReader(), decoder = new TextDecoder();
+  let buf = "", last = null;
+  const take = (row) => { const o = JSON.parse(row); if ("line" in o) append(o.line); else last = o; };
+  for (;;) {
+    const { value, done } = await reader.read();
+    buf += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const rows = buf.split("\n"); buf = rows.pop();
+    rows.filter(Boolean).forEach(take);
+    if (done) break;
+  }
+  if (buf.trim()) take(buf);
+  return last || { error: "stream_ended", message: "The connection closed before the install finished." };
+}
+
 $("save").onclick = async () => {
   const btn = $("save");
   if (!state || !draft || saving) return;
@@ -638,21 +709,35 @@ $("save").onclick = async () => {
   btn.disabled = true;
   $("status").className = ""; $("error").textContent = "";
   $("status").textContent = "Saving and installing…";
+  openDialog();
   try {
     const order = state.providers.map((p) => p.id).filter((id) => draft.providers.has(id));
-    const r = await fetch("/api/save", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ providers: order, agents: draft.agents, opencode: draft.opencode }) });
-    const data = await r.json();
-    if (!r.ok) { $("status").textContent = ""; $("error").textContent = "Cannot save: " + (data.message || data.error); return; }
+    const data = await saveStreaming(JSON.stringify({ providers: order, agents: draft.agents, opencode: draft.opencode }));
+    if (data.refused) {
+      // Nothing was written or installed: back to the page, where the reason is shown next to Save.
+      saving = false; dialog.close();
+      $("status").textContent = ""; $("error").textContent = "Cannot save: " + (data.refused.message || data.refused.error);
+      return;
+    }
+    if (data.error) {
+      $("status").textContent = ""; $("error").textContent = "The install failed.";
+      finishDialog(false, "Install failed", data.message || data.error);
+      return;
+    }
     setDirty(false);
-    if (data.ok) { $("status").textContent = "Saved."; $("status").className = "ok"; }
-    else { $("status").textContent = ""; $("error").textContent = "The install failed."; }
-    $("result").hidden = false;
-    $("log").textContent = data.log;
     showWarnings($("result-warnings"), data.warnings);
+    if (data.ok) {
+      $("status").textContent = "Saved."; $("status").className = "ok";
+      finishDialog(true, "Installed", "Your choices are saved and the agents are linked." + (data.warnings.length ? " See the warnings above the log." : ""));
+    } else {
+      $("status").textContent = ""; $("error").textContent = "The install failed.";
+      finishDialog(false, "Install failed", "Your choices are saved, but install.sh ended with an error – see the log.");
+    }
     const s = await fetch("/api/state", { headers });
     if (s.ok) { state = await s.json(); showWarnings($("warnings"), state.warnings); render(); }
   } catch (e) {
     $("status").textContent = ""; $("error").textContent = "Error: " + e;
+    finishDialog(false, "Install failed", "Error: " + e);
   } finally { saving = false; btn.disabled = false; }
 };
 load();

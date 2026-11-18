@@ -764,6 +764,8 @@ area_real_pack() {
 #   [G-500]      an unexpected failure answers with HTTP 500 and a JSON body instead of dropping the connection
 #   [G-harden]   foreign Host header: 403; the page has a Content-Security-Policy and Referrer-Policy: no-referrer
 #   [G-session]  opencode built-in agents follow the saved session model / small model unless set directly
+#   [G-stream]   POST /api/save with Accept: application/x-ndjson streams the install output line by line and
+#                ends with the result object; a refused save still answers with a plain JSON error
 #   [G-models]   POST /api/models asks the provider CLI, stores models.json, extends the catalog for saving;
 #                claude, unknown providers, a missing CLI and a foreign Origin are refused
 
@@ -814,7 +816,7 @@ PY
 # api.py <prefix> <METHOD> <url> <token|-> <origin|-> [body-file]: one request; writes <prefix>.status (0 when
 # the connection failed), <prefix>.ctype and <prefix>.body.
 cat >"$sb/gui-api.py" <<'PY'
-import http.client, sys
+import http.client, os, sys
 from urllib.parse import urlsplit
 prefix, method, url, token, origin, *rest = sys.argv[1:]
 u = urlsplit(url)
@@ -823,6 +825,8 @@ if token != "-":
     headers["X-Setup-Token"] = token
 if origin != "-":
     headers["Origin"] = origin
+if os.environ.get("ACCEPT"):
+    headers["Accept"] = os.environ["ACCEPT"]
 body = None
 if rest:
     body = open(rest[0], "rb").read()
@@ -1342,6 +1346,29 @@ c_gui_load_models() { # [G-models]
   gui_stop "$d" || true
 }
 
+c_gui_save_streams_install_output() { # [G-stream]
+  local d
+  d="$(gui_new stream)"
+  gui_start "$d" scripts/setup || return 1
+  printf '%s\n' '{"providers":["claude"],"agents":{},"opencode":{}}' >"$d/req.json"
+  ACCEPT=application/x-ndjson api "$d" POST /api/save "$(<"$d/token")" "$(origin_of "$d")" "$d/req.json"
+  [[ "$(<"$d/r.status")" == 200 ]] || { echo "expected 200, got $(<"$d/r.status"): $(head -c 300 "$d/r.body")"; return 1; }
+  grep -Fq application/x-ndjson "$d/r.ctype" || { echo "expected an NDJSON stream, got $(<"$d/r.ctype")"; return 1; }
+  python3 -I - "$d/r.body" <<'PY' || return 1
+import json, sys
+rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+lines, last = [r["line"] for r in rows[:-1] if "line" in r], rows[-1]
+assert len(lines) == len(rows) - 1 and lines, f"expected line objects before the result: {rows[:3]}"
+assert last.get("ok") is True, f"last object is not a successful result: {last}"
+assert last["log"].splitlines() == lines, "the streamed lines differ from the final log"
+PY
+  [[ -L "$d/claude/agents/ees-code-reviewer.md" ]] || { echo "claude agent not linked after the streamed save"; return 1; }
+  printf '%s\n' '{"providers":["claude"],"agents":{"ees-code-reviewer":{"claude":{"model":"nope"}}},"opencode":{}}' >"$d/req.json"
+  ACCEPT=application/x-ndjson api "$d" POST /api/save "$(<"$d/token")" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 400 invalid_settings || return 1
+  gui_stop "$d" || true
+}
+
 area_gui() {
   trap 'gui_cleanup; rm -rf "$sb"' EXIT
   check "[G-start] make setup listens on 127.0.0.1, prints the URL with token, opens it in the browser; Ctrl+C ends it and closes the port" c_gui_make_setup_start_open_stop
@@ -1358,6 +1385,7 @@ area_gui() {
   check "[G-500] an unexpected failure (invalid catalog) in GET /api/state and POST /api/save is an HTTP 500 with a JSON body" c_gui_unexpected_failure_is_a_json_500
   check "[G-harden] a foreign Host header with a valid token is 403 (GET /, GET /api/state, POST /api/save); own Host still works" c_gui_foreign_host_rejected
   check "[G-session] opencode build/plan follow the saved main model, the helpers the small model; an agent model set directly wins" c_gui_opencode_builtins_follow_session
+  check "[G-stream] POST /api/save with Accept: application/x-ndjson streams the install output and ends with the result; a refused save stays a JSON 400" c_gui_save_streams_install_output
   check "[G-models] POST /api/models stores the CLI's models in models.json and they can be saved without warnings; claude, unknown, missing CLI and foreign Origin are refused" c_gui_load_models
   check "[G-harden] GET /?token= carries a Content-Security-Policy header and Referrer-Policy: no-referrer" c_gui_page_security_headers
 }
