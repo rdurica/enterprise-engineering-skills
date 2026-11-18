@@ -3,13 +3,19 @@
 
 Writes generated/claude/agents/<name>.md, generated/codex/agents/<name>.toml,
 generated/cursor/agents/<name>.md, generated/opencode/agents/<name>.md and generated/pi/agents/<name>.md.
-With --check, writes nothing and exits 1 when generated/ is stale.
+generated/ is local, gitignored build output: pack defaults overlaid with the user's settings.json
+(see scripts/ees_settings.py). With --validate, checks only the sources (agents/ against agents.toml,
+defaults against config/models.toml), ignores settings and generated/, and writes nothing.
 """
 import json
 import re
 import sys
 import tomllib
 from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ees_settings  # noqa: E402
 
 pack = Path(__file__).resolve().parent.parent
 outputs = {
@@ -122,13 +128,27 @@ renderers = {
 }
 
 
-def build():
+def check_sources():
+    """Return (agents.toml, catalog, sources); exit on a mismatch between agents/ and agents.toml or a default outside the catalog."""
     settings = tomllib.loads((pack / "agents.toml").read_text(encoding="utf-8"))
     sources = {p.stem: p for p in sorted((pack / "agents").glob("*.md"))}
     if missing := sorted(set(sources) - set(settings)):
         sys.exit(f"agents.toml has no settings for: {', '.join(missing)}")
     if unknown := sorted(set(settings) - set(sources)):
         sys.exit(f"agents.toml has settings for missing agents: {', '.join(unknown)}")
+    catalog = ees_settings.load_catalog(pack)
+    if errors := ees_settings.check_defaults(settings, catalog):
+        sys.exit("\n".join(errors))
+    return settings, catalog, sources
+
+
+def build():
+    defaults, catalog, sources = check_sources()
+    user, problems = ees_settings.load_settings()
+    problems += ees_settings.check_top_level(user, catalog)
+    settings, more = ees_settings.merge_agents(defaults, user, catalog)
+    for problem in problems + more:
+        ees_settings.warn(problem)
 
     files = {}
     for stem, path in sources.items():
@@ -143,7 +163,12 @@ def build():
 
 
 def main():
-    check = sys.argv[1:] == ["--check"]
+    args = sys.argv[1:]
+    if args == ["--validate"]:
+        check_sources()
+        return
+    if args:
+        sys.exit("usage: scripts/build-agents [--validate]")
     files = build()
     # Only the agents directory: generated/<provider>/ may hold other outputs (Pi slash commands).
     existing = {
@@ -154,13 +179,6 @@ def main():
     }
     stale = [p for p, text in files.items() if not p.is_file() or p.read_text(encoding="utf-8") != text]
     extra = sorted(existing - set(files))
-
-    if check:
-        for p in stale + extra:
-            print(f"stale   {p.relative_to(pack)}")
-        if stale or extra:
-            sys.exit("generated/ is out of date; run scripts/build-agents")
-        return
 
     for p in stale:
         p.parent.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Refuse a commit whose generated/ agents do not match agents/ and agents.toml, or whose Pi slash
-# commands do not match skills/.
+# Refuse a commit whose sources are inconsistent: agents/ without agents.toml settings (or the reverse), or an
+# agents.toml default missing from config/models.toml. generated/ is a local build output and is not checked.
 set -euo pipefail
 pack="$(git rev-parse --show-toplevel)"
-"$pack/scripts/build-agents" --check
-exec "$pack/scripts/build-pi-prompts" --check
+exec "$pack/scripts/build-agents" --validate

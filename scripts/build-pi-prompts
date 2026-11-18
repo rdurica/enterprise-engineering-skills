@@ -6,8 +6,7 @@ Pi exposes skills as `/skill:<name>`, while every skill and document in this pac
 skill makes the documented spelling work without duplicating the instructions: the template points the
 model at the skill's SKILL.md, which install.sh links into ~/.agents/skills/.
 
-Pi has no per-skill model, so a skill runs on the session model. With --check, writes nothing and
-exits 1 when generated/pi/prompts is stale.
+Pi has no per-skill model, so a skill runs on the session model. the output (generated/pi/prompts) is local and gitignored.
 """
 import json
 import re
@@ -69,18 +68,12 @@ def build():
 
 
 def main():
-    check = sys.argv[1:] == ["--check"]
+    if sys.argv[1:]:
+        sys.exit("usage: scripts/build-pi-prompts")
     files = build()
     existing = {p for p in target_dir.glob("*.md")} if target_dir.is_dir() else set()
     stale = [p for p, text in files.items() if not p.is_file() or p.read_text(encoding="utf-8") != text]
     extra = sorted(existing - set(files))
-
-    if check:
-        for p in stale + extra:
-            print(f"stale   {p.relative_to(pack)}")
-        if stale or extra:
-            sys.exit("generated/pi/prompts is out of date; run scripts/build-pi-prompts")
-        return
 
     for p in stale:
         p.parent.mkdir(parents=True, exist_ok=True)

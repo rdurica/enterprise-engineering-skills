@@ -1,0 +1,23 @@
+# Catalog of the values the setup GUI offers and the build accepts, per provider.
+# Maintained by hand together with the defaults in agents.toml and config/opencode.json: every default
+# there must exist here, or scripts/build-agents fails. A user's settings.json value outside the catalog
+# only warns (a model may disappear in a newer pack version) and is still used.
+
+[claude]
+models  = ["opus", "sonnet", "haiku"]
+efforts = ["low", "medium", "high", "xhigh", "max"]
+
+[codex]
+models  = ["gpt-6-luna", "gpt-6.1-terra", "gpt-6.2-terra"]
+efforts = ["low", "medium", "high", "xhigh"]
+
+[cursor]            # a Cursor model ID already contains the effort
+models  = ["grok-4.7-low", "grok-4.7-medium", "grok-4.7-high"]
+
+[opencode]
+models   = ["claude-agent/opus", "claude-agent/sonnet", "opencode-go/deepseek-v4.1-flash"]
+variants = ["low", "medium", "high"]
+
+[pi]
+models   = ["opencode-go/deepseek-v4.1-flash"]
+variants = ["low", "medium", "high"]
