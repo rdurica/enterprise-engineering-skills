@@ -299,14 +299,16 @@ build_outputs() { # generated/ is local: build it before planning links
 wizard() {
   local p i marker note line trimmed token valid
   local -a defaults=() tokens=() want=()
+  local have_stored=0
   if load_stored_providers; then
+    have_stored=1
     defaults=(${stored[@]+"${stored[@]}"})
   else
     for p in "${provider_order[@]}"; do
       if is_linked "$p"; then defaults+=("$p"); fi
     done
   fi
-  if (( ${#defaults[@]} == 0 )) && ! load_stored_providers; then defaults=("${provider_order[@]}"); fi
+  if (( ${#defaults[@]} == 0 )) && ! (( have_stored )); then defaults=("${provider_order[@]}"); fi
 
   while true; do
     printf '\nSelect the tools to link (x = preselected):\n'
@@ -501,7 +503,8 @@ else
   fi
   apply_plan
   if (( flag_all || have_providers )); then
-    python3 "$pack/scripts/ees_settings.py" set-providers ${selection[@]+"${selection[@]}"}
+    python3 "$pack/scripts/ees_settings.py" set-providers ${selection[@]+"${selection[@]}"} \
+      || printf 'warn    settings.json not updated\n' >&2
   fi
   if is_selected opencode && command -v opencode >/dev/null 2>&1; then
     opencode_config

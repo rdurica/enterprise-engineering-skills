@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
-# After git pull --rebase (and amend): same refresh as post-merge. Never fails the git operation.
+# After git pull --rebase (a rebase rewrite only): same refresh as post-merge. Never fails the git operation.
 [[ "${1:-}" == rebase ]] || exit 0
 exec "$(dirname "${BASH_SOURCE[0]}")/post-merge"

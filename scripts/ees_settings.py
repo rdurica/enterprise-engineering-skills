@@ -178,7 +178,9 @@ def merge_opencode(fragment, settings, catalog):
     for key, value in section.items():
         if key in ("model", "small_model"):
             put(merged, key, value, key, "model")
-        elif key == "agent" and isinstance(value, dict):
+        elif key == "agent" and not isinstance(value, dict):
+            out.append("settings opencode agent must be an object; ignored")
+        elif key == "agent":
             for agent_id, cfg in value.items():
                 if agent_id not in merged.get("agent", {}):
                     out.append(f"settings opencode agent {agent_id!r} is unknown; ignored")

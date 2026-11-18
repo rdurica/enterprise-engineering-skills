@@ -5,3 +5,4 @@ personal/
 
 # Local build output of scripts/build-agents and scripts/build-pi-prompts (defaults + user settings).
 generated/
+__pycache__/
