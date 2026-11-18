@@ -177,7 +177,7 @@ Run `make setup`. It opens a local page, reachable only from this machine and pr
 
 - **Providers** — switch on the tools you use; each tile shows whether it is linked or only installed.
 - **Agents** — one tab per provider, one card per agent: a searchable model picker and an effort (or variant) slider. Anything you change is marked and has a reset back to the pack default.
-- **Save and install** — writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer.
+- **Save and install** — writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer; a dialog shows its output live and can be closed once it has finished. Unticking a provider and saving uninstalls it the same way.
 
 The opencode tab also has a **Session** section with the main model, which runs every skill, and the cheap small model. opencode's built-in agents follow those two: `build` and `plan` the main model; `general`, `explore`, `compaction`, `title` and `summary` the small model (a hand-written `opencode.agent.<id>.model` in settings still wins).
 
