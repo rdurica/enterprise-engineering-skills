@@ -7,108 +7,137 @@
 <style>
   :root {
     color-scheme: light dark;
-    --bg:#f5f6f8; --surface:#ffffff; --surface-2:#f1f3f6; --fg:#14171c; --muted:#5b6472;
-    --line:#e3e6ea; --line-strong:#cfd4da;
+    --bg:#f4f5f8; --bg-glow:#e4e6ff; --surface:#ffffff; --surface-2:#f3f4f7; --fg:#12141a; --muted:#5a6270;
+    --line:#e4e6eb; --line-strong:#cdd2d9;
     --accent:#4f46e5; --accent-hover:#4338ca; --accent-fg:#ffffff; --accent-soft:#eef0ff; --accent-soft-fg:#3730a3;
     --ok:#166534; --ok-soft:#e6f5ec; --bad:#b91c1c; --bad-soft:#fdecec;
     --warn-fg:#7c4f00; --warn-bg:#fff5dc; --warn-line:#d99a00;
     --code-bg:#0f172a; --code-fg:#e2e8f0; --focus:#4f46e5;
-    --radius:14px; --radius-sm:8px; --shadow:0 1px 2px rgb(16 24 40 / .06), 0 4px 16px rgb(16 24 40 / .06);
+    --radius:18px; --radius-md:12px; --radius-sm:9px;
+    --shadow:0 1px 2px rgb(16 24 40 / .05), 0 8px 24px -8px rgb(16 24 40 / .10);
+    --shadow-lg:0 12px 40px -12px rgb(16 24 40 / .28);
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) { :root {
-    --bg:#0b0e14; --surface:#131821; --surface-2:#1a2030; --fg:#e6e9ef; --muted:#9aa3b2;
-    --line:#232a36; --line-strong:#323b4a;
-    --accent:#8b8cf8; --accent-hover:#a5a6ff; --accent-fg:#0b0e14; --accent-soft:#23264a; --accent-soft-fg:#c7c8ff;
+    --bg:#0a0c12; --bg-glow:#1b1d44; --surface:#12151d; --surface-2:#1a1e29; --fg:#e8eaf0; --muted:#9aa3b2;
+    --line:#222836; --line-strong:#323b4c;
+    --accent:#8b8cf8; --accent-hover:#a5a6ff; --accent-fg:#0a0c12; --accent-soft:#23264a; --accent-soft-fg:#c9caff;
     --ok:#4ade80; --ok-soft:#12301f; --bad:#f87171; --bad-soft:#3a1515;
-    --warn-fg:#fcd34d; --warn-bg:#33270a; --warn-line:#b38600;
-    --code-bg:#080a0f; --code-fg:#d6dde8; --focus:#a5a6ff;
-    --shadow:0 1px 2px rgb(0 0 0 / .4), 0 4px 16px rgb(0 0 0 / .25);
+    --warn-fg:#fcd34d; --warn-bg:#30250a; --warn-line:#b38600;
+    --code-bg:#07090d; --code-fg:#d6dde8; --focus:#a5a6ff;
+    --shadow:0 1px 2px rgb(0 0 0 / .5), 0 8px 24px -8px rgb(0 0 0 / .5);
+    --shadow-lg:0 12px 40px -12px rgb(0 0 0 / .8);
   } }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
-  html { scroll-padding-bottom:6rem; }
-  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
-  main { max-width:64rem; margin:0 auto; padding:2.5rem 1.25rem 0; }
-  header { margin-bottom:2rem; }
-  .eyebrow { margin:0 0 .35rem; font-size:.8rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-soft-fg); }
-  h1 { margin:0; font-size:clamp(1.6rem, 3vw, 2.1rem); line-height:1.2; letter-spacing:-.02em; }
-  .lead { margin:.6rem 0 0; color:var(--muted); max-width:44rem; }
-  h2 { margin:0; font-size:1.15rem; letter-spacing:-.01em; }
-  code { font-family:var(--mono); font-size:.9em; background:var(--surface-2); padding:.05em .35em; border-radius:5px; }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:1.25rem; margin-bottom:1.25rem; }
-  .card-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:1rem; }
-  .muted { color:var(--muted); font-size:.9rem; margin:0; }
-  /* Providers as selectable tiles */
+  html { scroll-padding-bottom:7rem; }
+  body { margin:0; min-height:100vh; color:var(--fg); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased;
+    background:radial-gradient(60rem 28rem at 50% -8rem, var(--bg-glow), transparent 70%) no-repeat, var(--bg); }
+  main { max-width:62rem; margin:0 auto; padding:3rem 1.25rem 0; }
+  .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+  header { margin-bottom:2.25rem; }
+  .eyebrow { display:inline-flex; align-items:center; gap:.45rem; margin:0 0 .9rem; padding:.3rem .75rem; font-size:.78rem; font-weight:600; letter-spacing:.02em; color:var(--accent-soft-fg); background:var(--accent-soft); border-radius:999px; }
+  .eyebrow::before { content:""; width:.5rem; height:.5rem; border-radius:50%; background:var(--accent); }
+  h1 { margin:0; font-size:clamp(1.8rem, 4vw, 2.6rem); line-height:1.1; letter-spacing:-.035em; font-weight:750; }
+  .lead { margin:.75rem 0 0; color:var(--muted); font-size:1.05rem; max-width:40rem; }
+  h2 { margin:0; font-size:1.2rem; letter-spacing:-.02em; }
+  code { font-family:var(--mono); font-size:.88em; background:var(--surface-2); padding:.05em .4em; border-radius:6px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:1.5rem; margin-bottom:1.5rem; }
+  .card-head { display:flex; align-items:center; gap:.85rem; margin-bottom:1.25rem; }
+  .card-head .head-text { flex:1; min-width:0; }
+  .sub { margin:.15rem 0 0; color:var(--muted); font-size:.88rem; font-weight:400; letter-spacing:0; }
+  .muted { color:var(--muted); font-size:.88rem; margin:0; }
+  .logo { flex:none; display:grid; place-items:center; width:2.5rem; height:2.5rem; border-radius:12px; font-weight:700; font-size:.95rem; color:#fff; background:var(--logo, #4f46e5); }
+  .logo.claude { --logo:#c2410c; } .logo.codex { --logo:#047857; } .logo.cursor { --logo:#374151; } .logo.opencode { --logo:#b45309; } .logo.pi { --logo:#6d28d9; }
+  /* Providers */
   fieldset { border:0; margin:0; padding:0; min-width:0; }
-  legend { padding:0; margin-bottom:1rem; font-size:1.15rem; font-weight:700; letter-spacing:-.01em; }
-  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(11.5rem, 1fr)); gap:.75rem; }
-  .tile { display:flex; align-items:center; gap:.75rem; padding:.8rem 1rem; border:1.5px solid var(--line); border-radius:var(--radius-sm); background:var(--surface); cursor:pointer; min-height:3.5rem; transition:border-color .15s, background-color .15s; }
-  .tile:hover { border-color:var(--line-strong); }
-  .tile:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+  legend { padding:0; margin-bottom:1.1rem; font-size:1.2rem; font-weight:700; letter-spacing:-.02em; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill, minmax(10.5rem, 1fr)); gap:.75rem; }
+  .tile { position:relative; display:flex; flex-direction:column; gap:.7rem; padding:1rem; border:1.5px solid var(--line); border-radius:var(--radius-md); background:var(--surface); cursor:pointer; transition:border-color .15s, background-color .15s, transform .15s, box-shadow .15s; }
+  .tile:hover { border-color:var(--line-strong); transform:translateY(-1px); box-shadow:var(--shadow); }
+  .tile:has(input:checked) { border-color:var(--accent); background:linear-gradient(180deg, var(--accent-soft), var(--surface)); }
   .tile:has(input:focus-visible) { outline:3px solid var(--focus); outline-offset:2px; }
-  .tile input { width:1.25rem; height:1.25rem; margin:0; accent-color:var(--accent); flex:none; }
+  .tile-top { display:flex; align-items:center; justify-content:space-between; }
+  .tile input { width:1.3rem; height:1.3rem; margin:0; accent-color:var(--accent); }
   .tile input:focus-visible { outline:none; }
-  .tile-text { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
-  .tile-name { font-weight:600; }
+  .tile-name { font-weight:650; }
   /* Pills */
-  .pill { display:inline-flex; align-items:center; gap:.3rem; width:fit-content; font-size:.75rem; font-weight:600; line-height:1; padding:.3rem .55rem; border-radius:999px; background:var(--surface-2); color:var(--muted); border:1px solid var(--line); white-space:nowrap; }
-  .pill::before { content:""; width:.45rem; height:.45rem; border-radius:50%; background:currentColor; opacity:.85; }
-  .pill.plain::before { display:none; }
-  .pill.linked { background:var(--ok-soft); color:var(--ok); border-color:transparent; }
-  .pill.installed { background:var(--accent-soft); color:var(--accent-soft-fg); border-color:transparent; }
-  .pill.own { background:var(--accent-soft); color:var(--accent-soft-fg); border-color:transparent; }
-  .pill.outside { background:var(--warn-bg); color:var(--warn-fg); border-color:var(--warn-line); }
-  .pill.dirty { background:var(--warn-bg); color:var(--warn-fg); border-color:transparent; }
-  /* Tables */
-  .table-wrap { overflow-x:auto; max-width:100%; border:1px solid var(--line); border-radius:var(--radius-sm); }
-  .table-wrap + .table-wrap { margin-top:1rem; }
-  table { border-collapse:collapse; width:100%; }
-  caption { text-align:left; font-weight:600; font-size:.95rem; padding:.75rem 1rem; background:var(--surface-2); border-bottom:1px solid var(--line); }
-  th, td { text-align:left; padding:.6rem 1rem; border-bottom:1px solid var(--line); vertical-align:middle; }
-  tbody tr:last-child > * { border-bottom:0; }
-  thead th { font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); background:var(--surface); }
-  tbody th { font-family:var(--mono); font-size:.88rem; font-weight:500; white-space:nowrap; }
-  tbody tr:hover > * { background:var(--surface-2); }
-  td.own { box-shadow:inset 3px 0 0 var(--accent); }
-  td.outside { box-shadow:inset 3px 0 0 var(--warn-line); background:var(--warn-bg); }
-  tbody tr:hover > td.outside { background:var(--warn-bg); }
-  .empty { color:var(--muted); }
-  .cell { display:flex; gap:.5rem; align-items:center; flex-wrap:nowrap; white-space:nowrap; }
-  /* Controls */
-  select, button { font:inherit; font-size:.92rem; color:var(--fg); background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:.4rem .6rem; min-height:2.25rem; }
-  select { max-width:100%; min-width:10rem; cursor:pointer; }
-  select:hover, button:hover { border-color:var(--accent); }
-  button { cursor:pointer; font-weight:500; }
-  button.ghost { background:transparent; border-color:transparent; color:var(--accent-soft-fg); padding:.35rem .6rem; }
-  button.ghost:hover { background:var(--accent-soft); border-color:transparent; }
-  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); padding:.6rem 1.3rem; font-weight:600; min-height:2.75rem; }
+  .pill { display:inline-flex; align-items:center; gap:.35rem; width:fit-content; font-size:.74rem; font-weight:600; line-height:1; padding:.32rem .6rem; border-radius:999px; background:var(--surface-2); color:var(--muted); white-space:nowrap; }
+  .pill.dot::before { content:""; width:.42rem; height:.42rem; border-radius:50%; background:currentColor; }
+  .pill.linked { background:var(--ok-soft); color:var(--ok); }
+  .pill.installed, .pill.own { background:var(--accent-soft); color:var(--accent-soft-fg); }
+  .pill.outside { background:var(--warn-bg); color:var(--warn-fg); box-shadow:inset 0 0 0 1px var(--warn-line); }
+  .pill.dirty { background:var(--warn-bg); color:var(--warn-fg); }
+  /* Agent rows */
+  .group-title { margin:1.5rem 0 .6rem; font-size:.78rem; font-weight:650; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  .group-title:first-of-type { margin-top:0; }
+  .rows { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+  .row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:1rem 1.5rem; align-items:center; padding:.95rem 1.1rem; border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); transition:border-color .15s, box-shadow .15s; }
+  .row:hover { border-color:var(--line-strong); }
+  .row.own { border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow:inset 3px 0 0 var(--accent); }
+  .row.outside { border-color:var(--warn-line); box-shadow:inset 3px 0 0 var(--warn-line); }
+  .agent-name { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; font-family:var(--mono); font-size:.9rem; font-weight:600; }
+  .agent-name.plain { font-family:inherit; font-size:.95rem; }
+  .agent-desc { margin:.25rem 0 0; color:var(--muted); font-size:.88rem; line-height:1.45; }
+  .controls { display:flex; flex-wrap:nowrap; gap:.75rem 1rem; align-items:flex-end; justify-content:flex-end; }
+  .control { display:flex; flex-direction:column; gap:.3rem; min-width:0; }
+  .control-label { font-size:.72rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  .control-line { display:flex; align-items:center; gap:.4rem; }
+  /* Select */
+  select { appearance:none; -webkit-appearance:none; font:inherit; font-size:.9rem; color:var(--fg); max-width:100%; min-width:11rem; min-height:2.4rem; padding:.45rem 2.2rem .45rem .8rem; border:1px solid var(--line-strong); border-radius:var(--radius-sm); cursor:pointer;
+    background:linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 1.05rem) 52% / .36rem .36rem no-repeat,
+               linear-gradient(-45deg, transparent 50%, var(--muted) 50%) calc(100% - .75rem) 52% / .36rem .36rem no-repeat, var(--surface); }
+  select:hover { border-color:var(--accent); }
+  .outside select { border-color:var(--warn-line); }
+  /* Segmented control */
+  .seg { display:inline-flex; padding:3px; gap:2px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); }
+  .seg input { position:absolute; opacity:0; width:1px; height:1px; }
+  .seg label { position:relative; display:grid; place-items:center; min-height:2rem; min-width:2.6rem; padding:.2rem .65rem; border-radius:7px; font-size:.84rem; font-weight:550; color:var(--muted); cursor:pointer; transition:background-color .15s, color .15s; }
+  .seg label:hover { color:var(--fg); }
+  .seg input:checked + label { background:var(--surface); color:var(--fg); box-shadow:0 1px 2px rgb(16 24 40 / .12), 0 0 0 1px var(--line); }
+  .seg input:focus-visible + label { outline:3px solid var(--focus); outline-offset:1px; }
+  .seg label.is-default::after { content:""; position:absolute; bottom:3px; width:4px; height:4px; border-radius:50%; background:currentColor; opacity:.55; }
+  .seg label.is-outside { color:var(--warn-fg); }
+  .legend-note { margin:-.4rem 0 1rem; font-size:.82rem; color:var(--muted); }
+  /* Buttons */
+  button { font:inherit; font-size:.9rem; font-weight:550; color:var(--fg); background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--radius-sm); padding:.45rem .8rem; min-height:2.4rem; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.ghost { background:transparent; border-color:transparent; color:var(--accent-soft-fg); min-height:2rem; padding:.3rem .55rem; font-size:.82rem; }
+  button.ghost:hover { background:var(--accent-soft); }
+  button.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); padding:.65rem 1.4rem; font-weight:650; min-height:2.8rem; border-radius:999px; box-shadow:0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
   button.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
   button:disabled { opacity:.6; cursor:progress; }
   :focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
-  /* Alerts and log */
-  .warnings { background:var(--warn-bg); color:var(--warn-fg); border:1px solid var(--warn-line); border-radius:var(--radius-sm); padding:.85rem 1rem; margin-bottom:1.25rem; }
+  /* Alerts, log */
+  .warnings { background:var(--warn-bg); color:var(--warn-fg); border:1px solid var(--warn-line); border-radius:var(--radius-md); padding:.9rem 1.1rem; margin-bottom:1.5rem; }
   .warnings ul { margin:.4rem 0 0; padding-left:1.2rem; }
-  .alert { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; background:var(--bad-soft); color:var(--bad); border:1px solid currentColor; border-radius:var(--radius-sm); padding:.85rem 1rem; margin-bottom:1.25rem; }
+  .alert { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; background:var(--bad-soft); color:var(--bad); border:1px solid currentColor; border-radius:var(--radius-md); padding:.9rem 1.1rem; margin-bottom:1.5rem; }
   .alert p { margin:0; flex:1 1 20rem; }
-  pre { font-family:var(--mono); font-size:.85rem; background:var(--code-bg); color:var(--code-fg); padding:1rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:var(--radius-sm); margin:0; }
-  .ok { color:var(--ok); font-weight:600; } .bad { color:var(--bad); font-weight:600; }
-  /* Sticky action bar */
-  .actions { position:sticky; bottom:0; z-index:1; margin:1.5rem -1.25rem 0; padding:.9rem 1.25rem; display:flex; gap:.75rem 1rem; align-items:center; flex-wrap:wrap; background:color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-top:1px solid var(--line); }
-  .actions .muted { flex:1 1 16rem; }
-  #result { margin-top:1.25rem; padding-bottom:2rem; }
-  @media (max-width: 40rem) {
-    main { padding:1.5rem 1rem 0; }
-    .card { padding:1rem; }
-    .tiles { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.5rem; }
-    .tile { padding:.7rem .75rem; gap:.6rem; }
-    .tile .pill { padding:.25rem .45rem; }
-    .tile .pill::before { display:none; }
-    th, td { padding:.5rem .6rem; }
-    select { min-width:8rem; }
-    .actions { margin:1.25rem -1rem 0; padding:.75rem 1rem; }
+  pre { font-family:var(--mono); font-size:.84rem; background:var(--code-bg); color:var(--code-fg); padding:1rem 1.1rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:var(--radius-md); margin:0; }
+  .ok { color:var(--ok); font-weight:650; } .bad { color:var(--bad); font-weight:650; }
+  /* Floating action bar */
+  .actions { position:sticky; bottom:1rem; z-index:1; margin-top:2rem; padding:.7rem .7rem .7rem 1.2rem; display:flex; gap:.6rem 1rem; align-items:center; flex-wrap:wrap;
+    background:color-mix(in srgb, var(--surface) 82%, transparent); backdrop-filter:blur(14px) saturate(1.4); -webkit-backdrop-filter:blur(14px) saturate(1.4);
+    border:1px solid var(--line); border-radius:999px; box-shadow:var(--shadow-lg); }
+  .actions .muted { flex:1 1 14rem; }
+  #result { margin-top:1.5rem; }
+  .spacer { height:3rem; }
+  @media (max-width: 52rem) {
+    .row { grid-template-columns:1fr; gap:.75rem; }
+    .controls { justify-content:flex-start; flex-wrap:wrap; }
   }
-  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+  @media (max-width: 40rem) {
+    main { padding:1.75rem 1rem 0; }
+    .card { padding:1.1rem; border-radius:16px; }
+    .tiles { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.5rem; }
+    .tile { padding:.8rem; }
+    select { min-width:0; width:100%; }
+    .control { flex:1 1 100%; }
+    .seg { width:100%; } .seg label { flex:1; min-width:0; padding:.2rem .3rem; }
+    .actions { border-radius:var(--radius); padding:.75rem; bottom:.5rem; }
+    .actions button.primary { width:100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } .tile:hover { transform:none; } }
 </style>
 </head>
 <body>
@@ -116,7 +145,7 @@
   <header>
     <p class="eyebrow">enterprise-engineering-skills</p>
     <h1>Poskytovatelé a modely</h1>
-    <p class="lead">Ukládají se jen odchylky od defaultů packu. Co nezměníte, se řídí aktuálními defaulty.</p>
+    <p class="lead">Vyberte nástroje a modely agentů. Ukládají se jen odchylky od defaultů packu – co nezměníte, se řídí aktuálními defaulty.</p>
   </header>
   <div id="warnings"></div>
   <div id="load-error" role="alert"></div>
@@ -125,12 +154,13 @@
   <p id="no-provider" class="warnings" hidden>Není vybrán žádný poskytovatel – uložením se odstraní všechny linky.</p>
   <div class="actions">
     <button class="primary" id="save" type="button" aria-describedby="save-hint">Uložit a nainstalovat</button>
-    <span id="dirty" class="pill dirty" hidden>Neuložené změny</span>
+    <span id="dirty" class="pill dirty dot" hidden>Neuložené změny</span>
     <span id="status" role="status" aria-live="polite"></span>
     <span id="error" role="alert" class="bad"></span>
     <p class="muted" id="save-hint">Uložení přegeneruje agenty a spustí <code>install.sh</code>.</p>
   </div>
   <section id="result" class="card" hidden aria-live="polite"><div class="card-head"><h2>Výsledek instalace</h2></div><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Log instalace"></pre></section>
+  <div class="spacer"></div>
 </main>
 <script>
 "use strict";
@@ -145,8 +175,29 @@ const el = (tag, attrs = {}, ...kids) => {
   e.append(...kids);
   return e;
 };
-const colName = { model: "Model", effort: "Úroveň (effort)", variant: "Varianta", small_model: "Malý model" };
+const colName = { model: "Model", effort: "Úroveň", variant: "Varianta", small_model: "Malý model" };
 const noteCs = { linked: "nalinkováno", installed: "nainstalováno", "not found": "nenalezeno" };
+// What each agent does, in one sentence. An agent missing here simply shows no description.
+const about = {
+  "ees-check-runner": "Spouští testy, lintery a typové kontroly projektu a vrací stručný souhrn s výpisem chyb.",
+  "ees-code-reviewer": "Prochází diff kvůli správnosti, bezpečnosti, návrhu a čitelnosti a vrací nálezy s návrhem opravy; nic neupravuje.",
+  "ees-functional-reviewer": "Porovnává změnu s analýzou – úplnost Acceptance, rozsah, API kontrakty a pokrytí testy.",
+  "ees-implementer": "Píše produkční kód přidělené části proti hotovým testům a opravuje nálezy z review.",
+  "ees-test-writer": "Píše testy a fixtures pro přidělenou část a dokládá, že nejdřív selhávají; produkční kód nemění.",
+  "ees-ux-reviewer": "Kontroluje UX a přístupnost frontendových změn podle WCAG 2.2 AA, v kódu i v prohlížeči.",
+};
+const aboutOpencode = {
+  model: "Model hlavní session, ve které běží orchestrace pipeline.",
+  small_model: "Levnější model pro drobné úlohy, jako jsou názvy a shrnutí.",
+  build: "Výchozí agent opencode pro práci s kódem.",
+  plan: "Plánovací agent opencode, který jen čte a navrhuje.",
+  general: "Obecný subagent pro vícekrokové úlohy.",
+  explore: "Rychlý subagent pro hledání v kódu.",
+  compaction: "Zhušťuje dlouhou konverzaci, aby se vešla do kontextu.",
+  title: "Vymýšlí názvy sessions.",
+  summary: "Shrnuje sessions.",
+};
+const sessionName = { model: "Hlavní model", small_model: "Malý model" };
 let dirty = false, saving = false;
 function setDirty(v) { dirty = v; $("dirty").hidden = !v; }
 function edited() {
@@ -176,29 +227,55 @@ function delPath(root, path) {
   for (let i = chain.length - 1; i > 0; i--) if (!Object.keys(chain[i]).length) delete chain[i - 1][path[i - 1]];
 }
 
+const safe = (v) => String(v).replace(/[^A-Za-z0-9_-]/g, "_");
+
 // One editable value: `section` is "agents" or "opencode", `path` the keys below it, `list` the catalog list.
-function field(section, path, def, list, label) {
+// Models get a select; short lists (effort, variant) a segmented radio group. Returns the control and its state.
+function control(section, path, def, list, label, kind) {
   const own = getPath(draft[section], path);
   const value = own === undefined ? def : own;
   const outside = !list.includes(value);
-  const id = "f-" + section + "-" + path.join("--").replace(/[^A-Za-z0-9_-]/g, "_");
-  const select = el("select", { id });
-  select.setAttribute("aria-label", label);
-  const options = outside ? [value, ...list] : list;
-  for (const o of options) select.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (mimo katalog)" : "") }));
-  select.onchange = () => {
-    if (select.value === def) delPath(draft[section], path); else setPath(draft[section], path, select.value);
-    edited();
-  };
   const isOwn = own !== undefined && own !== def;
+  const id = "f-" + section + "-" + path.map(safe).join("--");
+  const options = outside ? [value, ...list] : list;
+  const choose = (v) => { if (v === def) delPath(draft[section], path); else setPath(draft[section], path, v); edited(); };
+  let input;
+  if (kind === "select") {
+    input = el("select", { id });
+    input.setAttribute("aria-label", label);
+    for (const o of options) input.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (mimo katalog)" : "") }));
+    input.onchange = () => choose(input.value);
+  } else {
+    input = el("fieldset", { id, class: "seg" }, el("legend", { class: "sr-only", textContent: label }));
+    for (const o of options) {
+      const rid = id + "--" + safe(o);
+      const radio = el("input", { type: "radio", name: id, id: rid, value: o, checked: o === value });
+      radio.onchange = () => choose(o);
+      const text = el("label", { htmlFor: rid, class: (o === def ? "is-default" : "") + (o === value && outside ? " is-outside" : ""), title: o === def ? "default" : "" }, o);
+      if (o === def) text.append(el("span", { class: "sr-only", textContent: " (default)" }));
+      if (o === value && outside) text.append(el("span", { class: "sr-only", textContent: " (mimo katalog)" }));
+      input.append(radio, text);
+    }
+  }
   const reset = el("button", { type: "button", class: "ghost", textContent: "Obnovit", hidden: !isOwn, id: id + "-reset", title: "Vrátit default: " + def });
   reset.setAttribute("aria-label", "Obnovit default: " + label);
   reset.onclick = () => { delPath(draft[section], path); edited(); };
-  // The select already says "(default)"; a pill marks only the user's own and out-of-catalog values.
-  const badge = el("span", { class: "pill plain " + (outside ? "outside" : "own"), textContent: outside ? "mimo katalog" : "vlastní", hidden: !outside && !isOwn });
-  const cell = el("div", { class: "cell" }, select, badge, reset);
-  const td = el("td", { class: outside ? "outside" : isOwn ? "own" : "" }, cell);
-  return td;
+  const box = el("div", { class: "control" + (outside ? " outside" : "") },
+    el("span", { class: "control-label", textContent: colName[path[path.length - 1]] || "" }),
+    el("div", { class: "control-line" }, input, reset));
+  box.querySelector(".control-label").setAttribute("aria-hidden", "true");
+  return { box, own: isOwn, outside };
+}
+
+// One agent row: name, what it does, and its controls.
+function row(name, desc, controls, plain) {
+  const pills = [];
+  if (controls.some((c) => c.outside)) pills.push(el("span", { class: "pill outside", textContent: "mimo katalog" }));
+  else if (controls.some((c) => c.own)) pills.push(el("span", { class: "pill own", textContent: "vlastní" }));
+  const cls = "row" + (controls.some((c) => c.outside) ? " outside" : controls.some((c) => c.own) ? " own" : "");
+  return el("li", { class: cls },
+    el("div", {}, el("div", { class: "agent-name" + (plain ? " plain" : "") }, name, ...pills), desc ? el("p", { class: "agent-desc", textContent: desc }) : ""),
+    el("div", { class: "controls" }, ...controls.map((c) => c.box)));
 }
 
 function renderProviders() {
@@ -208,55 +285,48 @@ function renderProviders() {
   for (const p of state.providers) {
     const cb = el("input", { type: "checkbox", id: "prov-" + p.id, checked: draft.providers.has(p.id) });
     cb.onchange = () => { cb.checked ? draft.providers.add(p.id) : draft.providers.delete(p.id); edited(); };
-    const note = el("span", { class: "pill " + (p.note === "not found" ? "" : p.note), textContent: noteCs[p.note] || p.note });
-    tiles.append(el("label", { class: "tile", htmlFor: cb.id }, cb, el("span", { class: "tile-text" }, el("span", { class: "tile-name", textContent: p.label }), note)));
+    const logo = el("span", { class: "logo " + p.id, textContent: p.label.slice(0, 2) });
+    logo.setAttribute("aria-hidden", "true");
+    tiles.append(el("label", { class: "tile", htmlFor: cb.id },
+      el("span", { class: "tile-top" }, logo, cb),
+      el("span", { class: "tile-name", textContent: p.label }),
+      el("span", { class: "pill dot " + (p.note === "not found" ? "" : p.note), textContent: noteCs[p.note] || p.note })));
   }
 }
 
-// A focusable, named scroll region, so wide tables can be scrolled by keyboard on narrow screens.
-function wrap(table, label) {
-  const box = el("div", { class: "table-wrap", tabIndex: 0 }, table);
-  box.setAttribute("role", "region");
-  box.setAttribute("aria-label", label);
-  return box;
-}
+const shortKinds = { effort: "seg", variant: "seg" };
 
-function agentTable(provider, plabel) {
+function agentRows(provider, plabel) {
   const keys = { claude: ["model", "effort"], codex: ["model", "effort"], cursor: ["model"], opencode: ["model", "variant"], pi: ["model", "variant"] }[provider];
   const cat = state.catalog[provider] || {};
   const listOf = { model: cat.models || [], effort: cat.efforts || [], variant: cat.variants || [] };
-  const table = el("table");
-  table.append(el("caption", { textContent: "Agenti" }));
-  table.append(el("thead", {}, el("tr", {}, el("th", { scope: "col", textContent: "Agent" }), ...keys.map((k) => el("th", { scope: "col", textContent: colName[k] })))));
-  const body = el("tbody");
+  const list = el("ul", { class: "rows" });
   for (const [agent, tables] of Object.entries(state.defaults.agents)) {
     const cfg = tables[provider];
     if (!cfg) continue;
-    const tr = el("tr", {}, el("th", { scope: "row", textContent: agent }));
-    for (const k of keys) tr.append(cfg[k] === undefined ? el("td", { class: "empty", textContent: "–" }) : field("agents", [agent, provider, k], cfg[k], listOf[k], colName[k] + " – " + agent + " (" + plabel + ")"));
-    body.append(tr);
+    const controls = keys.filter((k) => cfg[k] !== undefined).map((k) =>
+      control("agents", [agent, provider, k], cfg[k], listOf[k], colName[k] + " – " + agent + " (" + plabel + ")", shortKinds[k] || "select"));
+    list.append(row(agent, about[agent], controls));
   }
-  table.append(body);
-  return wrap(table, "Agenti – " + plabel);
+  return list;
 }
 
-function opencodeTable() {
+function opencodeRows() {
   const cat = state.catalog.opencode || {};
   const d = state.defaults.opencode;
-  const table = el("table");
-  table.append(el("caption", { textContent: "Hlavní session a built-in agenti" }));
-  table.append(el("thead", {}, el("tr", {}, el("th", { scope: "col", textContent: "Položka" }), el("th", { scope: "col", textContent: "Model" }), el("th", { scope: "col", textContent: "Varianta" }))));
-  const body = el("tbody");
+  const list = el("ul", { class: "rows" });
   for (const k of ["model", "small_model"]) {
-    if (d[k] !== undefined) body.append(el("tr", {}, el("th", { scope: "row", textContent: k }), field("opencode", [k], d[k], cat.models || [], colName[k] + " – hlavní session (OpenCode)"), el("td", { class: "empty", textContent: "–" })));
+    if (d[k] === undefined) continue;
+    const c = control("opencode", [k], d[k], cat.models || [], sessionName[k] + " – hlavní session (OpenCode)", "select");
+    list.append(row(sessionName[k], aboutOpencode[k], [c], true));
   }
   for (const [id, cfg] of Object.entries(d.agent || {})) {
-    body.append(el("tr", {}, el("th", { scope: "row", textContent: id }),
-      cfg.model === undefined ? el("td", { class: "empty", textContent: "–" }) : field("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (OpenCode built-in agent)"),
-      cfg.variant === undefined ? el("td", { class: "empty", textContent: "–" }) : field("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (OpenCode built-in agent)")));
+    const controls = [];
+    if (cfg.model !== undefined) controls.push(control("opencode", ["agent", id, "model"], cfg.model, cat.models || [], "Model – " + id + " (OpenCode built-in agent)", "select"));
+    if (cfg.variant !== undefined) controls.push(control("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [], "Varianta – " + id + " (OpenCode built-in agent)", "seg"));
+    list.append(row(id, aboutOpencode[id], controls));
   }
-  table.append(body);
-  return wrap(table, "Hlavní session a built-in agenti (OpenCode)");
+  return list;
 }
 
 // Number of the user's own values for a provider (and, for opencode, its session and built-in agents).
@@ -274,10 +344,16 @@ function renderTables() {
   for (const p of state.providers) {
     if (!draft.providers.has(p.id)) continue;
     const own = countOwn(p.id);
-    const sec = el("section", { class: "card" }, el("div", { class: "card-head" }, el("h2", { textContent: p.label }),
-      el("span", { class: "pill plain " + (own ? "own" : ""), textContent: own ? own + " " + (own === 1 ? "vlastní hodnota" : own < 5 ? "vlastní hodnoty" : "vlastních hodnot") : "jen defaulty" })));
-    if (p.id === "opencode") sec.append(opencodeTable());
-    sec.append(agentTable(p.id, p.label));
+    const logo = el("span", { class: "logo " + p.id, textContent: p.label.slice(0, 2) });
+    logo.setAttribute("aria-hidden", "true");
+    const sec = el("section", { class: "card" }, el("div", { class: "card-head" }, logo,
+      el("div", { class: "head-text" }, el("h2", { textContent: p.label }), el("p", { class: "sub", textContent: "Modely a úrovně agentů" })),
+      el("span", { class: "pill " + (own ? "own" : ""), textContent: own ? own + " " + (own === 1 ? "vlastní hodnota" : own < 5 ? "vlastní hodnoty" : "vlastních hodnot") : "jen defaulty" })));
+    if (p.id === "opencode") {
+      sec.append(el("h3", { class: "group-title", textContent: "Hlavní session a built-in agenti" }), opencodeRows(),
+        el("h3", { class: "group-title", textContent: "Agenti packu" }));
+    }
+    sec.append(agentRows(p.id, p.label));
     box.append(sec);
   }
 }
@@ -293,9 +369,10 @@ function render() {
   renderProviders();
   renderTables();
   if (active) {
-    // A reset hides its own button, so fall back to the value's select.
+    // A reset hides its own button, so fall back to the value's control; a radio group focuses its checked option.
     let target = $(active);
     if (!target || target.hidden) target = $(active.replace(/-reset$/, ""));
+    if (target && target.tagName === "FIELDSET") target = target.querySelector("input:checked") || target.querySelector("input");
     target?.focus();
   }
 }
