@@ -1,0 +1,286 @@
+#!/usr/bin/env python3
+"""Local setup page: choose providers and models, save the deviations, run install.sh.
+
+Listens on 127.0.0.1 on a random free port, prints http://127.0.0.1:<port>/?token=<token> and opens it in
+the browser. GET / needs the token in the query, /api/* the X-Setup-Token header, POST /api/save also an
+Origin equal to this server's own address (Save runs commands). Runs until Ctrl+C.
+Stdlib only, Python 3.11+.
+"""
+import hmac
+import json
+import os
+import secrets
+import subprocess
+import sys
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ees_settings as es  # noqa: E402
+
+pack = es.pack
+labels = {"claude": "Claude Code", "codex": "Codex", "cursor": "Cursor", "opencode": "opencode", "pi": "Pi"}
+save_lock = threading.Lock()
+max_body = 1_000_000
+
+
+class Invalid(Exception):
+    pass
+
+
+def is_pack_link(path):
+    if not path.is_symlink():
+        return False
+    for target in (os.path.realpath(path), os.readlink(path)):
+        if target == str(pack) or target.startswith(str(pack) + os.sep):
+            return True
+    return False
+
+
+def has_pack_link_in(*dirs):
+    for d in dirs:
+        if d.is_dir() and any(is_pack_link(entry) for entry in d.iterdir()):
+            return True
+    return False
+
+
+def provider_dirs():
+    home = Path.home()
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or home / ".config")
+    return {
+        "claude": Path(os.environ.get("CLAUDE_CONFIG_DIR") or home / ".claude"),
+        "codex": Path(os.environ.get("CODEX_HOME") or home / ".codex"),
+        "cursor": home / ".cursor",
+        "opencode": config / "opencode",
+        "pi": Path(os.environ.get("PI_CODING_AGENT_DIR") or home / ".pi" / "agent"),
+    }
+
+
+def which(name):
+    from shutil import which as w
+    return w(name) is not None
+
+
+def provider_note(provider):
+    d = provider_dirs()[provider]
+    linked = {
+        "claude": lambda: has_pack_link_in(d / "skills", d / "agents"),
+        "codex": lambda: has_pack_link_in(d / "agents"),
+        "cursor": lambda: has_pack_link_in(d / "agents"),
+        "opencode": lambda: has_pack_link_in(d / "agents"),
+        "pi": lambda: has_pack_link_in(d / "agents", d / "prompts") or is_pack_link(d / "extensions" / "subagent"),
+    }[provider]()
+    if linked:
+        return "linked"
+    clis = {"cursor": ("cursor", "cursor-agent")}.get(provider, (provider,))
+    if any(which(c) for c in clis) or d.is_dir():
+        return "installed"
+    return "not found"
+
+
+def state_warnings(settings, load_warnings, catalog, agents_toml, fragment):
+    out = list(load_warnings) + es.check_top_level(settings, catalog)
+    out += es.merge_agents(agents_toml, settings, catalog)[1]
+    out += es.merge_opencode(fragment, settings, catalog)[1]
+    return out
+
+
+def build_state():
+    catalog = es.load_catalog()
+    agents_toml, fragment = es.load_defaults()
+    settings, load_warnings = es.load_settings()
+    stored = settings.get("providers")
+    if isinstance(stored, list):
+        selected = {p for p in stored if p in es.providers}
+    else:
+        selected = None
+    notes = {p: provider_note(p) for p in es.providers}
+    if selected is None:
+        selected = {p for p in es.providers if notes[p] == "linked"}
+    return {
+        "catalog": catalog,
+        "defaults": {"agents": agents_toml, "opencode": fragment},
+        "settings": settings,
+        "providers": [{"id": p, "label": labels[p], "selected": p in selected, "note": notes[p]} for p in es.providers],
+        "warnings": state_warnings(settings, load_warnings, catalog, agents_toml, fragment),
+    }
+
+
+def obj(value, where):
+    if not isinstance(value, dict):
+        raise Invalid(f"{where} must be an object")
+    return value
+
+
+def checked_value(catalog, provider, key, value, stored, where):
+    if not isinstance(value, str):
+        raise Invalid(f"{where}: {value!r} is not a string")
+    # A value outside the catalog is allowed only when it is already stored unchanged.
+    if not es.in_catalog(catalog, provider, key, value) and value != stored:
+        raise Invalid(f"{where} = {value!r} is not in the catalog")
+
+
+def validate(body, current):
+    """Return the new settings dict, or raise Invalid. Nothing is written here."""
+    body = obj(body, "request")
+    catalog = es.load_catalog()
+    agents_toml, fragment = es.load_defaults()
+    chosen = body.get("providers")
+    if not isinstance(chosen, list) or not all(isinstance(p, str) for p in chosen):
+        raise Invalid("providers must be a list of provider ids")
+    unknown = [p for p in chosen if p not in es.providers]
+    if unknown:
+        raise Invalid(f"unknown provider: {', '.join(unknown)}")
+    agents = obj(body.get("agents", {}), "agents")
+    opencode = obj(body.get("opencode", {}), "opencode")
+    old_agents = current.get("agents") if isinstance(current.get("agents"), dict) else {}
+    old_oc = current.get("opencode") if isinstance(current.get("opencode"), dict) else {}
+
+    for agent, tables in agents.items():
+        if agent not in agents_toml:
+            raise Invalid(f"unknown agent {agent!r}")
+        for provider, cfg in obj(tables, f"agents.{agent}").items():
+            if provider not in es.editable or provider not in agents_toml[agent]:
+                raise Invalid(f"agent {agent} has no provider {provider!r}")
+            for key, value in obj(cfg, f"agents.{agent}.{provider}").items():
+                if key not in es.editable[provider]:
+                    raise Invalid(f"agent {agent} {provider}.{key} is not editable")
+                stored = ((old_agents.get(agent) or {}).get(provider) or {}).get(key) if isinstance(old_agents.get(agent), dict) else None
+                checked_value(catalog, provider, key, value, stored, f"agent {agent} {provider}.{key}")
+
+    for key, value in opencode.items():
+        if key in ("model", "small_model"):
+            checked_value(catalog, "opencode", "model", value, old_oc.get(key), f"opencode {key}")
+        elif key == "agent":
+            for agent_id, cfg in obj(value, "opencode.agent").items():
+                if agent_id not in fragment.get("agent", {}):
+                    raise Invalid(f"unknown opencode agent {agent_id!r}")
+                for k, v in obj(cfg, f"opencode.agent.{agent_id}").items():
+                    if k not in es.opencode_agent_keys:
+                        raise Invalid(f"opencode agent {agent_id} {k!r} is not editable")
+                    stored = ((old_oc.get("agent") or {}).get(agent_id) or {}).get(k) if isinstance(old_oc.get("agent"), dict) else None
+                    checked_value(catalog, "opencode", k, v, stored, f"opencode agent {agent_id} {k}")
+        else:
+            raise Invalid(f"opencode key {key!r} is unknown")
+
+    new = {k: v for k, v in current.items() if k not in es.top_level}  # keep keys written by hand
+    new.update(providers=list(dict.fromkeys(chosen)), agents=agents, opencode=opencode)
+    return new
+
+
+def run_install(providers):
+    arg = ",".join(providers) if providers else "none"
+    proc = subprocess.run(
+        ["bash", str(pack / "install.sh"), "--providers", arg, "--yes"],
+        cwd=pack, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        errors="replace",
+    )
+    return proc.returncode, proc.stdout
+
+
+def save(body):
+    with save_lock:
+        current, _ = es.load_settings()
+        new = validate(body, current)
+        es.write_settings(new)
+        code, log = run_install(new["providers"])
+        settings, load_warnings = es.load_settings()
+        catalog = es.load_catalog()
+        agents_toml, fragment = es.load_defaults()
+        warnings = state_warnings(settings, load_warnings, catalog, agents_toml, fragment)
+        for line in log.splitlines():
+            if line.startswith("warn") and line not in warnings:
+                warnings.append(line)
+        return {"ok": code == 0, "log": log, "warnings": warnings}
+
+
+def make_handler(token, origin):
+    page = pack / "setup" / "index.html"
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "ees-setup"
+
+        def log_message(self, *args):
+            pass
+
+        def send(self, status, body, ctype):
+            self.send_response(status)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def json(self, status, data):
+            self.send(status, json.dumps(data, ensure_ascii=False).encode(), "application/json; charset=utf-8")
+
+        def error(self, status, code, message=""):
+            self.json(status, {"error": code, "message": message})
+
+        def header_token_ok(self):
+            return hmac.compare_digest((self.headers.get("X-Setup-Token") or "").encode(), token.encode())
+
+        def do_GET(self):
+            url = urlsplit(self.path)
+            if url.path == "/":
+                given = (parse_qs(url.query).get("token") or [""])[0]
+                if not hmac.compare_digest(given.encode(), token.encode()):
+                    return self.error(403, "invalid_token")
+                return self.send(200, page.read_bytes(), "text/html; charset=utf-8")
+            if url.path == "/api/state":
+                if not self.header_token_ok():
+                    return self.error(403, "invalid_token")
+                return self.json(200, build_state())
+            self.error(404, "not_found")
+
+        def do_POST(self):
+            if urlsplit(self.path).path != "/api/save":
+                return self.error(404, "not_found")
+            if not self.header_token_ok():
+                return self.error(403, "invalid_token")
+            if self.headers.get("Origin") != origin:
+                return self.error(403, "invalid_origin")
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                if not 0 < length <= max_body:
+                    raise ValueError
+                body = json.loads(self.rfile.read(length))
+            except ValueError:
+                return self.error(400, "invalid_settings", "request body is not valid JSON")
+            try:
+                result = save(body)
+            except Invalid as error:
+                return self.error(400, "invalid_settings", str(error))
+            except OSError as error:
+                return self.error(500, "save_failed", str(error))
+            self.json(200, result)
+
+    return Handler
+
+
+def main():
+    token = secrets.token_urlsafe(24)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+    port = server.server_address[1]
+    origin = f"http://127.0.0.1:{port}"
+    server.RequestHandlerClass = make_handler(token, origin)
+    server.daemon_threads = True
+    url = f"{origin}/?token={token}"
+    print(url, flush=True)
+    print("Ctrl+C ends the server.", flush=True)
+    threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

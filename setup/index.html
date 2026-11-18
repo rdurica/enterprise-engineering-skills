@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nastavení enterprise-engineering-skills</title>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1b1f24; --muted:#59636e; --line:#d0d7de; --accent:#0b5fff; --warn-bg:#fff4d6; --warn-fg:#6b4a00; --own:#e6f0ff; --ok:#1a7f37; --bad:#cf222e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1318; --fg:#e6e9ee; --muted:#9aa4b0; --line:#30363d; --accent:#6ea8ff; --warn-bg:#3b2f0b; --warn-fg:#ffd479; --own:#14253f; --ok:#56d364; --bad:#ff7b72; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, sans-serif; }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; } h2 { font-size: 1.2rem; margin-top: 2rem; }
+  fieldset { border:1px solid var(--line); border-radius:6px; }
+  label { margin-right: 1rem; display:inline-block; }
+  .note { color: var(--muted); font-size: .9em; }
+  table { border-collapse: collapse; width:100%; }
+  th, td { text-align:left; padding:.4rem .5rem; border-bottom:1px solid var(--line); vertical-align: middle; }
+  select, button { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:.25rem .5rem; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); padding:.5rem 1.2rem; }
+  button:disabled { opacity:.5; }
+  :focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .own { background: var(--own); } .badge { font-size:.8em; border:1px solid var(--line); border-radius:10px; padding:0 .5em; }
+  .outside select { outline:2px solid var(--warn-fg); } .outside .badge { background:var(--warn-bg); color:var(--warn-fg); border-color:var(--warn-fg); }
+  .warnings { background:var(--warn-bg); color:var(--warn-fg); padding:.5rem 1rem; border-radius:6px; }
+  pre { background:color-mix(in srgb, var(--fg) 8%, var(--bg)); padding:.75rem; overflow:auto; max-height:24rem; white-space:pre-wrap; border-radius:6px; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  .cell { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Nastavení poskytovatelů a modelů</h1>
+  <p class="note">Ukládají se jen odchylky od defaultů packu. Co nezměníte, se řídí aktuálními defaulty.</p>
+  <div id="warnings" role="status"></div>
+  <fieldset id="providers"><legend>Poskytovatelé</legend></fieldset>
+  <div id="tables"></div>
+  <p><button class="primary" id="save" type="button">Uložit</button> <span id="status" role="status" aria-live="polite"></span></p>
+  <section id="result" hidden aria-live="polite"><h2>Výsledek instalace</h2><div id="result-warnings"></div><pre id="log" tabindex="0"></pre></section>
+</main>
+<script>
+"use strict";
+const token = new URLSearchParams(location.search).get("token") || "";
+const headers = { "X-Setup-Token": token };
+let state, draft;
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else e[k] = v; }
+  e.append(...kids);
+  return e;
+};
+const labelOf = { model: "model", effort: "effort", variant: "variant", small_model: "small_model" };
+
+function clone(v) { return JSON.parse(JSON.stringify(v)); }
+
+function setPath(root, path, value) {
+  let o = root;
+  for (const k of path.slice(0, -1)) o = o[k] = o[k] || {};
+  o[path[path.length - 1]] = value;
+}
+function getPath(root, path) {
+  let o = root;
+  for (const k of path) { if (o == null || typeof o !== "object") return undefined; o = o[k]; }
+  return o;
+}
+function delPath(root, path) {
+  const chain = [root];
+  for (const k of path.slice(0, -1)) { if (chain[chain.length - 1]?.[k] == null) return; chain.push(chain[chain.length - 1][k]); }
+  delete chain[chain.length - 1][path[path.length - 1]];
+  for (let i = chain.length - 1; i > 0; i--) if (!Object.keys(chain[i]).length) delete chain[i - 1][path[i - 1]];
+}
+
+// One editable value: `section` is "agents" or "opencode", `path` the keys below it, `list` the catalog list.
+function field(section, path, def, list) {
+  const own = getPath(draft[section], path);
+  const value = own === undefined ? def : own;
+  const outside = !list.includes(value);
+  const select = el("select", { "aria-label": path.join(" ") });
+  const options = outside ? [value, ...list] : list;
+  for (const o of options) select.append(el("option", { value: o, selected: o === value, textContent: o + (o === def ? " (default)" : "") + (o === value && outside ? " (mimo katalog)" : "") }));
+  select.onchange = () => {
+    if (select.value === def) delPath(draft[section], path); else setPath(draft[section], path, select.value);
+    render();
+  };
+  const isOwn = own !== undefined && own !== def;
+  const reset = el("button", { type: "button", textContent: "Reset", hidden: !isOwn, title: "Vrátit default: " + def });
+  reset.setAttribute("aria-label", "Reset " + path.join(" ") + " na " + def);
+  reset.onclick = () => { delPath(draft[section], path); render(); };
+  const badge = el("span", { class: "badge", textContent: outside ? "mimo katalog" : isOwn ? "vlastní" : "default" });
+  const cell = el("div", { class: "cell" + (outside ? " outside" : ""), }, select, badge, reset);
+  const td = el("td", { class: isOwn ? "own" : "" }, cell);
+  return td;
+}
+
+function renderProviders() {
+  const box = $("providers");
+  box.replaceChildren(el("legend", { textContent: "Poskytovatelé" }));
+  for (const p of state.providers) {
+    const cb = el("input", { type: "checkbox", id: "prov-" + p.id, checked: draft.providers.has(p.id) });
+    cb.onchange = () => { cb.checked ? draft.providers.add(p.id) : draft.providers.delete(p.id); render(); };
+    box.append(el("label", { htmlFor: cb.id }, cb, " " + p.label + " ", el("span", { class: "note", textContent: "(" + p.note + ")" })));
+  }
+}
+
+function agentTable(provider) {
+  const keys = { claude: ["model", "effort"], codex: ["model", "effort"], cursor: ["model"], opencode: ["model", "variant"], pi: ["model", "variant"] }[provider];
+  const cat = state.catalog[provider] || {};
+  const listOf = { model: cat.models || [], effort: cat.efforts || [], variant: cat.variants || [] };
+  const table = el("table");
+  table.append(el("caption", { class: "note", textContent: "Agenti" }));
+  table.append(el("thead", {}, el("tr", {}, el("th", { scope: "col", textContent: "Agent" }), ...keys.map((k) => el("th", { scope: "col", textContent: k })))));
+  const body = el("tbody");
+  for (const [agent, tables] of Object.entries(state.defaults.agents)) {
+    const cfg = tables[provider];
+    if (!cfg) continue;
+    const tr = el("tr", {}, el("th", { scope: "row", textContent: agent }));
+    for (const k of keys) tr.append(cfg[k] === undefined ? el("td", { textContent: "–" }) : field("agents", [agent, provider, k], cfg[k], listOf[k]));
+    body.append(tr);
+  }
+  table.append(body);
+  return table;
+}
+
+function opencodeTable() {
+  const cat = state.catalog.opencode || {};
+  const d = state.defaults.opencode;
+  const table = el("table");
+  table.append(el("caption", { class: "note", textContent: "Hlavní session a built-in agenti" }));
+  table.append(el("thead", {}, el("tr", {}, el("th", { scope: "col", textContent: "Položka" }), el("th", { scope: "col", textContent: "model" }), el("th", { scope: "col", textContent: "variant" }))));
+  const body = el("tbody");
+  for (const k of ["model", "small_model"]) {
+    if (d[k] !== undefined) body.append(el("tr", {}, el("th", { scope: "row", textContent: k }), field("opencode", [k], d[k], cat.models || []), el("td", { textContent: "–" })));
+  }
+  for (const [id, cfg] of Object.entries(d.agent || {})) {
+    body.append(el("tr", {}, el("th", { scope: "row", textContent: id }),
+      cfg.model === undefined ? el("td", { textContent: "–" }) : field("opencode", ["agent", id, "model"], cfg.model, cat.models || []),
+      cfg.variant === undefined ? el("td", { textContent: "–" }) : field("opencode", ["agent", id, "variant"], cfg.variant, cat.variants || [])));
+  }
+  table.append(body);
+  return table;
+}
+
+function renderTables() {
+  const box = $("tables");
+  box.replaceChildren();
+  for (const p of state.providers) {
+    if (!draft.providers.has(p.id)) continue;
+    const sec = el("section", {}, el("h2", { textContent: p.label }));
+    if (p.id === "opencode") sec.append(opencodeTable());
+    sec.append(agentTable(p.id));
+    box.append(sec);
+  }
+}
+
+function showWarnings(target, list) {
+  target.replaceChildren();
+  if (!list.length) return;
+  target.append(el("div", { class: "warnings" }, el("strong", { textContent: "Varování" }), el("ul", {}, ...list.map((w) => el("li", { textContent: w })))));
+}
+
+function render() {
+  const active = document.activeElement && document.activeElement.id;
+  renderProviders();
+  renderTables();
+  if (active) $(active)?.focus();
+}
+
+async function load() {
+  const r = await fetch("/api/state", { headers });
+  if (!r.ok) { $("status").textContent = "Nelze načíst stav (neplatný token?)."; return; }
+  state = await r.json();
+  const s = state.settings;
+  draft = {
+    providers: new Set(state.providers.filter((p) => p.selected).map((p) => p.id)),
+    agents: clone(s.agents && typeof s.agents === "object" ? s.agents : {}),
+    opencode: clone(s.opencode && typeof s.opencode === "object" ? s.opencode : {}),
+  };
+  showWarnings($("warnings"), state.warnings);
+  render();
+}
+
+$("save").onclick = async () => {
+  const btn = $("save");
+  btn.disabled = true;
+  $("status").textContent = "Ukládám a instaluji…";
+  try {
+    const order = state.providers.map((p) => p.id).filter((id) => draft.providers.has(id));
+    const r = await fetch("/api/save", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ providers: order, agents: draft.agents, opencode: draft.opencode }) });
+    const data = await r.json();
+    if (!r.ok) { $("status").textContent = "Nelze uložit: " + (data.message || data.error); $("status").className = "bad"; return; }
+    $("status").textContent = data.ok ? "Uloženo." : "Instalace skončila chybou.";
+    $("status").className = data.ok ? "ok" : "bad";
+    $("result").hidden = false;
+    $("log").textContent = data.log;
+    showWarnings($("result-warnings"), data.warnings);
+    const s = await fetch("/api/state", { headers });
+    if (s.ok) { state = await s.json(); showWarnings($("warnings"), state.warnings); render(); }
+  } catch (e) {
+    $("status").textContent = "Chyba: " + e; $("status").className = "bad";
+  } finally { btn.disabled = false; }
+};
+load();
+</script>
+</body>
+</html>
