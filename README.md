@@ -114,7 +114,9 @@ Each agent is written once and built for Claude Code, Codex, Cursor, opencode an
 
 - `agents/<name>.md` holds the `name`, the `description` and the instructions.
 - `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`), `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`), `opencode` (`model` as `provider/model`, optional `variant`) and `pi` (`model` as `provider/model`, optional `variant`). Leaving out a provider's table skips the agent for that provider.
-- `scripts/build-agents` writes `generated/<provider>/agents/`, which is committed and linked by `install.sh`. Never edit `generated/` by hand; the pre-commit hook runs `scripts/build-agents --check` and `scripts/build-pi-prompts --check` and refuses a commit where they are out of date.
+- `scripts/build-agents` writes `generated/<provider>/agents/`, a local, gitignored build output that `install.sh` links. `install.sh`, Save in the setup GUI and the `post-merge` / `post-rewrite` hooks (after `git pull`) build it, so never edit it by hand. The `pre-commit` hook runs `scripts/build-agents --validate`, which checks the sources (agents against `agents.toml`, every default against the catalog) and writes nothing.
+
+The values in `agents.toml` are the pack's defaults. To pick other ones, see [Models](#models).
 
 ```toml
 [ees-check-runner]
@@ -162,7 +164,23 @@ Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-f
 
 How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the [Execution contract](skills/ees-pipeline/execution.md).
 
-Change a role's model or effort in `agents.toml` (see [Agents for each provider](#agents-for-each-provider)); opencode's main session and built-in agents are set in `config/opencode.json`. `CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
+### Choosing providers and models
+
+Run `make setup`: it opens a local page where you pick the providers and, per agent and provider, the model and effort or variant; for opencode also the main session model, the small model and the built-in agents. Save writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer.
+
+The file holds only deviations from the pack defaults (`agents.toml`, `config/opencode.json`) and you can edit it by hand; a missing key means the current pack default, so a new default from `git pull` reaches everything you did not change:
+
+```json
+{
+  "providers": ["claude", "codex"],
+  "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } },
+  "opencode": { "agent": { "explore": { "variant": "medium" } } }
+}
+```
+
+The offered values come from the catalog `config/models.toml`, which the pack author updates together with the defaults: a default missing from the catalog fails the build. A value of yours that is no longer in the catalog only warns and is still used. Unknown agents, providers and keys warn and are ignored. `generated/` is rebuilt from the defaults plus your settings after every `git pull`; if you installed before the git hooks existed (no `core.hooksPath` in the pack checkout), re-run `install.sh` once after pulling this change. `install.sh` takes its default provider selection from `providers` in settings, and `--providers` or `--all` store the selection there.
+
+`CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
 
 ## Agents from another tool (Herdr)
 
