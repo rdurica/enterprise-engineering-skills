@@ -42,8 +42,9 @@
 
   /* Buttons */
   button { font:inherit; color:var(--fg); background:var(--fill); border:0; border-radius:10px; padding:.5rem .9rem; min-height:2.25rem; font-weight:550; cursor:pointer; transition:background-color .15s, transform .1s; }
-  button:hover { background:var(--fill-hover); }
-  button:active { transform:translateY(1px); }
+  button:hover { background-color:var(--fill-hover); }   /* background-color only: the picker draws its arrow as a background image */
+  button.ghost { background:transparent; color:var(--muted); }
+  button.ghost:hover { background-color:var(--fill); color:var(--fg); }  button:active { transform:translateY(1px); }
   button.primary { background:var(--accent); color:var(--accent-fg); padding:.55rem 1.15rem; box-shadow:0 4px 14px -4px color-mix(in srgb, var(--accent) 65%, transparent); }
   button.primary:hover { background:var(--accent-hover); }
   button:disabled { opacity:.6; cursor:progress; }
@@ -105,6 +106,11 @@
   .badge.warn { background:var(--warn-soft); color:var(--warn-fg); }
   .tabs-meta { margin-left:auto; display:flex; align-items:center; gap:.75rem; font-size:.84rem; color:var(--muted); min-width:0; }
   .tabs-meta .meta-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta-count { font-weight:600; color:var(--accent-soft-fg); }
+  .legend { display:flex; flex-wrap:wrap; gap:.4rem 1.25rem; margin:1.1rem 0 0; font-size:.78rem; color:var(--faint); }
+  .legend span { display:inline-flex; align-items:center; gap:.4rem; }
+  .legend .dot { width:4px; height:4px; border-radius:50%; background:currentColor; }
+  .legend svg { width:13px; height:13px; }
   button.load { display:flex; align-items:center; gap:.4rem; flex:none; font-size:.84rem; min-height:2rem; padding:.35rem .75rem; }
   button.load svg { width:14px; height:14px; }
   .panel-note { margin:0 0 1rem; padding:.6rem .85rem; border-radius:10px; background:var(--fill); color:var(--muted); font-size:.84rem; }
@@ -155,7 +161,7 @@
   .picker-option.selected .picker-name { font-weight:650; }
   .picker-option.selected::before { content:"✓"; width:1em; color:var(--accent); }
   .picker-option:not(.selected)::before { content:""; width:1em; }
-  .picker-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); font-size:.82rem; }
+  .picker-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .picker-empty { padding:1rem; color:var(--muted); font-size:.86rem; }
 
   /* Slider */
@@ -174,6 +180,7 @@
   .tick:first-child { transform:translateX(calc(var(--thumb) / -2)); }
   .tick:last-child { transform:translateX(calc(-100% + var(--thumb) / 2)); }
   .tick.current { color:var(--fg); font-weight:650; }
+  .own .tick.current, .own .picker-value { color:var(--accent-soft-fg); font-weight:650; }
   .tick.is-default::after { content:""; display:block; width:4px; height:4px; margin:2px auto 0; border-radius:50%; background:currentColor; opacity:.6; }
   .tick.is-outside { color:var(--warn-fg); }
 
@@ -212,7 +219,10 @@
     .tile { gap:.5rem; padding:.55rem .6rem; }
     .tabs-bar { padding:.75rem; }
     .tabs-bar { flex-wrap:wrap; }
-    .tabs-meta .meta-text { display:none; }
+    .tabs { -webkit-mask-image:linear-gradient(to right, #000 85%, transparent); mask-image:linear-gradient(to right, #000 85%, transparent); }
+    .tabs:has(.tab:last-child[aria-selected="true"]) { -webkit-mask-image:none; mask-image:none; }
+    .tabs-meta { width:100%; justify-content:space-between; }
+    #discard .long, #save .long, .bar-status #dirty { display:none; }
     .panel { padding:.75rem; }
     .agents { grid-template-columns:1fr; }
     .bar-status #status { display:none; }
@@ -232,7 +242,8 @@
       <span id="status" role="status" aria-live="polite"></span>
       <span id="error" role="alert" class="bad"></span>
     </div>
-    <button class="primary" id="save" type="button" aria-describedby="save-hint">Save and install</button>
+    <button class="ghost" id="discard" type="button" hidden>Discard<span class="long"> changes</span></button>
+    <button class="primary" id="save" type="button" aria-describedby="save-hint" aria-keyshortcuts="Control+S Meta+S" title="Save and install (Ctrl+S)">Save<span class="long"> and install</span></button>
   </div>
 </header>
 <main>
@@ -250,7 +261,7 @@
   <div class="install-head"><span id="install-state" class="install-state busy" aria-hidden="true"></span><h2 id="install-title">Installing…</h2></div>
   <p id="install-sub" class="install-sub" role="status">Saving your choices, rebuilding the agents and running <code>install.sh</code>.</p>
   <div class="install-body"><div id="result-warnings"></div><pre id="log" tabindex="0" aria-label="Install log"></pre></div>
-  <div class="install-foot"><button id="follow" class="follow" type="button" hidden>Jump to the latest output</button><button id="install-close" class="primary" type="button" disabled>Close</button></div>
+  <div class="install-foot"><button id="follow" class="follow" type="button" hidden>Jump to the latest output</button><button id="copy-log" type="button">Copy log</button><button id="install-close" class="primary" type="button" disabled>Close</button></div>
 </dialog>
 <script>
 "use strict";
@@ -300,7 +311,7 @@ const aboutOpencode = {
 };
 const sessionName = { model: "Main model", small_model: "Small model" };
 let dirty = false, saving = false;
-function setDirty(v) { dirty = v; $("dirty").hidden = !v; }
+function setDirty(v) { dirty = v; $("dirty").hidden = !v; $("discard").hidden = !v; }
 function edited() {
   setDirty(true);
   $("status").textContent = ""; $("status").className = ""; $("error").textContent = "";
@@ -451,7 +462,7 @@ function control(section, path, def, list, label, kind, provider) {
   reset.innerHTML = resetIcon;
   reset.onclick = () => { delPath(draft[section], path); edited(); };
   const head = el("div", { class: "control-head" }, attr(el("span", { class: "control-label", textContent: colName[path[path.length - 1]] || "" }), { "aria-hidden": "true" }), reset);
-  const box = el("div", { class: "cell" + (outside ? " outside" : "") }, head, input);
+  const box = el("div", { class: "cell" + (outside ? " outside" : isOwn ? " own" : "") }, head, input);
   return { box, own: isOwn, outside };
 }
 
@@ -591,9 +602,11 @@ function renderTables() {
   const own = countOwn(current.id);
   const lk = levelKey[current.id];
   const local = state.local?.[current.id];
-  const metaText = (own ? own + " custom" : "defaults only") + " · " + (current.id === "claude" ? "aliases always mean the newest model"
-    : local ? local.count + " models from " + local.source + ", " + new Date(local.loaded_at).toLocaleDateString() : "pack catalog only");
-  const meta = el("div", { class: "tabs-meta" }, el("span", { class: "meta-text", textContent: metaText }));
+  const metaText = current.id === "claude" ? "Aliases always resolve to the newest model"
+    : local ? local.count + " models loaded " + new Date(local.loaded_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : "Pack catalog – load models to see all your account offers";
+  const meta = el("div", { class: "tabs-meta" }, el("span", { class: "meta-text", textContent: metaText, title: local ? "Source: " + local.source : "" }));
+  if (own) meta.prepend(el("span", { class: "meta-count", textContent: own + " changed" }));
   if (current.id !== "claude") {
     const btn = el("button", { type: "button", class: "load", id: "load-" + current.id, disabled: loading !== null, title: "Ask " + current.label + " on this machine which models your account can use" });
     btn.innerHTML = loadIcon;
@@ -608,6 +621,9 @@ function renderTables() {
       el("h3", { class: "group-title", textContent: "Pack agents" }));
   }
   panel.append(agentRows(current.id, current.label));
+  const legend = attr(el("p", { class: "legend" }), { "aria-hidden": "true" });
+  legend.innerHTML = '<span><i class="dot"></i>pack default</span><span>' + resetIcon + "back to the default</span>";
+  panel.append(legend);
   box.append(el("h2", { class: "section-title", textContent: "Agents" }),
     el("section", { class: "card agents-card" }, el("div", { class: "tabs-bar" }, tabs, meta), panel));
 }
@@ -643,6 +659,12 @@ async function load() {
     box.append(el("div", { class: "alert" }, el("p", { textContent: "Cannot load the settings (invalid token or the server is not answering). Reopen the URL printed by `make setup`, or try again." }), retry));
     return;
   }
+  showWarnings($("warnings"), state.warnings);
+  discard();
+}
+
+// The draft back to what is saved.
+function discard() {
   const s = state.settings;
   draft = {
     providers: new Set(state.providers.filter((p) => p.selected).map((p) => p.id)),
@@ -650,10 +672,14 @@ async function load() {
     opencode: clone(s.opencode && typeof s.opencode === "object" ? s.opencode : {}),
   };
   setDirty(false);
-  showWarnings($("warnings"), state.warnings);
   updateHints();
   render();
 }
+$("discard").onclick = () => { if (!saving) { discard(); $("save").focus(); } };
+window.addEventListener("beforeunload", (e) => { if (dirty || saving) e.preventDefault(); });
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); if (!dialog.open) $("save").click(); }
+});
 
 // The install dialog: the log follows new output while the reader stays at its end (scrolling up pauses it),
 // and the dialog can only be closed once the install has ended.
@@ -665,6 +691,12 @@ $("follow").onclick = () => { follow = true; log.scrollTop = log.scrollHeight; $
 const append = (text) => { log.append(text + "\n"); if (follow) log.scrollTop = log.scrollHeight; };
 dialog.addEventListener("cancel", (e) => { if (saving) e.preventDefault(); });
 $("install-close").onclick = () => dialog.close();
+$("copy-log").onclick = async () => {
+  const b = $("copy-log");
+  try { await navigator.clipboard.writeText(log.textContent); b.textContent = "Copied"; }
+  catch (e) { b.textContent = "Cannot copy"; }
+  setTimeout(() => { b.textContent = "Copy log"; }, 1600);
+};
 const okIcon = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
 const badIcon = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>';
 function finishDialog(ok, title, sub) {
