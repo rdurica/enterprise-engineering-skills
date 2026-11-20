@@ -361,6 +361,8 @@ install_antigravity() { # the plan names only ees-* under ~/.gemini/config, link
         [[ "$dest" == "$g/agents/test-writer.md" ]] && unlinked_agent=1
         ;;
       link|relink|ok)
+        # skills/personal/ is installed unprefixed on purpose, as in install_names.
+        [[ "$dest" == "$g/skills/"* && -d "$pack/skills/personal/$(basename "$dest")" ]] && continue
         if [[ "$dest" == "$g/skills/"* ]]; then
           skills=$((skills + 1))
           [[ "$(basename "$dest")" == "$prefix"* ]] || { echo "$action names an unprefixed Antigravity skill: $dest"; bad=1; }

@@ -1577,9 +1577,9 @@ wizard_row_matches() { # wizard_row_matches <scenario> <ere> <what>
   grep -qE "$2" <<<"$row" || { echo "$3; row: $row"; return 1; }
 }
 check "[a14-5] agy on PATH shows Antigravity as installed" \
-  wizard_row_matches "$ca5h" '\[ \] installed[[:space:]]*$' "expected '[ ] installed'"
+  wizard_row_matches "$ca5h" '\[x\] installed[[:space:]]*$' "expected '[x] installed' (nothing linked or stored preselects every provider)"
 check "[a14-5] ~/.gemini/antigravity-cli shows Antigravity as installed" \
-  wizard_row_matches "$ca5i" '\[ \] installed[[:space:]]*$' "expected '[ ] installed'"
+  wizard_row_matches "$ca5i" '\[x\] installed[[:space:]]*$' "expected '[x] installed' (nothing linked or stored preselects every provider)"
 check "[a14-5] without agy and without ~/.gemini/antigravity-cli the wizard shows Antigravity as not found" \
   wizard_row_matches "$ca5j" 'not found[[:space:]]*$' "expected 'not found'"
 check "[a14-5] a pack link and agy on PATH show Antigravity as linked, installed" \
