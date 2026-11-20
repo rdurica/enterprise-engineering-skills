@@ -7,6 +7,7 @@
 # cursor:       model (full Cursor model ID, effort included)
 # opencode:     model (provider/model), variant
 # pi:           model (provider/model), variant (thinking level)
+# antigravity:  model (tier: inherit, flash or pro), tools (replaces the list derived from readonly)
 # A provider table left out means the agent is not generated for that provider.
 
 [ees-check-runner]
@@ -16,6 +17,7 @@ codex = { model = "gpt-6-luna", effort = "low" }
 cursor = { model = "grok-4.7-low" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
+antigravity = { model = "flash" }
 
 [ees-code-reviewer]
 readonly = true
@@ -24,6 +26,7 @@ codex = { model = "gpt-6.1-terra", effort = "high" }
 cursor = { model = "grok-4.7-high" }
 opencode = { model = "claude-agent/sonnet", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+antigravity = { model = "pro" }
 
 [ees-functional-reviewer]
 readonly = true
@@ -32,6 +35,7 @@ codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+antigravity = { model = "pro" }
 
 [ees-implementer]
 claude = { model = "sonnet", effort = "medium", color = "green" }
@@ -39,6 +43,7 @@ codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+antigravity = { model = "pro" }
 
 [ees-test-writer]
 skills = ["ees-tdd"]
@@ -47,6 +52,7 @@ codex = { model = "gpt-6.1-terra", effort = "medium" }
 cursor = { model = "grok-4.7-medium" }
 opencode = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+antigravity = { model = "pro" }
 
 [ees-ux-reviewer]
 claude = { model = "sonnet", effort = "medium", color = "pink" }
@@ -54,3 +60,4 @@ codex = { model = "gpt-6.1-terra", effort = "high" }
 cursor = { model = "grok-4.7-high" }
 opencode = { model = "claude-agent/sonnet", variant = "medium" }
 pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "high" }
+antigravity = { model = "pro" }
