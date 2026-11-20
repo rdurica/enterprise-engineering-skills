@@ -21,3 +21,6 @@ variants = ["low", "medium", "high"]
 [pi]
 models   = ["opencode-go/deepseek-v4.1-flash"]
 variants = ["low", "medium", "high"]
+
+[antigravity]        # a subagent takes only a tier; no effort or variants
+models  = ["inherit", "flash", "pro"]

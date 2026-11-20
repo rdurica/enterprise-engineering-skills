@@ -2,7 +2,8 @@
 """Build provider agents from agents/<name>.md (description, instructions) and agents.toml (settings).
 
 Writes generated/claude/agents/<name>.md, generated/codex/agents/<name>.toml,
-generated/cursor/agents/<name>.md, generated/opencode/agents/<name>.md and generated/pi/agents/<name>.md.
+generated/cursor/agents/<name>.md, generated/opencode/agents/<name>.md, generated/pi/agents/<name>.md and
+generated/antigravity/agents/<name>.md.
 generated/ is local, gitignored build output: pack defaults overlaid with the user's settings.json
 (see scripts/ees_settings.py). With --validate, checks only the sources (agents/ against agents.toml,
 defaults against config/models.toml), ignores settings and generated/, and writes nothing.
@@ -24,6 +25,7 @@ outputs = {
     "cursor": ("agents", ".md"),
     "opencode": ("agents", ".md"),
     "pi": ("agents", ".md"),
+    "antigravity": ("agents", ".md"),
 }
 
 
@@ -119,12 +121,30 @@ def render_pi(name, description, instructions, shared, cfg):
     return "\n".join(out) + "\n"
 
 
+def render_antigravity(name, description, instructions, shared, cfg):
+    # An Antigravity subagent takes only a tier as model and has no tools unless they are listed:
+    # a read-only agent keeps read_file and run_command (tests, git).
+    tools = cfg.get("tools") or (
+        ["read_file", "run_command"]
+        if shared.get("readonly")
+        else ["read_file", "edit_file", "write_file", "run_command"]
+    )
+    out = ["---", header(name), f"name: {name}", f"description: {q(description)}"]
+    if "model" in cfg:
+        out.append(f"model: {cfg['model']}")
+    out.append("tools:")
+    out += [f"  - {t}" for t in tools]
+    out += ["---", "", read_first(shared.get("skills"), instructions)]
+    return "\n".join(out) + "\n"
+
+
 renderers = {
     "claude": render_claude,
     "codex": render_codex,
     "cursor": render_cursor,
     "opencode": render_opencode,
     "pi": render_pi,
+    "antigravity": render_antigravity,
 }
 
 

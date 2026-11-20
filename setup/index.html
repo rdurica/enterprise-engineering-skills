@@ -288,6 +288,7 @@ const icons = {
   cursor: "<path d=\"M11.503.131 1.891 5.678a.84.84 0 0 0-.42.726v11.188c0 .3.162.575.42.724l9.609 5.55a1 1 0 0 0 .998 0l9.61-5.55a.84.84 0 0 0 .42-.724V6.404a.84.84 0 0 0-.42-.726L12.497.131a1.01 1.01 0 0 0-.996 0M2.657 6.338h18.55c.263 0 .43.287.297.515L12.23 22.918c-.062.107-.229.064-.229-.06V12.335a.59.59 0 0 0-.295-.51l-9.11-5.257c-.109-.063-.064-.23.061-.23\"/>",
   opencode: "<path d=\"M22 24H2V0h20zM17 4.8H7v14.4h10z\"/>",
   pi: "<path d=\"M0 0v24h6v-6h6v-6H6V6h6v6h6V0Zm18 12v12h6V12Z\"/>",
+  antigravity: "<path d=\"M12 2 2.5 21h4.2l1.6-3.4h7.4l1.6 3.4h4.2zm0 7.6 2.3 4.9H9.7z\"/>",
 };
 function picon(id) {
   const box = el("span", { class: "picon " + id });
@@ -604,10 +605,11 @@ function renderTables() {
   const local = state.local?.[current.id];
   const metaText = current.id === "claude" ? "Aliases always resolve to the newest model"
     : local ? local.count + " models loaded " + new Date(local.loaded_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : current.id === "antigravity" ? "Tiers only: inherit, flash or pro"
     : "Pack catalog – load models to see all your account offers";
   const meta = el("div", { class: "tabs-meta" }, el("span", { class: "meta-text", textContent: metaText, title: local ? "Source: " + local.source : "" }));
   if (own) meta.prepend(el("span", { class: "meta-count", textContent: own + " changed" }));
-  if (current.id !== "claude") {
+  if (!["claude", "antigravity"].includes(current.id)) {
     const btn = el("button", { type: "button", class: "load", id: "load-" + current.id, disabled: loading !== null, title: "Ask " + current.label + " on this machine which models your account can use" });
     btn.innerHTML = loadIcon;
     btn.append(loading === current.id ? "Loading…" : local ? "Reload models" : "Load models");

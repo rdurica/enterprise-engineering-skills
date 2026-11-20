@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ees_settings as es  # noqa: E402
 
 pack = es.pack
-labels = {"claude": "Claude Code", "codex": "Codex", "cursor": "Cursor", "opencode": "opencode", "pi": "Pi"}
+labels = {"claude": "Claude Code", "codex": "Codex", "cursor": "Cursor", "opencode": "opencode", "pi": "Pi", "antigravity": "Antigravity"}
 save_lock = threading.Lock()
 max_body = 1_000_000
 
@@ -66,6 +66,7 @@ def provider_dirs():
         "cursor": home / ".cursor",
         "opencode": config / "opencode",
         "pi": Path(os.environ.get("PI_CODING_AGENT_DIR") or home / ".pi" / "agent"),
+        "antigravity": home / ".gemini" / "config",
     }
 
 
@@ -82,11 +83,14 @@ def provider_note(provider):
         "cursor": lambda: has_pack_link_in(d / "agents"),
         "opencode": lambda: has_pack_link_in(d / "agents"),
         "pi": lambda: has_pack_link_in(d / "agents", d / "prompts") or is_pack_link(d / "extensions" / "subagent"),
+        "antigravity": lambda: has_pack_link_in(d / "skills", d / "agents"),
     }[provider]()
     if linked:
         return "linked"
-    clis = {"cursor": ("cursor", "cursor-agent")}.get(provider, (provider,))
-    if any(which(c) for c in clis) or d.is_dir():
+    clis = {"cursor": ("cursor", "cursor-agent"), "antigravity": ("agy",)}.get(provider, (provider,))
+    if provider == "antigravity" and (d.parent / "antigravity-cli").is_dir():
+        return "installed"
+    if any(which(c) for c in clis) or (d.is_dir() and provider != "antigravity"):
         return "installed"
     return "not found"
 

@@ -35,7 +35,7 @@ import tomllib
 from pathlib import Path
 
 pack = Path(__file__).resolve().parent.parent
-providers = ("claude", "codex", "cursor", "opencode", "pi")
+providers = ("claude", "codex", "cursor", "opencode", "pi", "antigravity")
 # Editable keys per provider (others, such as tools or color, stay in agents.toml) and their catalog list.
 editable = {
     "claude": ("model", "effort"),
@@ -43,6 +43,7 @@ editable = {
     "cursor": ("model",),
     "opencode": ("model", "variant"),
     "pi": ("model", "variant"),
+    "antigravity": ("model",),
 }
 catalog_list = {"model": "models", "effort": "efforts", "variant": "variants"}
 top_level = ("providers", "agents", "opencode")
