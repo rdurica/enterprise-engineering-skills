@@ -177,10 +177,10 @@ build_validates() { # the built copy passes build-agents --validate
   "$b/scripts/build-agents" --validate
 }
 
-generated_prefixed() { # all four providers have agents/ with only ees-* files in the built output
+generated_prefixed() { # every file-based provider has agents/ with only ees-* files in the built output
   local prov dir f base bad=0 b
   b="$(built_tree)" || { echo "building agents in the sandbox copy failed"; return 1; }
-  for prov in claude codex cursor opencode; do
+  for prov in claude codex cursor opencode pi antigravity; do
     [[ -d "$b/generated/$prov/agents" ]] ||
       { echo "missing directory: generated/$prov/agents"; bad=1; }
   done
@@ -275,6 +275,10 @@ install_plan() { # run install.sh --dry-run once in a sandbox seeded with old da
   # Links left behind by the renamed skill and agent: cleanup must unlink both.
   ln -sfn "$pack/skills/analyze" "$claude/skills/analyze"
   ln -sfn "$pack/generated/claude/agents/test-writer.md" "$claude/agents/test-writer.md"
+  # The same leftovers in the Antigravity directories (~/.gemini/config is under the sandbox HOME).
+  mkdir -p "$home/.gemini/config/skills" "$home/.gemini/config/agents"
+  ln -sfn "$pack/skills/analyze" "$home/.gemini/config/skills/analyze"
+  ln -sfn "$pack/generated/antigravity/agents/test-writer.md" "$home/.gemini/config/agents/test-writer.md"
   HOME="$home" XDG_CONFIG_HOME="$xdg" XDG_DATA_HOME="$sandbox/data" \
     XDG_CACHE_HOME="$sandbox/cache" XDG_STATE_HOME="$sandbox/state" \
     CLAUDE_CONFIG_DIR="$claude" CODEX_HOME="$codex" \
@@ -344,6 +348,40 @@ install_migration() { # old dangling names are unlinked and the new ees-* names 
   return "$bad"
 }
 
+install_antigravity() { # the plan names only ees-* under ~/.gemini/config, links all of them, cleans old names
+  install_plan || return 1
+  local g="$sandbox/home/.gemini/config" line action dest arrow src _rest bad=0
+  local skills=0 agents=0 unlinked_skill=0 unlinked_agent=0 linked_skill=0 linked_agent=0
+  while IFS= read -r line; do
+    read -r action dest arrow src _rest <<<"$line"
+    [[ -n "${dest:-}" ]] || continue
+    case "$action" in
+      unlink)
+        [[ "$dest" == "$g/skills/analyze" ]] && unlinked_skill=1
+        [[ "$dest" == "$g/agents/test-writer.md" ]] && unlinked_agent=1
+        ;;
+      link|relink|ok)
+        if [[ "$dest" == "$g/skills/"* ]]; then
+          skills=$((skills + 1))
+          [[ "$(basename "$dest")" == "$prefix"* ]] || { echo "$action names an unprefixed Antigravity skill: $dest"; bad=1; }
+          [[ "$dest" == "$g/skills/ees-analyze" ]] && linked_skill=1
+        elif [[ "$dest" == "$g/agents/"* ]]; then
+          agents=$((agents + 1))
+          [[ "$(basename "$dest")" == "$prefix"*.md ]] || { echo "$action names an unprefixed Antigravity agent: $dest"; bad=1; }
+          [[ "$dest" == "$g/agents/ees-test-writer.md" ]] && linked_agent=1
+        fi
+        ;;
+    esac
+  done <"$sandbox/install.out"
+  (( skills == ${#skill_names[@]} )) || { echo "plan has $skills skill links in ~/.gemini/config/skills, want ${#skill_names[@]}"; bad=1; }
+  (( agents == ${#agent_names[@]} )) || { echo "plan has $agents agent links in ~/.gemini/config/agents, want ${#agent_names[@]}"; bad=1; }
+  (( linked_skill )) || { echo "install.sh --dry-run did not plan $g/skills/ees-analyze"; bad=1; }
+  (( linked_agent )) || { echo "install.sh --dry-run did not plan $g/agents/ees-test-writer.md"; bad=1; }
+  (( unlinked_skill )) || { echo "install.sh --dry-run did not unlink the old Antigravity skill link: $g/skills/analyze"; bad=1; }
+  (( unlinked_agent )) || { echo "install.sh --dry-run did not unlink the old Antigravity agent link: $g/agents/test-writer.md"; bad=1; }
+  return "$bad"
+}
+
 # ---------------------------------------------------------------- negative self-test
 
 copy_tree() { mkdir -p "$1" && (cd "$pack" && tar --exclude=./.git -cf - .) | tar -xf - -C "$1"; }
@@ -405,7 +443,7 @@ check "agents/: exactly six ees-*.md files and no other agent files" agents_pref
 check "agents/: each frontmatter name matches its file" agents_frontmatter
 check "agents.toml: prefixed keys match the agent files exactly" toml_keys
 check "agents.toml: every skills entry names an existing prefixed skill" toml_skills
-check "built output: every provider has agents/ with only ees-* files" generated_prefixed
+check "built output: every provider, Antigravity included, has agents/ with only ees-* files" generated_prefixed
 check "built output: scripts/build-agents --validate exits 0" build_validates
 check "docs: no unprefixed skill identifiers in README, skills, agents, scripts/check-*" skills_refs
 check "docs: no unprefixed agent identifiers in README, skills, agents, scripts/check-*" agents_refs
@@ -413,6 +451,7 @@ check "docs: no docs/ees path or reference" docs_not_prefixed_docs
 check "README: migration note to re-run install.sh and start a new session" readme_migration_note
 check "install.sh --dry-run: skill and agent lines name only ees-*" install_names
 check "install.sh --dry-run: old links unlinked and new ees-* links planned" install_migration
+check "install.sh --dry-run: Antigravity gets every ees-* skill and agent under ~/.gemini/config, old links unlinked" install_antigravity
 if [[ "${CHECK_PREFIX_NO_SELF_TEST:-0}" == 1 ]]; then
   echo "SKIP  self-test: disabled by CHECK_PREFIX_NO_SELF_TEST"
 else
