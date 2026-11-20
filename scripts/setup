@@ -28,7 +28,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ees_settings as es  # noqa: E402
 
 pack = es.pack
-labels = {"claude": "Claude Code", "codex": "Codex", "cursor": "Cursor", "opencode": "opencode", "pi": "Pi", "antigravity": "Antigravity"}
+labels = {
+    "claude": "Claude Code",
+    "codex": "Codex",
+    "cursor": "Cursor",
+    "opencode": "opencode",
+    "pi": "Pi",
+    "antigravity": "Antigravity",
+}
 save_lock = threading.Lock()
 max_body = 1_000_000
 
@@ -88,9 +95,9 @@ def provider_note(provider):
     if linked:
         return "linked"
     clis = {"cursor": ("cursor", "cursor-agent"), "antigravity": ("agy",)}.get(provider, (provider,))
-    if provider == "antigravity" and (d.parent / "antigravity-cli").is_dir():
-        return "installed"
-    if any(which(c) for c in clis) or (d.is_dir() and provider != "antigravity"):
+    # ~/.gemini/config is shared with the Antigravity desktop app, so only the CLI's own directory marks agy.
+    marker = {"antigravity": d.parent / "antigravity-cli"}.get(provider, d)
+    if any(which(c) for c in clis) or marker.is_dir():
         return "installed"
     return "not found"
 
