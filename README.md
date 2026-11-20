@@ -1,285 +1,230 @@
 # Enterprise Engineering Skills
 
-[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-D97757?logo=claude&logoColor=white)](#agents-for-each-provider)
-[![Codex](https://img.shields.io/badge/Codex-supported-111111)](#agents-for-each-provider)
-[![Cursor](https://img.shields.io/badge/Cursor-supported-111111?logo=cursor&logoColor=white)](#agents-for-each-provider)
-[![opencode](https://img.shields.io/badge/opencode-supported-111111)](#agents-for-each-provider)
-[![Pi](https://img.shields.io/badge/Pi-supported-111111)](#agents-for-each-provider)
-[![Antigravity](https://img.shields.io/badge/Antigravity-supported-111111)](#agents-for-each-provider)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-supported-D97757?logo=claude&logoColor=white)](#supported-providers)
+[![Codex](https://img.shields.io/badge/Codex-supported-111111)](#supported-providers)
+[![Cursor](https://img.shields.io/badge/Cursor-supported-111111?logo=cursor&logoColor=white)](#supported-providers)
+[![opencode](https://img.shields.io/badge/opencode-supported-111111)](#supported-providers)
+[![Pi](https://img.shields.io/badge/Pi-supported-111111)](#supported-providers)
+[![Antigravity](https://img.shields.io/badge/Antigravity-supported-111111)](#supported-providers)
 <br>
 [![Workflow](https://img.shields.io/badge/workflow-analyze_→_implement_→_verify-5b4ff5)](#workflow)
-[![Python](https://img.shields.io/badge/python-3.11+_stdlib-3776AB?logo=python&logoColor=white)](#choosing-providers-and-models)
+[![Python](https://img.shields.io/badge/python-3.11+_stdlib-3776AB?logo=python&logoColor=white)](#configuration)
 [![Bash](https://img.shields.io/badge/installer-bash-4EAA25?logo=gnubash&logoColor=white)](#quick-start)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](#quick-start)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/setup-dark.png">
-  <img alt="The setup page: provider switches on top, then one tab per provider with a card for each agent, its model and its effort" src="docs/images/setup-light.png">
+  <img alt="Local setup page with provider toggles, per-agent model pickers and effort sliders" src="docs/images/setup-light.png">
 </picture>
 
-Claude Code skills and agents for changes in an existing codebase. You make the decisions; agents write the tests and code, review them and deliver the result.
+A multi-provider pack of engineering skills and subagents for **Claude Code, Codex, Cursor, opencode, Pi, and Antigravity**. You make the architectural decisions; specialized agents write failing tests, implement the code, run checks, review diffs, and deliver the PR.
 
-The goal is not just working code. Whoever owns the project should understand the change well enough to explain it, so behaviour and boundaries are agreed first and implemented second. Trivial fixes skip the pipeline.
+Behaviour and boundaries are agreed on first and implemented second, so you always understand what ships. Trivial fixes skip the pipeline.
 
-## Quick start
-
-```bash
-git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/enterprise-engineering-skills
-~/Projects/enterprise-engineering-skills/install.sh
-```
-
-Prefer clicking to flags? `make setup` opens a local page where you switch providers on and pick the model and effort of every agent — see [Choosing providers and models](#choosing-providers-and-models).
-
-Run the installer from a terminal: a numbered wizard asks which tools to link — Claude Code, Codex, Cursor, opencode, Pi and Antigravity — and preselects the ones already linked into the pack; installed tools are still shown, but not preselected. Pick several tools by typing one or more numbers separated by commas or spaces (for example `1,3`), type `all` or `none`, or press Enter for the default.
-
-The installer prints the plan (`link`, `relink`, `ok`, `unlink`) and applies it after you confirm. The plan brings the selected tools to exactly that state: missing links are added, broken ones repaired and pack links for unselected tools removed; real files and symlinks that do not point into the pack are never touched. For scripts, `--all` selects every tool, `--providers <list>` selects an exact set (comma or space separated, `all` and `none` accepted), `--yes` skips the confirmation and `--dry-run` prints the plan and writes no links, settings or opencode.json (it still builds the local `generated/`). With no flags and no terminal on stdin, the installer behaves like `--all`.
-
-Claude Code gets every skill in `~/.claude/skills/` and every agent in `~/.claude/agents/`. Codex, Cursor, opencode and Pi share the skills in `~/.agents/skills/` and get the agents in `~/.codex/agents/`, `~/.cursor/agents/`, `~/.config/opencode/agents/` and `~/.pi/agent/agents/` (see [Agents for each provider](#agents-for-each-provider)). For Pi it also links the subagent tool into `~/.pi/agent/extensions/subagent/` and one slash command per skill into `~/.pi/agent/prompts/`, because Pi has no built-in subagents and calls skills `/skill:<name>`. It never overwrites a different skill or agent with the same name, removes dangling links left by deleted ones, points the pack's `core.hooksPath` at `.githooks`, and `--dry-run` shows the plan. When opencode is selected and installed it also merges the pack's model keys into `opencode.json`; the original is kept as `opencode.json.bak` and `--dry-run` prints the changes. Afterwards `git pull` is enough; re-run the script when a skill or agent is added, renamed or removed. After a release that renames skills or agents, run `install.sh` again and start a new session: the old links are dangling, `cleanup` removes them and the new `ees-` names are linked. Antigravity (`agy`) does not read `~/.agents/skills/`, so each skill is linked into `~/.gemini/config/skills/` and each agent into `~/.gemini/config/agents/`; the desktop app shares that directory and sees the skills too. Your own skills there, links of other tools and `~/.gemini/config/plugins/` are left alone. Old folders copied by hand are not links — delete them yourself.
-
-A project works without any configuration: the tracker and monorepo are detected, the language follows the conversation and the analysis, and the agent always manages the Delivery branch and PR. The only setting is the analysis language; set it in `~/.config/enterprise-engineering-skills/workflow.md` (or per project), through `/ees-setup` or by hand:
-
-```markdown
-# Agent workflow
-
-- language: en
-```
+---
 
 ## Workflow
 
-You take part in only a few steps. Everything after `/ees-implement #N` is a chain of agents: each one gets a fresh context, finishes one job and hands its result to the next. The main session sits between them, reviews every handoff and makes the commits.
+You participate at the decision points. Once you run `/ees-implement #N`, the main session orchestrates a chain of fresh subagents, reviews every handoff, and makes all commits, pushes, and PRs.
 
 ```mermaid
 flowchart TD
-    Idea(["<b>/ees-idea</b><br/>note a change for later"])
-    Analyze(["<b>/ees-analyze</b><br/>agree on or revise the change"])
-    Ideas[("<b>ideas</b><br/>label idea · ideas/")]
-    Analyses[("<b>analyses</b><br/>label analysis")]
-    Implement(["<b>/ees-implement #N</b><br/>after your review"])
+    Idea(["/ees-idea<br/>capture idea"])
+    Ideas[("Ideas<br/>label: idea · ideas/")]
+    Analyze(["/ees-analyze<br/>align & publish or revise"])
+    Analyses[("Analyses<br/>label: analysis")]
+    Implement(["/ees-implement #N<br/>start or resume"])
 
-    subgraph Auto["automatic"]
+    subgraph Pipeline["Automated Pipeline (fresh subagents · ees-check-runner gates each step)"]
         direction TB
-        testWriter["<b>ees-test-writer</b><br/>failing tests first"]
-        implementer["<b>ees-implementer</b><br/>code until tests pass"]
-        functional["<b>ees-functional-reviewer</b><br/>matches the analysis?"]
-        codeReview["<b>ees-code-reviewer</b><br/>finds issues, implementer fixes"]
-        ux["<b>ees-ux-reviewer</b><br/>frontend diffs only"]
+        TW["<b>ees-test-writer</b><br/>failing tests first (RED)"]
+        IMP["<b>ees-implementer</b><br/>production code (GREEN)"]
+        FR["<b>ees-functional-reviewer</b><br/>analysis & standards"]
+        CR["<b>ees-code-reviewer</b><br/>correctness, security, design"]
+        UX["<b>ees-ux-reviewer</b><br/>frontend diffs only"]
 
-        testWriter --> implementer --> functional --> codeReview --> ux
-        functional -. "fix list" .-> implementer
+        TW --> IMP --> FR --> CR --> UX
+        FR -. "fix list" .-> IMP
+        CR -. "findings" .-> IMP
+        UX -. "findings" .-> IMP
     end
 
-    Ready(["<b>ready-to-review</b><br/>your turn · /ees-complete"])
-    Attention(["<b>needs-attention</b><br/>you decide, then rerun"])
-    Done[("<b>done</b><br/>closed · done/")]
+    Ready(["ready-to-review<br/>PR open · CI green"])
+    Complete(["/ees-complete #N<br/>rebase-merge & close"])
+    Done[("Done<br/>closed · done/")]
+    Attention(["needs-attention<br/>draft PR · human decision"])
 
-    Idea -. "writes" .-> Ideas
-    Analyze <-. "when due" .-> Ideas
-    Analyze -- "publishes, revises" --> Analyses
-    Analyses -- "reads" --> Implement --> testWriter
-    ux --> Ready -- "merged" --> Done
-    Auto -. "blocked" .-> Attention
+    Idea -.-> Ideas
+    Ideas <-.-> Analyze
+    Analyze --> Analyses
+    Analyses --> Implement --> TW
+    UX --> Ready --> Complete --> Done
+    Pipeline -. "blocked" .-> Attention
+    Attention -. "rerun" .-> Implement
 
-    classDef human fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a
-    classDef agent fill:#ffedd5,stroke:#c2410c,color:#7c2d12
+    classDef human fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef agent fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    classDef store fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef ready fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef blocked fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
     classDef optional stroke-dasharray:5 5
-    classDef store fill:#f3f4f6,stroke:#4b5563,color:#111827
-    classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
-    classDef blocked fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
-    class Idea,Analyze,Implement human
-    class Idea,Ideas,ux optional
-    class testWriter,implementer,functional,codeReview,ux agent
+
+    class Idea,Analyze,Implement,Complete human
+    class TW,IMP,FR,CR,UX agent
     class Ideas,Analyses,Done store
     class Ready ready
     class Attention blocked
-    style Auto fill:#f9fafb,stroke:#9ca3af
+    class Idea,Ideas,UX optional
+    style Pipeline fill:transparent,stroke:#94a3b8,stroke-width:1.5px,stroke-dasharray:4 4
 ```
 
-**Blue** = you · **orange** = agents · **grey** = where ideas and analyses are stored (GitHub issues or `docs/agents/analysis/`) · **dashed** = optional. `/ees-implement` continues into verify on its own; verify and UX review are steps of the pipeline, not commands. Every step runs tests, lint and type checks through `ees-check-runner`, which returns only the failures.
+**Blue** = you · **Orange** = subagents · **Grey** = tracker (GitHub issues or `docs/agents/analysis/`) · **Dashed** = optional
 
-0. **`/ees-idea`** (optional) — write a change down as a short idea: Goal, Change and optional `Depends on`. No code is read in depth and no decisions are settled; the detailed analysis comes later with **`/ees-analyze #N`** on the same issue, once the change is due and against the code as it is then.
-1. **`/ees-analyze`** — you and Claude explore the code and settle decisions one question at a time. Once you confirm the list of decisions, Claude turns them into a published analysis: current state, change, architecture, API contracts and Acceptance, with each decision and its rejected alternative in Further Notes.
-2. **You review it** and run **`/ees-implement #N`** (or a local analysis path). The agents in the diagram take over: tests first, committed before any code, then the code, the functional review against the analysis, the code review and, when the diff touches the frontend, the UX review. It ends as `ready-to-review`, or as `needs-attention` when a decision is yours.
+### Steps
 
-3. **You review the delivery** and run **`/ees-complete #N`**. With an open PR it checks that CI is green, nothing is a draft and no changes are requested, then rebase-merges the PR, deletes the branch, closes the issue without `ready-to-review` and pulls `main` locally. A delivery without a PR is left to you and `/ees-complete` does nothing.
+0. **`/ees-idea`** *(optional)* — Note a planned change (Goal, Change, optional `Depends on`) without analyzing code yet.
+1. **`/ees-analyze`** — Structured interview to settle design decisions one question at a time, then publish an analysis (current state, change, architecture, API contracts, acceptance criteria, and rejected alternatives in `## Further Notes`).
+2. **`/ees-implement #N`** — Runs the automated pipeline: tests committed first (RED), implementation until green, functional review against the analysis, code review, and UX review for frontend diffs. Opens a ready PR when all gates pass, or a draft PR marked `needs-attention` when a human decision is needed.
+3. **`/ees-complete #N`** — Verifies CI is green and the PR is approved, then rebase-merges, deletes the branch, closes the issue, and pulls `main`.
 
-**Delivery** — the Delivery branch, push, CI and the PR — is handled only by the main session, at the start of `/ees-implement` and at the end of verify, as described in [`ees-pipeline/delivery.md`](skills/ees-pipeline/delivery.md). Say "don't push" in the session to keep the commits local.
+### Other Modes
 
-To **plan several follow-up changes**, write each as an idea and give it `Depends on: #41, #42` in its Delivery. `/ees-idea` proposes dependencies from the open ideas and analyses and warns about duplicates. `/ees-analyze #N` on an idea whose dependency is still open stops and asks whether to continue; `/ees-implement` refuses an idea and an analysis with an unmet dependency, with no override. A dependency is met when its issue is closed (locally, its file is in `done/`).
+- **Revising an analysis:** Run `/ees-analyze #N` with what changed. Contradictions are surfaced and agreed on first; the analysis is rewritten in place and post-implementation changes are tracked under `## Revisions` so `/ees-implement #N` continues on the same branch.
+- **Dependencies:** Add `Depends on: #41, #42` in an idea or analysis. `/ees-implement` refuses to start until all dependencies are closed.
+- **Without an analysis:** Ordinary prompts run directly in the main session (optionally followed by `/ees-code-review`). Use `/ees-change` to run the full test → implement → review pipeline from a short brief.
+- **Keep commits local:** Say *"don't push"* in the session to skip pushing and PR creation. See [`skills/ees-pipeline/delivery.md`](skills/ees-pipeline/delivery.md) for delivery rules.
 
-A **simple bug** skips step 1: a ticket with Acceptance goes straight to `/ees-implement`.
+---
 
-**Work without an analysis** is up to you. An ordinary prompt — "fix this bug", "rename that" — is handled directly by the main session, with no pack workflow; run **`/ees-code-review`** afterwards when you want the read-only review of those changes, with the conversation as the contract. Run **`/ees-change …`** when you want the whole workflow without an analysis: a short brief, then `ees-test-writer`, `ees-implementer`, `ees-check-runner`, the code review and, for frontend changes, the UX review. Neither commits unless you ask. `/ees-change` on a large or open-ended change suggests `/ees-analyze` first.
+## Quick Start
 
-**Decisions** live only in `## Further Notes` of each analysis, each with its rejected alternative. The pack writes and reads no ADRs.
+```bash
+git clone git@github.com:rdurica/enterprise-engineering-skills.git ~/Projects/enterprise-engineering-skills
+cd ~/Projects/enterprise-engineering-skills
+```
 
-To **change an existing analysis** — before `/ees-implement`, or after it when a change request arrives — run **`/ees-analyze #N`** on it with what should be different. Claude checks the analysis, decisions in earlier analyses and any committed code for what the change contradicts, names the risks and agrees each one with you, then rewrites the analysis in place so it reads as one consistent state. Changed Acceptance items are unchecked. For an analysis that is not yet implemented only the text changes; once work exists, `## Revisions` at the end records the modification as an unchecked item (an unchecked one is updated instead of adding another) and `/ees-implement #N` continues on the same branch with only the unchecked items, then checks the revision off.
+**Option A — Local Setup UI (recommended):**
+
+```bash
+make setup
+```
+
+Opens a localhost page (protected by a one-time token) to toggle providers, pick models and effort levels per agent, load models available on your machine, and install with live output.
+
+**Option B — CLI Installer:**
+
+```bash
+./install.sh                                # interactive provider wizard
+./install.sh --providers claude,codex --yes # non-interactive selection
+./install.sh --all --dry-run                # preview plan without writing
+```
+
+`install.sh` builds `generated/<provider>/agents/` from `agents.toml`, links skills and agents for the selected providers, removes stale pack links for unselected providers, and never touches your own files. Afterwards, `git pull` rebuilds generated agents automatically via `.githooks`; re-run `./install.sh` only when skills or agents are added or removed.
+
+---
+
+## Supported Providers
+
+Each agent is authored once in `agents/<name>.md` with per-provider defaults in [`agents.toml`](agents.toml) and compiled by `scripts/build-agents`.
+
+| Provider | Skills | Agents | Skill invocation |
+|----------|--------|--------|------------------|
+| **Claude Code** | `~/.claude/skills/` | `~/.claude/agents/` | `/ees-analyze #N` |
+| **Codex** | `~/.agents/skills/` | `~/.codex/agents/` | `/ees-analyze #N` |
+| **Cursor** | `~/.agents/skills/` | `~/.cursor/agents/` | `/ees-analyze #N` |
+| **opencode** | `~/.agents/skills/` | `~/.config/opencode/agents/` | `@ees-analyze #N` |
+| **Pi** | `~/.agents/skills/` | `~/.pi/agent/agents/` | `/ees-analyze #N` or `/skill:ees-analyze #N` |
+| **Antigravity** | `~/.gemini/config/skills/` | `~/.gemini/config/agents/` | `/ees-analyze #N` |
+
+<details>
+<summary>Provider-specific notes (Antigravity, opencode, Pi, Codex)</summary>
+
+- **Antigravity (`agy`):** Agents use model tiers (`inherit`, `flash`, `pro`) rather than concrete model IDs; pick the main session model with `/model`. Subagents run without network access, so package installs, `gh`, and git push stay in the main session.
+- **opencode:** `install.sh` merges the pack's model keys into `opencode.json` (backing up the original to `opencode.json.bak`). Requires Claude Code logged in (`claude auth login`) for the `claude-agent` provider. Reads `AGENTS.md`, not `CLAUDE.md`.
+- **Pi:** `install.sh` also links the subagent extension into `~/.pi/agent/extensions/subagent/` and generated `/ees-*` prompt aliases into `~/.pi/agent/prompts/`. Thinking level is appended as `:<variant>` on the model string. Reads `AGENTS.md`, not `CLAUDE.md`.
+- **Codex:** Does not enforce per-agent tool restrictions; read-only agents rely on their instructions.
+
+</details>
+
+---
 
 ## Agents
 
-| Agent | Used by | What it does | Model |
-|-------|---------|--------------|-------|
-| `ees-test-writer` | `/ees-implement`, `/ees-change` | Writes tests for one slice of the change and proves they fail | Sonnet, high |
-| `ees-implementer` | `/ees-implement`, `/ees-change`, repairs | Writes production code against the committed tests | Sonnet, medium |
-| `ees-functional-reviewer` | verify | Checks Acceptance, scope, API contracts, test coverage and documented project rules (read-only) | Sonnet, medium |
-| `ees-code-reviewer` | `/ees-code-review`, directly or in verify and `/ees-change` | Finds correctness, security, design, stack best-practice, performance, test and readability issues with a verdict per area (read-only); `ees-implementer` fixes them | Opus, low |
-| `ees-ux-reviewer` | UX review of frontend diffs | Checks design-system consistency, WCAG 2.2 AA, usability heuristics and frontend best practices in the code and, when the app runs, in a browser (reports only) | Sonnet, medium |
-| `ees-check-runner` | all pipeline skills, any full check run | Runs tests, lint and type checks; returns only failures | Haiku, low |
+Subagents never commit, push, or open PRs — the main session owns git and delivery. Tests are always committed before production code, and assertions are never weakened to make code pass.
 
-Agents never commit, push or open PRs; the main session does. Tests are committed before the code, and assertions are never weakened to make code pass.
+| Agent | Access | Role |
+|-------|--------|------|
+| `ees-test-writer` | read-write | Writes tests for one slice and verifies RED before implementation |
+| `ees-implementer` | read-write | Writes production code against committed tests and fixes review findings |
+| `ees-functional-reviewer` | read-only | Checks acceptance criteria, scope, API contracts, coverage, and project standards |
+| `ees-code-reviewer` | read-only | Reviews correctness, security, design, performance, tests, and readability |
+| `ees-ux-reviewer` | read-only | Audits frontend diffs for design-system consistency, WCAG 2.2 AA, and usability |
+| `ees-check-runner` | read-only | Runs tests, linters, and type checks; returns only failure excerpts |
 
-### Agents for each provider
+How the pipeline controls cost — compact summaries, tiered checks, delta reviews, and escalation — is documented in [`skills/ees-pipeline/execution.md`](skills/ees-pipeline/execution.md).
 
-Each agent is written once and built for Claude Code, Codex, Cursor, opencode, Pi and Antigravity:
+---
 
-- `agents/<name>.md` holds the `name`, the `description` and the instructions.
-- `agents.toml` holds every agent's settings for every provider: shared `readonly` and `skills`, then `claude` (`model`, `effort`, `tools`, `color`), `codex` (`model`, `effort`), `cursor` (`model`, the full Cursor ID with effort, e.g. `grok-4.7-medium`), `opencode` (`model` as `provider/model`, optional `variant`), `pi` (`model` as `provider/model`, optional `variant`) and `antigravity` (`model`, one of the tiers `inherit`, `flash` or `pro`). Leaving out a provider's table skips the agent for that provider.
-- `scripts/build-agents` writes `generated/<provider>/agents/`, a local, gitignored build output that `install.sh` links. `install.sh`, Save in the setup GUI and the `post-merge` / `post-rewrite` hooks (after `git pull`) build it, so never edit it by hand. The `pre-commit` hook runs `scripts/build-agents --validate`, which checks the sources (agents against `agents.toml`, every default against the catalog) and writes nothing.
+## Skills
 
-The values in `agents.toml` are the pack's defaults. To pick other ones, see [Models](#models).
+| Group | Skills |
+|-------|--------|
+| **Pipeline** | `/ees-idea`, `/ees-analyze`, `/ees-implement`, `/ees-complete` *(internal steps: `ees-verify`, `ees-ux-review`, `ees-pipeline`)* |
+| **Ad-hoc & Review** | `/ees-change`, `/ees-code-review`, `/ees-discuss` |
+| **Git & Repo** | `/ees-commit`, `/ees-git-release`, `/ees-monorepo-update`, `/ees-setup` |
+| **Testing Playbooks** | `ees-tdd`, `ees-integration-tests` *(loaded by `ees-test-writer`)* |
 
-```toml
-[ees-check-runner]
-readonly = true
-claude = { model = "haiku", effort = "low", tools = ["Bash", "Read", "Grep", "Glob"], color = "cyan" }
-codex = { model = "gpt-6-luna", effort = "low" }
-cursor = { model = "grok-4.7-low" }
-opencode = { model = "opencode-go/deepseek-v4.1-flash" }
-pi = { model = "opencode-go/deepseek-v4.1-flash", variant = "low" }
-antigravity = { model = "flash" }
-```
+---
 
-Claude preloads `skills`; Codex, Cursor, opencode, Pi and Antigravity get a first line telling the agent to read them. opencode takes `model` and a separate `variant` (`model: …#max` is ignored there) and turns `readonly` into `edit: deny`. Pi writes `variant` as a `:<level>` suffix on `model` (its only way to pin a thinking level) and turns `readonly` into `tools: read, bash`, since Pi has no `edit: deny`. Antigravity writes `tools` explicitly, because a subagent without it has no write or shell access: `readonly = true` gives `read_file` and `run_command`, any other agent also `edit_file` and `write_file`. Its agents are plain files in `~/.gemini/config/agents/`, called by the main session through `invoke_subagent`; `agy agents` lists them, and skills start as `/ees-analyze #N`. Cursor enforces `readonly`; Codex cannot restrict tools per agent, so there read-only roles rely on their instructions. The main Codex session keeps the model from `~/.codex/config.toml`. Pi keeps its model in `~/.pi/agent/settings.json`. Antigravity takes only the tiers `inherit`, `flash` and `pro` as an agent `model` (a concrete model ID leaves the subagent hanging) and has no effort or variant for agents; choose the main session model yourself with `/model`, the pack does not write it. Cursor reads skills from `~/.agents/skills/` and `~/.claude/skills/`, so nothing is linked into `~/.cursor/skills/`. opencode reads skills from `~/.claude/skills/` and `~/.agents/skills/` too and starts them with `@ees-analyze #N` instead of a slash command; Pi reads the same two directories and uses `/skill:ees-analyze #N`, or the `/ees-analyze #N` alias that `scripts/build-pi-prompts` generates.
+## Configuration
 
-## Models
+Projects work out of the box with zero configuration — tracker, monorepo roots, and conversation language are auto-detected.
 
-Opus is used where decisions are made; the pipeline and its agents run on Sonnet or Haiku. Keep **Opus** as your default model: unpinned work — ordinary prompts, `/ees-change`, debugging, questions — is mostly judgment and costs little.
+### Provider & Model Overrides
 
-Antigravity agents run on a tier: `ees-check-runner` on `flash`, the other five on `pro`. Skills run on the main session model, so pick one with `/model` (for example a Gemini 4 Neon or Carbon model). `invoke_subagent` cannot switch a worker's model, so escalation works as in opencode: no new worker on a stronger model, the parent takes the cluster after the second failure. Subagents in `agy` (checked on 1.5.13) run commands without network access, whatever `commandExecutionPolicy` says: they edit files, use `git` and run local tests, but cannot install packages, call `gh` or reach external services. Push, PR, CI and tracker work stay with the main session, which has network; do network-bound steps such as installing a dependency there.
-
-In opencode every skill runs on the main session (`claude-agent/opus`); the code and UX reviewers run on `claude-agent/sonnet`, because review is judgment and a weak model finds little. The other pack agents and built-in helpers run on `opencode-go/deepseek-v4.1-flash`. The `variant` is a separate setting; `-` means none. `ees-implementer`, `ees-test-writer` and the reviewers run on `high`, and the check runner plus the built-in `general`/`explore` run on `low`, where the quality difference is smallest.
-
-Pi uses the same models as opencode for the agents: `opencode-go/deepseek-v4.1-flash` with `variant` as the thinking level, so `ees-implementer`, `ees-test-writer` and the reviewers run on `high` and `ees-check-runner` on `low`. Pi cannot pin a model to a skill, so skills run on the session model from `~/.pi/agent/settings.json` — set it to what you want `/ees-analyze` and `/ees-implement` to think with.
-
-| Skill or agent | Claude Code | opencode |
-|----------------|-------------|----------|
-| `/ees-analyze`, `/ees-discuss` | Opus | `claude-agent/opus` |
-| `/ees-idea` | Sonnet, medium | `claude-agent/opus` |
-| `/ees-implement` | Sonnet, high | `claude-agent/opus` |
-| `ees-verify`, `ees-ux-review` (pipeline steps) | follow the `/ees-implement` or `/ees-change` session | `claude-agent/opus` |
-| `/ees-code-review` | Opus, medium when run directly; inside a pipeline it follows that session | `claude-agent/opus` |
-| `/ees-git-release`, `/ees-monorepo-update` | Sonnet, medium | `claude-agent/opus` |
-| `/ees-setup` | Sonnet, high | `claude-agent/opus` |
-| `/ees-commit`, `/ees-complete` | Haiku, low | `claude-agent/opus` |
-| `/ees-change` | your selected model | `claude-agent/opus` |
-| `ees-test-writer`, `ees-implementer` | Sonnet; high for the test writer, medium for the implementer | `opencode-go/deepseek-v4.1-flash`, variant `high` |
-| `ees-functional-reviewer` | Sonnet, medium | `opencode-go/deepseek-v4.1-flash`, variant `high` |
-| `ees-code-reviewer` | Opus, low | `claude-agent/sonnet`, variant `high` |
-| `ees-ux-reviewer` | Sonnet, medium | `claude-agent/sonnet`, variant `high` |
-| `ees-check-runner` | Haiku, low | `opencode-go/deepseek-v4.1-flash`, variant `low` |
-| `general`, `explore` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `low` |
-| `compaction`, `title`, `summary` (built-in) | - | `opencode-go/deepseek-v4.1-flash`, variant `-` |
-
-- **Opus only for decisions.** An analysis decides what every later step builds and checks, so it gets the strongest model; the pipeline then follows the agreed analysis.
-- **One task per conversation.** Switching models mid-conversation throws away the prompt cache, so start each `/ees-analyze` and each `/ees-implement` in a fresh conversation.
-- **opencode prerequisites.** The `claude-agent` provider needs Claude Code >= 2.1.248 logged in with `claude auth login`. opencode reads `AGENTS.md`, not `CLAUDE.md`, so global rules from `~/.claude/CLAUDE.md` do not apply there. `/ees-implement` has no model to escalate to in opencode; the main session takes over a failing cluster.
-- **Pi prerequisites.** Agents only start once the subagent tool is linked (`install.sh` does it into `~/.pi/agent/extensions/subagent/`) and are visible to the model by name in that tool's description. Skills spelled `/ees-…` in this README reach Pi as `/ees-…` (generated alias) or `/skill:ees-…`; hidden skills are not offered to the model, only as commands. Like opencode, Pi reads `AGENTS.md` and not `CLAUDE.md`.
-
-How the pipeline keeps its own cost down — summaries instead of logs, checks in tiers, delta reviews and escalation on evidence — is in the [Execution contract](skills/ees-pipeline/execution.md).
-
-### Choosing providers and models
-
-Run `make setup`. It opens a local page, reachable only from this machine and protected by a one-time token, with three parts:
-
-- **Providers** — switch on the tools you use; each tile shows whether it is linked or only installed.
-- **Agents** — one tab per provider, one card per agent: a searchable model picker and an effort (or variant) slider. Anything you change is marked and has a reset back to the pack default.
-- **Save and install** — writes your choices to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, rebuilds `generated/` and runs the installer; a dialog shows its output live and can be closed once it has finished. Unticking a provider and saving uninstalls it the same way.
-
-The opencode tab also has a **Session** section with the main model, which runs every skill, and the cheap small model. opencode's built-in agents follow those two: `build` and `plan` the main model; `general`, `explore`, `compaction`, `title` and `summary` the small model (a hand-written `opencode.agent.<id>.model` in settings still wins).
-
-The file holds only deviations from the pack defaults (`agents.toml`, `config/opencode.json`) and you can edit it by hand; a missing key means the current pack default, so a new default from `git pull` reaches everything you did not change:
+`make setup` writes only your deviations from `agents.toml` to `${XDG_CONFIG_HOME:-~/.config}/enterprise-engineering-skills/settings.json`, so `git pull` continues to update untouched defaults:
 
 ```json
 {
-  "providers": ["claude", "codex"],
-  "agents": { "ees-code-reviewer": { "codex": { "model": "gpt-6.2-terra" } } },
-  "opencode": { "agent": { "explore": { "variant": "medium" } } }
+  "providers": ["claude", "antigravity"],
+  "agents": { "ees-code-reviewer": { "claude": { "model": "opus", "effort": "medium" } } }
 }
 ```
 
-The offered values come from the catalog `config/models.toml`, which the pack author updates together with the defaults: a default missing from the catalog fails the build. **Load models** on a provider's tab adds the models your own tools offer on this machine and account — `codex app-server` (`model/list`, with the efforts of each model), `cursor-agent models`, `opencode models` and `pi --list-models` — and keeps them in `models.json` next to `settings.json`, so they can be saved and built without a warning; Reload refreshes the list. Claude Code needs no list: `opus`, `sonnet` and `haiku` always mean the newest model. Antigravity needs none either: it offers only `inherit`, `flash` and `pro`. A value of yours that is no longer in the catalog only warns and is still used. Unknown agents, providers and keys warn and are ignored. `generated/` is rebuilt from the defaults plus your settings after every `git pull`; if you installed before the git hooks existed (no `core.hooksPath` in the pack checkout), re-run `install.sh` once after pulling this change. `install.sh` takes its default provider selection from `providers` in settings, and `--providers` or `--all` store the selection there.
+### Workflow Settings
 
-`CLAUDE_CODE_EFFORT_LEVEL` overrides every Claude `effort`.
+Optional settings live in `~/.config/enterprise-engineering-skills/workflow.md` (global) or `docs/agents/config/workflow.md` (project), or can be configured via `/ees-setup`. Precedence: **session → project → global → auto-detect**.
 
-## Agents from another tool (Herdr)
+| Key | Default | Options |
+|-----|---------|---------|
+| `language` | conversation / analysis language | `en` · `cs` |
+| `tracker` | auto-detected | `github` · `local` *(project file only)* |
+| `## Monorepo` | auto-detected | delivery root mapping *(project file only)* |
 
-Optional, and not installed by `install.sh`. Inside one tool the pack's agents start as native subagents, which is the better path: the result returns straight to the parent. [Herdr](https://herdr.dev) desktop is worth setting up only when the main session should use a model its own tool cannot run, such as a Codex session that wants its code review from Claude. Its CLI `hc` starts another tool in its own terminal, sends it a task and delivers its report back as the next input. `hc --skill` prints the manual for agents.
+Project-specific review rules can be placed in `docs/agents/config/{verify,code-review,ux-review}.md`. Personal, gitignored skills go in `skills/personal/`. See [`skills/ees-pipeline/config.md`](skills/ees-pipeline/config.md) for the full format.
 
-1. **Create a template per agent** in `~/.config/herdr-core/templates/<name>.md`. `claude --agent` starts Claude Code as one pack agent with the model, effort and tools from its definition; the body is prepended to every task:
+### Tracker Status
 
-   ```markdown
-   ---
-   name: claude-code-reviewer
-   description: Claude Code as ees-code-reviewer
-   command: claude --agent ees-code-reviewer
-   ---
-   When you are done or stuck, report to whoever sent the task with `hc send`; write long answers to a file and send its path.
-   ```
+With the **local tracker**, ideas live in `docs/agents/analysis/ideas/`, active analyses in `docs/agents/analysis/`, and completed ones move to `done/`. With **GitHub**, issues use these labels:
 
-   For the other direction use `command: codex --no-daemon -m <model> -c model_reasoning_effort=<effort>`. Codex needs `--no-daemon`, or its commands run outside Herdr. `hc templates` lists what is installed.
+| Label | Meaning |
+|-------|---------|
+| `idea` | Captured idea; `/ees-analyze #N` converts it to `analysis` |
+| `in-progress` | `/ees-implement` is running or paused; rerun to resume |
+| `needs-attention` | Blocker requires your decision; resolve and rerun `/ees-implement` |
+| `ready-to-review` | All gates passed; review the PR and run `/ees-complete` |
 
-2. **Start it** from any agent running in a Herdr terminal (`$HC_TERMINAL_ID` is set):
+<details>
+<summary>Optional: Cross-tool agents with Herdr</summary>
 
+Inside a single provider, agents run natively as subagents. If you want a session in one tool (e.g. Codex) to delegate a role (e.g. code review) to another tool (e.g. Claude Code), you can wire it via [Herdr](https://herdr.dev) (`hc`):
+
+1. Add a template in `~/.config/herdr-core/templates/claude-code-reviewer.md` with `command: claude --agent ees-code-reviewer`.
+2. Start it from a Herdr terminal:
    ```sh
    hc run --bg --name review --cwd "$PWD" claude-code-reviewer "Review git diff main...HEAD. Read-only."
    hc wait review
    ```
+3. Optionally add a routing rule in your personal `AGENTS.md` / `CLAUDE.md` when `$HC_TERMINAL_ID` is set.
 
-3. **Make it the default, if you want**, with a rule in your own `~/.codex/AGENTS.md` (or `~/.claude/CLAUDE.md`), not in this pack:
-
-   ```markdown
-   When `HC_TERMINAL_ID` is set, start code review with `hc run --bg claude-code-reviewer "<brief>"` instead of the native ees-code-reviewer, wait with `hc wait`, and read the report it sends. Start every other agent natively.
-   ```
-
-A terminal that shows `blocked` is waiting for you to answer a permission prompt; the parent does not answer it. The other tool's run counts against that tool's own subscription.
-
-## Status
-
-With the local tracker there is no status: an analysis in `docs/agents/analysis/` is active, an idea in `docs/agents/analysis/ideas/` is waiting for `/ees-analyze`, and a green verify moves it to `done/`. Blockers are noted under `## Comments`. On GitHub, the issue carries these labels:
-
-| Label | Meaning |
-|-------|---------|
-| `idea` | An idea not yet analyzed; `/ees-analyze #N` converts it to `analysis`, `/ees-implement` refuses it |
-| `in-progress` | `/ees-implement` is running or was interrupted; rerun it to resume |
-| `needs-attention` | A blocker needs your decision; resolve it and rerun `/ees-implement` |
-| `ready-to-review` | All gates passed; your turn to review, then `/ees-complete` |
-
-Notes go on the analysis, never on the PR.
-
-## Configuration
-
-No configuration is required. The agent always manages the Delivery branch and PR, pushes at the end of verify and watches CI ([`delivery.md`](skills/ees-pipeline/delivery.md)); "don't push" in the session keeps the commits local. The UX review runs whenever the diff touches the frontend.
-
-| Key | Without a setting | Options |
-|-----|-------------------|---------|
-| `language` | conversation language for `/ees-idea` and new analyses; the analysis language for revisions, `/ees-implement`, verify and `/ees-complete` | `en` · `cs` for analysis prose, comments and the PR Summary |
-| `tracker` | detected | `github` · `local` |
-| Monorepo | detected | `## Monorepo` section (project file only) |
-
-Each key is resolved separately and the first level that sets it wins: session (for example "write this analysis in English") → project file `docs/agents/config/workflow.md` → global file → conversation, analysis or detection. The project file holds only deviations and is the only place for `tracker` and `## Monorepo`. Older `branch-owner`, `push` and `ux-review` keys are ignored. Detection and the file format are described in [`ees-pipeline/config.md`](skills/ees-pipeline/config.md). `/ees-setup` is optional: it checks the installation and sets the language globally or for a project.
-
-Project-specific rules go in the overlays `docs/agents/config/verify.md`, `code-review.md` and `ux-review.md`. Local-only skills go in the gitignored `skills/personal/`.
-
-## Other skills
-
-Most skills run only as slash commands. Claude starts these on its own when the request fits: `ees-implement` (a request naming an analysis), `ees-discuss` (weighing options), `ees-tdd`, `ees-integration-tests`, `ees-commit` and `ees-git-release`.
-
-The same split holds in Pi: the skills Claude starts on its own are advertised to the model, the rest are commands (`/skill:ees-idea` or the generated `/ees-idea` alias). Verify and UX review are steps of the pipeline and have no command.
-
-- **`/ees-change`** — implementation without an analysis through the same agents; see [Workflow](#workflow).
-- **`/ees-code-review`** — read-only review of the current changes, fixes by `ees-implementer`; useful after an ordinary prompt.
-- **`/ees-discuss`** — talk a question through with options and trade-offs; changes nothing.
-- **`/ees-commit`** — Conventional Commits from the diff; `/ees-commit push` also pushes.
-- **`/ees-git-release`** — semver tag and GitHub release with a changelog.
-- **`/ees-monorepo-update`** — bump submodules or check out an analysis branch in every delivery root.
-- **`ees-tdd`**, **`ees-integration-tests`** — testing playbooks used by `ees-test-writer`.
-- **`ees-pipeline`** — hidden shared library (not invokable): configuration, delivery, detection and the GitHub and local tracker instructions that the pipeline skills read.
+</details>
