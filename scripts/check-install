@@ -5,6 +5,8 @@
 # scripts/check-* still pass) is run separately. [harness] labels are setup checks.
 # Labels [i12-...] cover the installer and git hook part of issue #12 (settings.json providers, build
 # before linking, generated/ not tracked, post-merge / post-rewrite hooks, pre-commit validation).
+# Labels [a14-...] cover the installer part of issue #14 (provider Antigravity: ~/.gemini/config/skills
+# and agents, detection, wizard, usage, pruning, conflicts, settings.json storage).
 # Prints one PASS/FAIL line per check and exits 1 when any check fails.
 #
 # generated/ is a local build output (not committed): the sandbox tree is built with scripts/build-agents
@@ -220,7 +222,7 @@ while IFS= read -r skill_md; do
   skill_dirs+=("$(dirname "$skill_md")")
 done < <(find "$tree/skills" -name SKILL.md | sort)
 
-providers=(claude codex cursor opencode pi)
+providers=(claude codex cursor opencode pi antigravity)
 
 agent_src() { echo "$tree/generated/$1/agents"; }
 
@@ -231,8 +233,11 @@ agent_dest() { # agent_dest <scenario> <provider>
     cursor) echo "$1/home/.cursor/agents" ;;
     opencode) echo "$1/xdg/opencode/agents" ;;
     pi) echo "$1/pi/agent/agents" ;;
+    antigravity) echo "$1/home/.gemini/config/agents" ;;
   esac
 }
+
+gemini_skills() { echo "$1/home/.gemini/config/skills"; } # Antigravity skill root of a scenario
 
 # ---------------------------------------------------------------- state assertions
 
@@ -355,6 +360,7 @@ assert_no_managed_links() { # assert_no_managed_links <scenario>
   local d="$1" p
   assert_no_pack_links "$d/claude/skills" || return 1
   assert_no_pack_links "$d/home/.agents/skills" || return 1
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
   for p in "${providers[@]}"; do
     assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1
   done
@@ -368,6 +374,7 @@ all_destinations() { # all_destinations <scenario>: every link a full --all run 
   for skill in "${skill_dirs[@]}"; do
     echo "$d/claude/skills/$(basename "$skill")"
     echo "$d/home/.agents/skills/$(basename "$skill")"
+    echo "$(gemini_skills "$d")/$(basename "$skill")"
   done
   for p in "${providers[@]}"; do
     for f in "$(agent_src "$p")"/*; do
@@ -382,7 +389,8 @@ all_destinations() { # all_destinations <scenario>: every link a full --all run 
 }
 
 all_skill_roots() { # all_skill_roots <scenario>
-  assert_skill_root "$1/claude/skills" && assert_skill_root "$1/home/.agents/skills"
+  assert_skill_root "$1/claude/skills" && assert_skill_root "$1/home/.agents/skills" &&
+    assert_skill_root "$(gemini_skills "$1")"
 }
 
 all_agent_dirs() { # all_agent_dirs <scenario>
@@ -394,7 +402,7 @@ all_agent_dirs() { # all_agent_dirs <scenario>
 
 no_provider_cli() {
   local d; d="$(scenario harness)"
-  scenario_env "$d" bash -c 'for c in claude codex cursor cursor-agent opencode pi; do command -v "$c" >/dev/null && exit 1; done; exit 0'
+  scenario_env "$d" bash -c 'for c in claude codex cursor cursor-agent opencode pi agy; do command -v "$c" >/dev/null && exit 1; done; exit 0'
 }
 
 hooks_set() {
@@ -404,6 +412,8 @@ hooks_set() {
 
 check "[harness] sandbox PATH exposes no provider CLI" no_provider_cli
 check "[harness] python3 is available for the PTY wizard checks" command -v python3
+check "[harness] the build output has six Antigravity agents under generated/antigravity/agents" \
+  bash -c 'n="$(find "$1/generated/antigravity/agents" -maxdepth 1 -type f -name "ees-*.md" 2>/dev/null | wc -l)"; [[ "$n" == 6 ]] || { echo "found $n generated/antigravity/agents/ees-*.md, want 6 (build-agents does not render antigravity yet)"; exit 1; }' _ "$tree"
 check "[harness] the sandbox tree builds generated/ without a committed copy" \
   bash -c '[[ "$1" == 0 && -f "$2/generated/claude/agents/ees-test-writer.md" && -d "$2/generated/pi/prompts" ]] || { cat "$3/err"; exit 1; }' _ "$build_prep_rc" "$tree" "$prep"
 
@@ -412,8 +422,8 @@ check "[harness] the sandbox tree builds generated/ without a committed copy" \
 c1="$(scenario all)"
 run_install "$c1" --all
 check "[1] --all exits 0 in a clean sandbox" has_rc "$c1" 0
-check "[1] --all links every skill into ~/.claude/skills and ~/.agents/skills" all_skill_roots "$c1"
-check "[1] --all links every agent into all five provider agent dirs" all_agent_dirs "$c1"
+check "[1] --all links every skill into ~/.claude/skills, ~/.agents/skills and ~/.gemini/config/skills" all_skill_roots "$c1"
+check "[1] --all links every agent into all six provider agent dirs" all_agent_dirs "$c1"
 check "[x1] a real run sets core.hooksPath to .githooks" hooks_set
 
 run_install "$c1" --all
@@ -440,7 +450,8 @@ claude_only() {
   assert_skill_root "$d/claude/skills" || return 1
   assert_agent_dir "$d" claude || return 1
   assert_no_pack_links "$d/home/.agents/skills" || return 1
-  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  for p in codex cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   assert_no_pack_links "$d/pi/agent/prompts" || return 1
   assert_no_extension_link "$d" || return 1
 }
@@ -457,7 +468,8 @@ codex_only() {
   assert_agent_dir "$d" codex || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
   assert_no_pack_links "$d/claude/agents" || return 1
-  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  for p in cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
 }
 check "[4] --providers codex links skills to ~/.agents/skills and agents to ~/.codex/agents" codex_only "$c4"
 
@@ -472,7 +484,8 @@ pi_only() {
   assert_pi_bundle "$d" || return 1
   assert_pi_prompts "$d" || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
-  for p in claude codex cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  for p in claude codex cursor opencode antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
 }
 check "[5] --providers pi links agents, one prompt per user-invocable skill and the subagent extension" pi_only "$c5"
 
@@ -491,7 +504,7 @@ shrink_prunes_claude() {
   assert_agent_dir "$d" codex || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
   assert_no_pack_links "$d/claude/agents" || return 1
-  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
 }
 check "[6] codex after claude+codex removes Claude's pack links and keeps Codex's and the shared root" shrink_prunes_claude "$c6"
 
@@ -557,7 +570,7 @@ interactive_claude() {
   assert_skill_root "$d/claude/skills" || return 1
   assert_agent_dir "$d" claude || return 1
   assert_no_pack_links "$d/home/.agents/skills" || return 1
-  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in codex cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   plan_avoids "$d/out" "$d/home/.agents/skills/" "$d/codex/agents/" "$d/home/.cursor/agents/" \
     "$d/xdg/opencode/agents/" "$d/pi/agent/"
 }
@@ -640,11 +653,12 @@ pty_defaults_linked_only() {
   assert_skill_root "$d/claude/skills" || return 1
   assert_agent_dir "$d" claude || return 1
   assert_no_pack_links "$d/home/.agents/skills" || return 1
-  for p in codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  for p in codex cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   assert_no_pack_links "$d/pi/agent/prompts" || return 1
   assert_no_extension_link "$d" || return 1
   plan_omits "$d/out" "$d/home/.agents/skills/" "$d/codex/agents/" "$d/home/.cursor/agents/" \
-    "$d/xdg/opencode/agents/" "$d/pi/agent/"
+    "$d/xdg/opencode/agents/" "$d/pi/agent/" "$d/home/.gemini/"
 }
 check "[11] on a terminal the wizard preselects only the linked provider, not an installed one" pty_defaults_linked_only "$c11a"
 
@@ -667,13 +681,13 @@ pty_defaults_all() {
   local d="$1" i
   has_rc "$d" 0 || return 1
   grep -qF 'Apply this plan?' "$d/out" || { echo "no plan confirmation prompt"; return 1; }
-  for i in 1 2 3 4 5; do
+  for i in 1 2 3 4 5 6; do
     wizard_preselects "$d/out" "$i" || { echo "nothing is linked but provider $i is not preselected"; return 1; }
   done
   all_skill_roots "$d" || return 1
   all_agent_dirs "$d" || return 1
 }
-check "[11] on a terminal with nothing linked the wizard preselects all five providers" pty_defaults_all "$c11b"
+check "[11] on a terminal with nothing linked the wizard preselects all six providers" pty_defaults_all "$c11b"
 
 # ---------------------------------------------------------------- [12] real file and foreign symlink are skipped
 
@@ -716,6 +730,7 @@ dry_run_writes_nothing() {
     base="$(basename "$skill")"
     plan_has "$d/out" link "$d/claude/skills/$base" || { echo "plan misses $d/claude/skills/$base"; return 1; }
     plan_has "$d/out" link "$d/home/.agents/skills/$base" || { echo "plan misses $d/home/.agents/skills/$base"; return 1; }
+    plan_has "$d/out" link "$(gemini_skills "$d")/$base" || { echo "plan misses $(gemini_skills "$d")/$base"; return 1; }
     break
   done
   for p in "${providers[@]}"; do
@@ -725,10 +740,12 @@ dry_run_writes_nothing() {
   done
   plan_has "$d/out" link "$d/pi/agent/extensions/subagent" || { echo "plan misses the Pi extension"; return 1; }
   assert_no_managed_links "$d" || return 1
-  for p in claude codex cursor opencode pi; do
+  for p in claude codex cursor opencode pi antigravity; do
     [[ ! -e "$(agent_dest "$d" "$p")" ]] || { echo "dry run created $(agent_dest "$d" "$p")"; return 1; }
   done
-  [[ ! -e "$d/claude/skills" && ! -e "$d/home/.agents/skills" ]] || { echo "dry run created a skill root"; return 1; }
+  [[ ! -e "$d/claude/skills" && ! -e "$d/home/.agents/skills" && ! -e "$(gemini_skills "$d")" ]] ||
+    { echo "dry run created a skill root"; return 1; }
+  [[ ! -e "$d/home/.gemini" ]] || { echo "dry run created ~/.gemini"; return 1; }
   cmp -s "$d/orig.json" "$d/xdg/opencode/opencode.json" || { echo "dry run changed opencode.json"; return 1; }
   [[ ! -e "$d/xdg/opencode/opencode.json.bak" ]] || { echo "dry run wrote a backup"; return 1; }
   ! git -C "$tree" config --get core.hooksPath >/dev/null 2>&1 || { echo "dry run changed core.hooksPath"; return 1; }
@@ -750,7 +767,7 @@ opencode_selected() {
   assert_skill_root "$d/home/.agents/skills" || return 1
   assert_agent_dir "$d" opencode || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
-  for p in claude codex cursor pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in claude codex cursor pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   python3 - "$d/xdg/opencode/opencode.json" <<'PY' || return 1
 import json, sys
 config = json.load(open(sys.argv[1]))
@@ -816,7 +833,7 @@ pi_deselected() {
   assert_skill_root "$d/home/.agents/skills" || return 1
   assert_agent_dir "$d" codex || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
-  for p in claude cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in claude cursor opencode antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
 }
 check "[16] selecting Pi and then deselecting it removes Pi agents, prompts and the extension" pi_deselected "$c16"
 
@@ -963,7 +980,7 @@ untick_removes_links() {
   assert_no_pack_links "$d/claude/skills" || return 1
   assert_no_pack_links "$d/claude/agents" || return 1
   assert_agent_dir "$d" codex || return 1
-  for p in cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in cursor opencode pi antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   has_settings_providers "$d" codex
 }
 check "[i12-1] --providers <subset> --yes removes the links of the others and settings.json providers follows" untick_removes_links "$ci1"
@@ -995,8 +1012,8 @@ check "[i12-2] --providers rewrites only providers and keeps the other settings.
 ci2c="$(scenario i12-all-writes)"
 write_settings "$ci2c" '{"providers": ["codex"]}'
 run_install "$ci2c" --all --yes
-check "[i12-2] --all --yes overrides the stored selection and writes all five providers" \
-  has_settings_providers "$ci2c" "claude,codex,cursor,opencode,pi"
+check "[i12-2] --all --yes overrides the stored selection and writes all six providers" \
+  has_settings_providers "$ci2c" "antigravity,claude,codex,cursor,opencode,pi"
 
 # ---------------------------------------------------------------- [i12-3] default selection from settings.json
 
@@ -1012,13 +1029,14 @@ pty_preselects_settings() {
   for i in 2 5; do
     wizard_preselects "$d/out" "$i" || { echo "provider $i from settings.json is not preselected"; return 1; }
   done
-  for i in 1 3 4; do
+  for i in 1 3 4 6; do
     wizard_does_not_preselect "$d/out" "$i" || { echo "provider $i is preselected but not in settings.json"; return 1; }
   done
   assert_agent_dir "$d" codex || return 1
   assert_pi_bundle "$d" || return 1
   assert_no_pack_links "$d/claude/skills" || return 1
-  for i in claude cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$i")" || return 1; done
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  for i in claude cursor opencode antigravity; do assert_no_pack_links "$(agent_dest "$d" "$i")" || return 1; done
 }
 check "[i12-3] on a terminal the wizard preselects the providers from settings.json" pty_preselects_settings "$ci3a"
 
@@ -1048,7 +1066,7 @@ noflags_uses_settings() {
   local d="$1" p
   has_rc "$d" 0 || return 1
   assert_pi_bundle "$d" || return 1
-  for p in claude codex cursor opencode; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  for p in claude codex cursor opencode antigravity; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
   assert_no_pack_links "$d/claude/skills" || return 1
 }
 check "[i12-3] no flags and no terminal links only the providers from settings.json" noflags_uses_settings "$ci3c"
@@ -1238,6 +1256,430 @@ pre_commit_rejects_missing_default() {
     { echo "output does not name the value: $(head -n 5 "$ci10/commit-bad.out")"; return 1; }
 }
 check "[i12-10] pre-commit rejects a default missing from the catalog and names the agent and value" pre_commit_rejects_missing_default
+
+# ================================================================ issue #14: provider Antigravity
+
+# Antigravity reads skills and agents only from ~/.gemini/config/{skills,agents}; it does not read the shared
+# ~/.agents/skills. ~/.gemini/config is also used by the desktop app (user skills, plugins/), so only links into
+# this pack may ever be touched there.
+gem_dir() { echo "$1/home/.gemini/config"; }
+
+assert_antigravity_agents() { # assert_antigravity_agents <scenario>: all six agents linked as <agent>.md
+  local d="$1" name
+  for name in check-runner code-reviewer functional-reviewer implementer test-writer ux-reviewer; do
+    [[ -L "$(gem_dir "$d")/agents/ees-$name.md" ]] || { echo "missing agent link: $(gem_dir "$d")/agents/ees-$name.md"; return 1; }
+  done
+  assert_agent_dir "$d" antigravity
+}
+
+# The wizard row of provider 6 (Antigravity), with its marker and note.
+wizard_row() { grep -E "^[[:space:]]*6\) Antigravity" "$1" | head -n 1; }
+
+# ---------------------------------------------------------------- [a14-1] --providers antigravity
+
+ca1="$(scenario a14-only)"
+run_install "$ca1" --providers antigravity --yes
+antigravity_only() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "antigravity alone created ~/.agents/skills"; return 1; }
+  [[ ! -e "$(gem_dir "$d")/plugins" ]] || { echo "the installer created ~/.gemini/config/plugins"; return 1; }
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for p in claude codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+  assert_no_pack_links "$d/pi/agent/prompts" || return 1
+  assert_no_extension_link "$d" || return 1
+  plan_avoids "$d/out" "$d/home/.agents/" "$d/claude/" "$d/codex/" "$d/home/.cursor/" "$d/xdg/opencode/" "$d/pi/"
+}
+check "[a14-1] --providers antigravity --yes links skills to ~/.gemini/config/skills and agents to ~/.gemini/config/agents only" antigravity_only "$ca1"
+check "[a14-1] --providers antigravity --yes stores providers [antigravity] in settings.json" \
+  has_settings_providers "$ca1" antigravity
+
+# Antigravity is not a reader of ~/.agents/skills: selecting it together with Claude Code adds no shared root.
+ca1b="$(scenario a14-with-claude)"
+run_install "$ca1b" --providers antigravity,claude --yes
+antigravity_not_shared() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "~/.agents/skills was created without a provider that reads it"; return 1; }
+  has_settings_providers "$d" antigravity,claude
+}
+check "[a14-1] antigravity with claude does not create ~/.agents/skills (shared_selected is unchanged)" antigravity_not_shared "$ca1b"
+
+# A second run is a no-op: every Antigravity link is reported ok.
+run_install "$ca1" --providers antigravity --yes
+antigravity_idempotent() {
+  local d="$1" skill f
+  has_rc "$d" 0 || return 1
+  for skill in "${skill_dirs[@]}"; do
+    plan_has "$d/out" ok "$(gemini_skills "$d")/$(basename "$skill")" || { echo "no ok line for skill $(basename "$skill")"; return 1; }
+  done
+  for f in "$(agent_src antigravity)"/*; do
+    [[ -e "$f" ]] || continue
+    plan_has "$d/out" ok "$(gem_dir "$d")/agents/$(basename "$f")" || { echo "no ok line for agent $(basename "$f")"; return 1; }
+  done
+  if plan_action "$d/out" link || plan_action "$d/out" relink || plan_action "$d/out" unlink; then
+    echo "second run still plans a link, relink or unlink"
+    return 1
+  fi
+}
+check "[a14-1] a second --providers antigravity run prints ok for every skill and agent and changes nothing" antigravity_idempotent "$ca1"
+
+# ---------------------------------------------------------------- [a14-2] unselected: pack links go, the rest stays
+
+ca2="$(scenario a14-deselect)"
+run_install "$ca2" --providers antigravity --yes
+ca2_gem="$(gem_dir "$ca2")"
+ca2_linked=0
+if [[ -L "$ca2_gem/skills/ees-tdd" && -L "$ca2_gem/agents/ees-implementer.md" ]]; then ca2_linked=1; fi
+mkdir -p "$ca2_gem/skills/my-skill" "$ca2_gem/plugins/some-plugin" "$ca2_gem/agents" "$ca2/foreign"
+printf 'my skill\n' >"$ca2_gem/skills/my-skill/SKILL.md"
+printf '{"name": "some-plugin"}\n' >"$ca2_gem/plugins/some-plugin/plugin.json"
+printf 'my own agent\n' >"$ca2_gem/agents/custom.md"
+printf 'foreign\n' >"$ca2/foreign/skill.md"
+ln -s "$ca2/foreign/skill.md" "$ca2_gem/skills/foreign-skill"
+run_install "$ca2" --providers claude --yes
+antigravity_deselected() {
+  local d="$1" g="$1/home/.gemini/config"
+  [[ "$ca2_linked" == 1 ]] || { echo "first run did not link the Antigravity skills and agents"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_no_pack_links "$g/skills" || return 1
+  assert_no_pack_links "$g/agents" || return 1
+  plan_has "$d/out" unlink "$g/skills/ees-tdd" || { echo "no unlink line for the skill link"; return 1; }
+  plan_has "$d/out" unlink "$g/agents/ees-implementer.md" || { echo "no unlink line for the agent link"; return 1; }
+  [[ -d "$g/skills/my-skill" && "$(cat "$g/skills/my-skill/SKILL.md")" == "my skill" ]] ||
+    { echo "the real skill directory my-skill was removed or changed"; return 1; }
+  [[ "$(cat "$g/plugins/some-plugin/plugin.json")" == '{"name": "some-plugin"}' ]] ||
+    { echo "~/.gemini/config/plugins was touched"; return 1; }
+  [[ -f "$g/agents/custom.md" && ! -L "$g/agents/custom.md" && "$(cat "$g/agents/custom.md")" == "my own agent" ]] ||
+    { echo "the real agent file custom.md was removed or changed"; return 1; }
+  [[ -L "$g/skills/foreign-skill" && "$(readlink -f "$g/skills/foreign-skill")" == "$(readlink -f "$d/foreign/skill.md")" ]] ||
+    { echo "the foreign symlink was removed or retargeted"; return 1; }
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  has_settings_providers "$d" claude
+}
+check "[a14-2] --providers claude after antigravity unlinks the pack links, keeps real dirs and files, foreign links and plugins/" antigravity_deselected "$ca2"
+
+# --providers none removes the Antigravity links too (covered together with the others by [7]); a
+# dedicated run keeps the user's own skills there.
+ca2b="$(scenario a14-none)"
+run_install "$ca2b" --providers antigravity --yes
+ca2b_linked=0
+if [[ -L "$(gem_dir "$ca2b")/skills/ees-tdd" && -L "$(gem_dir "$ca2b")/agents/ees-implementer.md" ]]; then ca2b_linked=1; fi
+mkdir -p "$(gem_dir "$ca2b")/skills/my-skill"
+printf 'my skill\n' >"$(gem_dir "$ca2b")/skills/my-skill/SKILL.md"
+run_install "$ca2b" --providers none --yes
+none_removes_antigravity() {
+  local d="$1" g="$1/home/.gemini/config"
+  [[ "$ca2b_linked" == 1 ]] || { echo "the seeding run did not link the Antigravity skills and agents"; return 1; }
+  has_rc "$d" 0 || return 1
+  assert_no_managed_links "$d" || return 1
+  [[ "$(cat "$g/skills/my-skill/SKILL.md" 2>/dev/null)" == "my skill" ]] || { echo "the real skill my-skill was removed"; return 1; }
+  has_settings_providers "$d" ""
+}
+check "[a14-2] --providers none removes the Antigravity links and keeps the user's own skill" none_removes_antigravity "$ca2b"
+
+# ---------------------------------------------------------------- [a14-3] real files are skipped
+
+ca3="$(scenario a14-conflicts)"
+ca3_gem="$(gem_dir "$ca3")"
+mkdir -p "$ca3_gem/agents" "$ca3_gem/skills/ees-verify"
+printf 'my own agent\n' >"$ca3_gem/agents/ees-implementer.md"
+printf 'my own skill\n' >"$ca3_gem/skills/ees-verify/SKILL.md"
+run_install "$ca3" --providers antigravity --yes
+antigravity_skips_real() {
+  local d="$1" g="$1/home/.gemini/config" dest
+  has_rc "$d" 0 || return 1
+  for dest in "$g/agents/ees-implementer.md" "$g/skills/ees-verify"; do
+    awk -v x="$dest" '$1 == "skip" && $2 == x { found = 1 } END { exit !found }' "$d/err" ||
+      { echo "no skip line on stderr for $dest"; return 1; }
+  done
+  [[ -f "$g/agents/ees-implementer.md" && ! -L "$g/agents/ees-implementer.md" &&
+     "$(cat "$g/agents/ees-implementer.md")" == "my own agent" ]] || { echo "the real agent file changed"; return 1; }
+  [[ ! -L "$g/skills/ees-verify" && "$(cat "$g/skills/ees-verify/SKILL.md")" == "my own skill" ]] ||
+    { echo "the real skill directory changed"; return 1; }
+  [[ -L "$g/agents/ees-test-writer.md" && -L "$g/skills/ees-tdd" ]] || { echo "the rest of the plan was not applied"; return 1; }
+}
+check "[a14-3] a real file or directory in ~/.gemini/config is reported as skip on stderr and left untouched" antigravity_skips_real "$ca3"
+
+# ---------------------------------------------------------------- [a14-4] dangling links in ~/.gemini/config
+
+ca4="$(scenario a14-dangling)"
+ca4_gem="$(gem_dir "$ca4")"
+mkdir -p "$ca4_gem/skills" "$ca4_gem/agents"
+ln -s "$tree/skills/ees-removed-skill" "$ca4_gem/skills/ees-removed-skill"
+ln -s "$tree/skills/removed-dir/ees-removed-nested" "$ca4_gem/skills/ees-removed-nested"
+ln -s "$tree/generated/antigravity/agents/ees-removed-agent.md" "$ca4_gem/agents/ees-removed-agent.md"
+run_install "$ca4" --providers antigravity --yes
+antigravity_dangling_pruned() {
+  local d="$1" g="$1/home/.gemini/config" dest
+  has_rc "$d" 0 || return 1
+  for dest in "$g/skills/ees-removed-skill" "$g/skills/ees-removed-nested" "$g/agents/ees-removed-agent.md"; do
+    plan_has "$d/out" unlink "$dest" || { echo "dangling link not unlinked: $dest"; return 1; }
+    [[ ! -e "$dest" && ! -L "$dest" ]] || { echo "dangling link remains: $dest"; return 1; }
+  done
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d"
+}
+check "[a14-4] dangling pack links in ~/.gemini/config are unlinked and the current skills and agents linked" antigravity_dangling_pruned "$ca4"
+
+# ---------------------------------------------------------------- [a14-5] wizard
+
+# Provider 6 is offered, numbered last and labelled Antigravity; 7 is out of range.
+ca5a="$(scenario a14-pty-label)"
+printf 'none\nn\n' >"$ca5a/stdin"
+run_pty "$ca5a"
+wizard_offers_antigravity() {
+  local d="$1" row
+  has_rc "$d" 0 || return 1
+  row="$(wizard_row "$d/out")"
+  [[ -n "$row" ]] || { echo "the wizard has no '6) Antigravity' row"; return 1; }
+  ! grep -qE '^[[:space:]]*7\) ' "$d/out" || { echo "the wizard lists more than six providers"; return 1; }
+  grep -qE '^[[:space:]]*5\) Pi ' "$d/out" || { echo "Pi is not provider 5"; return 1; }
+}
+check "[a14-5] the wizard offers Antigravity as the sixth and last provider" wizard_offers_antigravity "$ca5a"
+
+# A number picks it; 7 is rejected and asked again.
+ca5b="$(scenario a14-pty-pick)"
+printf '7\n6\n\n' >"$ca5b/stdin"
+run_pty "$ca5b"
+wizard_picks_six() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  grep -qF 'Invalid selection: 7' "$d/out" || { echo "7 was not rejected as out of range"; return 1; }
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "~/.agents/skills was created"; return 1; }
+  assert_no_pack_links "$d/claude/skills" || return 1
+  for p in claude codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[a14-5] typing 6 selects only Antigravity and 7 is rejected as invalid" wizard_picks_six "$ca5b"
+
+# 1,6 combines it with another number.
+ca5c="$(scenario a14-pty-pick-list)"
+printf '1, 6\n\n' >"$ca5c/stdin"
+run_pty "$ca5c"
+wizard_picks_list() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$d/claude/skills" || return 1
+  assert_agent_dir "$d" claude || return 1
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "~/.agents/skills was created"; return 1; }
+}
+check "[a14-5] typing '1, 6' links Claude Code and Antigravity" wizard_picks_list "$ca5c"
+
+# `all` includes it.
+ca5d="$(scenario a14-pty-all)"
+printf 'all\n\n' >"$ca5d/stdin"
+run_pty "$ca5d"
+wizard_all_includes() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  all_skill_roots "$d" || return 1
+  all_agent_dirs "$d"
+}
+check "[a14-5] typing all in the wizard links Antigravity with the other five providers" wizard_all_includes "$ca5d"
+
+# Preselected when a pack link exists in ~/.gemini/config/skills ...
+ca5e="$(scenario a14-pty-linked-skills)"
+mkdir -p "$(gem_dir "$ca5e")/skills"
+ln -s "$tree/skills/ees-tdd" "$(gem_dir "$ca5e")/skills/ees-tdd"
+printf '\n\n' >"$ca5e/stdin"
+run_pty "$ca5e"
+wizard_preselect_from_skills() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  wizard_preselects "$d/out" 6 || { echo "Antigravity is not preselected although a pack link is in ~/.gemini/config/skills"; return 1; }
+  for p in 1 2 3 4 5; do
+    wizard_does_not_preselect "$d/out" "$p" || { echo "provider $p is preselected but only Antigravity is linked"; return 1; }
+  done
+  grep -qE '^[[:space:]]*6\) Antigravity[[:space:]]+\[x\] linked[[:space:]]*$' "$d/out" ||
+    { echo "wrong note for a linked, not installed Antigravity: $(wizard_row "$d/out")"; return 1; }
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "~/.agents/skills was created"; return 1; }
+}
+check "[a14-5] the wizard preselects Antigravity when a pack link exists in ~/.gemini/config/skills" wizard_preselect_from_skills "$ca5e"
+
+# ... or in ~/.gemini/config/agents.
+ca5f="$(scenario a14-pty-linked-agents)"
+mkdir -p "$(gem_dir "$ca5f")/agents"
+ln -s "$tree/generated/antigravity/agents/ees-test-writer.md" "$(gem_dir "$ca5f")/agents/ees-test-writer.md"
+printf '\n\n' >"$ca5f/stdin"
+run_pty "$ca5f"
+wizard_preselect_from_agents() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  wizard_preselects "$d/out" 6 || { echo "Antigravity is not preselected although a pack link is in ~/.gemini/config/agents"; return 1; }
+  for p in 1 2 3 4 5; do
+    wizard_does_not_preselect "$d/out" "$p" || { echo "provider $p is preselected but only Antigravity is linked"; return 1; }
+  done
+}
+check "[a14-5] the wizard preselects Antigravity when a pack link exists in ~/.gemini/config/agents" wizard_preselect_from_agents "$ca5f"
+
+# The user's own skills and foreign links in ~/.gemini/config are not pack links: with Claude Code linked,
+# Antigravity stays unselected.
+ca5g="$(scenario a14-pty-foreign)"
+mkdir -p "$(gem_dir "$ca5g")/skills/my-skill" "$(gem_dir "$ca5g")/agents" "$ca5g/foreign" "$ca5g/claude/agents"
+printf 'foreign\n' >"$ca5g/foreign/agent.md"
+ln -s "$ca5g/foreign/agent.md" "$(gem_dir "$ca5g")/agents/foreign.md"
+ln -s "$tree/generated/claude/agents/ees-test-writer.md" "$ca5g/claude/agents/ees-test-writer.md"
+printf '\n\n' >"$ca5g/stdin"
+run_pty "$ca5g"
+wizard_ignores_foreign() {
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  wizard_preselects "$d/out" 1 || { echo "linked Claude is not preselected"; return 1; }
+  [[ -n "$(wizard_row "$d/out")" ]] || { echo "the wizard has no Antigravity row"; return 1; }
+  wizard_does_not_preselect "$d/out" 6 ||
+    { echo "Antigravity is preselected although ~/.gemini/config has only real and foreign entries"; return 1; }
+  [[ -d "$(gem_dir "$d")/skills/my-skill" && -L "$(gem_dir "$d")/agents/foreign.md" ]] ||
+    { echo "the user's own entries in ~/.gemini/config were removed"; return 1; }
+  assert_no_pack_links "$(gemini_skills "$d")" || return 1
+  assert_no_pack_links "$(gem_dir "$d")/agents" || return 1
+}
+check "[a14-5] real skills and foreign links in ~/.gemini/config do not preselect Antigravity" wizard_ignores_foreign "$ca5g"
+
+# Detection: agy on PATH, or ~/.gemini/antigravity-cli, shows it as installed (and not found otherwise).
+ca5h="$(scenario a14-pty-agy)"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$ca5h/bin/agy"
+chmod +x "$ca5h/bin/agy"
+printf 'none\nn\n' >"$ca5h/stdin"
+run_pty "$ca5h"
+ca5i="$(scenario a14-pty-agy-dir)"
+mkdir -p "$ca5i/home/.gemini/antigravity-cli"
+printf 'none\nn\n' >"$ca5i/stdin"
+run_pty "$ca5i"
+ca5j="$(scenario a14-pty-absent)"
+printf 'none\nn\n' >"$ca5j/stdin"
+run_pty "$ca5j"
+ca5k="$(scenario a14-pty-linked-agy)"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$ca5k/bin/agy"
+chmod +x "$ca5k/bin/agy"
+mkdir -p "$(gem_dir "$ca5k")/skills"
+ln -s "$tree/skills/ees-tdd" "$(gem_dir "$ca5k")/skills/ees-tdd"
+printf 'none\nn\n' >"$ca5k/stdin"
+run_pty "$ca5k"
+wizard_row_matches() { # wizard_row_matches <scenario> <ere> <what>
+  local row
+  has_rc "$1" 0 || return 1
+  row="$(wizard_row "$1/out")"
+  [[ -n "$row" ]] || { echo "the wizard has no Antigravity row"; return 1; }
+  grep -qE "$2" <<<"$row" || { echo "$3; row: $row"; return 1; }
+}
+check "[a14-5] agy on PATH shows Antigravity as installed" \
+  wizard_row_matches "$ca5h" '\[ \] installed[[:space:]]*$' "expected '[ ] installed'"
+check "[a14-5] ~/.gemini/antigravity-cli shows Antigravity as installed" \
+  wizard_row_matches "$ca5i" '\[ \] installed[[:space:]]*$' "expected '[ ] installed'"
+check "[a14-5] without agy and without ~/.gemini/antigravity-cli the wizard shows Antigravity as not found" \
+  wizard_row_matches "$ca5j" 'not found[[:space:]]*$' "expected 'not found'"
+check "[a14-5] a pack link and agy on PATH show Antigravity as linked, installed" \
+  wizard_row_matches "$ca5k" '\[x\] linked, installed[[:space:]]*$' "expected '[x] linked, installed'"
+
+# ---------------------------------------------------------------- [a14-6] settings.json storage
+
+# `providers` accepts antigravity: the installer's selection is stored there, and the stored list is the default
+# of the next run (wizard and no-flag run).
+ca6a="$(scenario a14-settings-cli)"
+ca6a_rc=0
+scenario_env "$ca6a" python3 "$tree/scripts/ees_settings.py" set-providers antigravity claude >"$ca6a/out" 2>"$ca6a/err" || ca6a_rc=$?
+ca6a_get_rc=0
+scenario_env "$ca6a" python3 "$tree/scripts/ees_settings.py" get-providers >"$ca6a/get.out" 2>"$ca6a/get.err" || ca6a_get_rc=$?
+settings_accepts_antigravity() {
+  local d="$1"
+  [[ "$ca6a_rc" == 0 ]] || { echo "set-providers antigravity claude exited $ca6a_rc: $(cat "$d/err")"; return 1; }
+  has_settings_providers "$d" antigravity,claude || return 1
+  [[ "$ca6a_get_rc" == 0 ]] || { echo "get-providers exited $ca6a_get_rc"; return 1; }
+  [[ "$(sort "$d/get.out" | tr '\n' ',')" == "antigravity,claude," ]] ||
+    { echo "get-providers printed: $(tr '\n' ' ' <"$d/get.out")"; return 1; }
+}
+check "[a14-6] ees_settings.py set-providers and get-providers accept antigravity" settings_accepts_antigravity "$ca6a"
+
+ca6b="$(scenario a14-settings-noflags)"
+write_settings "$ca6b" '{"providers": ["antigravity"]}'
+run_install "$ca6b"
+noflags_antigravity() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  assert_skill_root "$(gemini_skills "$d")" || return 1
+  assert_antigravity_agents "$d" || return 1
+  assert_no_pack_links "$d/claude/skills" || return 1
+  [[ ! -e "$d/home/.agents/skills" ]] || { echo "~/.agents/skills was created"; return 1; }
+  for p in claude codex cursor opencode pi; do assert_no_pack_links "$(agent_dest "$d" "$p")" || return 1; done
+}
+check "[a14-6] no flags and no terminal links only Antigravity when settings.json stores [antigravity]" noflags_antigravity "$ca6b"
+
+ca6c="$(scenario a14-settings-pty)"
+write_settings "$ca6c" '{"providers": ["antigravity"]}'
+printf '\n\n' >"$ca6c/stdin"
+run_pty "$ca6c"
+wizard_settings_antigravity() {
+  local d="$1" p
+  has_rc "$d" 0 || return 1
+  wizard_preselects "$d/out" 6 || { echo "antigravity from settings.json is not preselected"; return 1; }
+  for p in 1 2 3 4 5; do
+    wizard_does_not_preselect "$d/out" "$p" || { echo "provider $p is preselected but not in settings.json"; return 1; }
+  done
+  assert_antigravity_agents "$d"
+}
+check "[a14-6] the wizard preselects Antigravity from settings.json providers" wizard_settings_antigravity "$ca6c"
+
+# ---------------------------------------------------------------- [a14-7] usage, unknown ids and the final message
+
+ca7a="$(scenario a14-help)"
+run_install "$ca7a" --help
+help_lists_antigravity() {
+  local d="$1" line
+  has_rc "$d" 0 || return 1
+  line="$(grep -E '^[[:space:]]+--providers <list>' "$d/out" | head -n 1)"
+  [[ -n "$line" ]] || { echo "no --providers line in the help text"; return 1; }
+  grep -qF 'antigravity' <<<"$line" || { echo "the --providers help line does not list antigravity: $line"; return 1; }
+  grep -qE 'pi, antigravity' <<<"$line" || { echo "antigravity is not listed after pi (provider order): $line"; return 1; }
+}
+check "[a14-7] --help lists antigravity after pi among the --providers values" help_lists_antigravity "$ca7a"
+
+unknown_lists_antigravity() {
+  local d="$1"
+  has_rc "$d" 2 || return 1
+  grep -qF 'antigravity' "$d/err" || { echo "the usage printed for an unknown provider does not mention antigravity"; return 1; }
+}
+check "[a14-7] the usage printed for an unknown provider mentions antigravity" unknown_lists_antigravity "$c15b"
+
+ca7b="$(scenario a14-gemini-rejected)"
+git -C "$tree" config --unset core.hooksPath >/dev/null 2>&1 || true
+run_install "$ca7b" --providers gemini
+check "[a14-7] gemini (the Gemini CLI) is not a provider: exits 2 with usage and writes nothing" usage_error "$ca7b" 2
+
+done_mentions_antigravity() {
+  local d="$1" line
+  has_rc "$d" 0 || return 1
+  line="$(grep -E '^Done\.' "$d/out" | head -n 1)"
+  [[ -n "$line" ]] || { echo "no 'Done.' line"; return 1; }
+  grep -qF 'Antigravity' <<<"$line" || { echo "the final message does not mention Antigravity: $line"; return 1; }
+  grep -qF 'Claude Code' <<<"$line" && grep -qF 'opencode' <<<"$line" && grep -qF 'Pi' <<<"$line" ||
+    { echo "the final message lost a provider: $line"; return 1; }
+}
+check "[a14-7] the final message names Antigravity next to the other providers" done_mentions_antigravity "$c1"
+
+dry_run_mentions_antigravity() { # the dry run plans the Antigravity links and still writes nothing under ~/.gemini
+  local d="$1"
+  has_rc "$d" 0 || return 1
+  plan_has "$d/out" link "$(gemini_skills "$d")/ees-tdd" || { echo "plan misses the Antigravity skill link"; return 1; }
+  plan_has "$d/out" link "$(gem_dir "$d")/agents/ees-implementer.md" || { echo "plan misses the Antigravity agent link"; return 1; }
+  [[ ! -e "$d/home/.gemini" ]] || { echo "dry run created ~/.gemini"; return 1; }
+}
+ca7c="$(scenario a14-dry-run)"
+run_install "$ca7c" --providers antigravity --dry-run
+check "[a14-7] --providers antigravity --dry-run plans the Antigravity links and writes nothing" dry_run_mentions_antigravity "$ca7c"
 
 # ---------------------------------------------------------------- summary
 

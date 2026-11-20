@@ -24,6 +24,7 @@
 #   [A-validate]  build-agents --validate checks sources only and writes nothing; --check is gone
 #   [A-opencode]  opencode deviations land in opencode.json instead of the config/opencode.json default
 #   [A-unknown]   unknown agent, provider or key in settings.json warns and is ignored
+#   [A-antigravity] (issue #14) the provider antigravity is known: tuple, editable keys, catalog tiers, settings.json
 #   [real]        the real pack: catalog present and every default in it
 # Not covered here (writer side, owned by the GUI/HTTP area): identical-to-default not stored and reset
 # removing the key; both go through POST /api/save, whose API contract is the public interface.
@@ -642,7 +643,7 @@ c_real_catalog_covers_every_provider() { # [real]
   python3 -I - <<'PY'
 import sys, tomllib
 cat = tomllib.load(open("config/models.toml", "rb"))
-need = {"claude": "efforts", "codex": "efforts", "cursor": None, "opencode": "variants", "pi": "variants"}
+need = {"claude": "efforts", "codex": "efforts", "cursor": None, "opencode": "variants", "pi": "variants", "antigravity": None}
 bad = []
 for provider, extra in need.items():
     table = cat.get(provider)
@@ -670,12 +671,76 @@ c_real_build_is_clean_and_complete() { # [real]
   ran_ok "$d" || return 1
   did_not_warn "$d" || return 1
   for f in claude/agents/ees-code-reviewer.md codex/agents/ees-code-reviewer.toml cursor/agents/ees-code-reviewer.md \
-    opencode/agents/ees-code-reviewer.md pi/agents/ees-code-reviewer.md; do
+    opencode/agents/ees-code-reviewer.md pi/agents/ees-code-reviewer.md antigravity/agents/ees-code-reviewer.md; do
     [[ -f "$d/tree/generated/$f" ]] || { echo "generated/$f missing"; return 1; }
   done
   has_line "$d/tree/generated/codex/agents/ees-code-reviewer.toml" 'model = "gpt-6.1-terra"' || return 1
   run "$d" scripts/build-pi-prompts
   ran_ok "$d" || return 1
+}
+
+c_real_catalog_antigravity_is_tiers_only() { # [real] [A-antigravity] tiers inherit/flash/pro, no efforts, no variants
+  python3 -I - <<'PY'
+import sys, tomllib
+cat = tomllib.load(open("config/models.toml", "rb"))
+table = cat.get("antigravity")
+if table != {"models": ["inherit", "flash", "pro"]}:
+    sys.exit(f"[antigravity] in config/models.toml is {table!r}, expected exactly models = [inherit, flash, pro]")
+PY
+}
+
+c_real_ees_settings_knows_antigravity() { # [real] [A-antigravity] providers tuple (last) and the one editable key
+  PYTHONDONTWRITEBYTECODE=1 python3 -I - <<'PY'
+import sys
+sys.path.insert(0, "scripts")
+import ees_settings as es
+if "antigravity" not in es.providers:
+    sys.exit(f"ees_settings.providers is {es.providers!r}, no antigravity")
+if es.providers[-1] != "antigravity" or es.providers[:5] != ("claude", "codex", "cursor", "opencode", "pi"):
+    sys.exit(f"antigravity must be appended last after pi, got {es.providers!r}")
+if es.editable.get("antigravity") != ("model",):
+    sys.exit(f"ees_settings.editable['antigravity'] is {es.editable.get('antigravity')!r}, expected ('model',)")
+PY
+}
+
+c_real_set_providers_accepts_antigravity() { # [real] [A-antigravity] the CLI install.sh uses to store the selection
+  local d; d="$(real_tree)"
+  run "$d" python3 scripts/ees_settings.py set-providers claude antigravity
+  ran_ok "$d" || return 1
+  json_is "$(settings_file "$d")" 'c["providers"]' '["claude", "antigravity"]' || return 1
+  run "$d" python3 scripts/ees_settings.py get-providers
+  ran_ok "$d" || return 1
+  [[ "$(<"$d/out")" == $'claude\nantigravity' ]] || { echo "get-providers printed: $(<"$d/out")"; return 1; }
+}
+
+c_real_antigravity_only_model_is_editable() { # [real] [A-antigravity] an effort for antigravity is a known-but-not-editable key
+  local d; d="$(real_tree)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-implementer": { "antigravity": { "effort": "high" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  warned "$d" ees-implementer antigravity effort "not editable" || return 1
+}
+
+c_real_antigravity_model_outside_catalog_warns() { # [real] [A-antigravity] value outside the catalog warns and is used (merge_agents)
+  local d; d="$(real_tree)"
+  write_settings "$d" <<'JSON'
+{ "agents": { "ees-implementer": { "antigravity": { "model": "gemini-4-neon" } } } }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  warned "$d" ees-implementer antigravity gemini-4-neon "catalog" || return 1
+}
+
+c_antigravity_selection_is_known() { # [A-antigravity] a settings.json selection naming antigravity does not warn
+  local d; d="$(new_fx antigravity-selection)"
+  write_settings "$d" <<'JSON'
+{ "providers": ["claude", "antigravity"] }
+JSON
+  run "$d" scripts/build-agents
+  ran_ok "$d" || return 1
+  did_not_warn "$d" || return 1
 }
 
 c_real_opencode_config_has_no_catalog_warnings() { # [real]
@@ -722,6 +787,7 @@ area_unknown_settings() {
   check "[A-unknown] provider the agent has no table for: warn, nothing generated for it" c_provider_the_agent_does_not_have
   check "[A-unknown] unknown top-level key: warn naming it" c_unknown_top_level_key
   check "[A-unknown] unknown provider in providers: warn naming it" c_unknown_provider_in_selection
+  check "[A-antigravity] antigravity in providers is a known provider: no warning" c_antigravity_selection_is_known
 }
 
 area_opencode_config() {
@@ -736,7 +802,12 @@ area_opencode_config() {
 area_real_pack() {
   check "[real] config/models.toml lists models and efforts/variants for every provider" c_real_catalog_covers_every_provider
   check "[real] build-agents --validate passes on a clean clone (no generated/) and writes nothing" c_real_validate_passes_on_clean_clone
-  check "[real] build-agents and build-pi-prompts build the pack without warnings" c_real_build_is_clean_and_complete
+  check "[real] build-agents and build-pi-prompts build the pack without warnings, antigravity included" c_real_build_is_clean_and_complete
+  check "[A-antigravity] [real] config/models.toml [antigravity] is exactly models = inherit, flash, pro (no efforts, no variants)" c_real_catalog_antigravity_is_tiers_only
+  check "[A-antigravity] [real] ees_settings.providers ends with antigravity and editable['antigravity'] is ('model',)" c_real_ees_settings_knows_antigravity
+  check "[A-antigravity] [real] ees_settings.py set-providers / get-providers accept antigravity" c_real_set_providers_accepts_antigravity
+  check "[A-antigravity] [real] antigravity effort in settings.json warns as not editable" c_real_antigravity_only_model_is_editable
+  check "[A-antigravity] [real] antigravity model outside the catalog warns and is used" c_real_antigravity_model_outside_catalog_warns
   check "[real] opencode-config on the real pack warns about nothing" c_real_opencode_config_has_no_catalog_warnings
 }
 
@@ -768,6 +839,10 @@ area_real_pack() {
 #                ends with the result object; a refused save still answers with a plain JSON error
 #   [G-models]   POST /api/models asks the provider CLI, stores models.json, extends the catalog for saving;
 #                claude, unknown providers, a missing CLI and a foreign Origin are refused
+#   [G-antigravity] (issue #14) provider antigravity: listed last as "Antigravity" with the tiers inherit / flash /
+#                pro and no effort or variant; icon and no level slider and no Load models on the page; detection of
+#                ~/.gemini/config links and of agy; save writes agents.<agent>.antigravity.model and installs;
+#                POST /api/models for it is 400 invalid_request "unknown provider"
 
 : >"$sb/gitconfig"
 
@@ -1048,7 +1123,7 @@ c_gui_state_without_settings() { # [G-state]
   json_is "$f" '"gpt-6.1-terra" in c["catalog"]["codex"]["models"]' 'true' || return 1
   json_is "$f" '"ees-code-reviewer" in json.dumps(c["defaults"]) and "gpt-6.1-terra" in json.dumps(c["defaults"])' 'true' || return 1
   json_is "$f" '"claude-agent/opus" in json.dumps(c["defaults"])' 'true' || return 1   # config/opencode.json
-  json_is "$f" 'sorted(p["id"] for p in c["providers"])' '["claude", "codex", "cursor", "opencode", "pi"]' || return 1
+  json_is "$f" 'sorted(p["id"] for p in c["providers"])' '["antigravity", "claude", "codex", "cursor", "opencode", "pi"]' || return 1
   json_is "$f" 'all(set(p) >= {"id", "label", "selected", "note"} and isinstance(p["selected"], bool) and p["note"] in ("linked", "installed", "not found") for p in c["providers"])' 'true' || return 1
   json_is "$f" 'c["warnings"]' '[]' || return 1
   [[ ! -e "$(settings_file "$d")" ]] || { echo "GET /api/state created settings.json"; return 1; }
@@ -1346,6 +1421,199 @@ c_gui_load_models() { # [G-models]
   gui_stop "$d" || true
 }
 
+# ---- [G-antigravity]
+
+c_gui_antigravity_state() { # [G-antigravity] provider list, label, tier catalog, defaults
+  local d f
+  d="$(gui_new agy-state)"
+  gui_start "$d" scripts/setup || return 1
+  api "$d" GET /api/state "$(<"$d/token")" -
+  status_is "$d" 200 || return 1
+  f="$d/r.body"
+  json_is "$f" '[p["id"] for p in c["providers"]]' '["claude", "codex", "cursor", "opencode", "pi", "antigravity"]' || return 1
+  json_is "$f" '[p["label"] for p in c["providers"] if p["id"] == "antigravity"]' '["Antigravity"]' || return 1
+  json_is "$f" 'c["catalog"]["antigravity"]' '{"models": ["inherit", "flash", "pro"]}' || return 1   # no efforts, no variants
+  json_is "$f" 'c["pack_catalog"]["antigravity"]' '{"models": ["inherit", "flash", "pro"]}' || return 1
+  json_is "$f" '{a: t.get("antigravity") for a, t in c["defaults"]["agents"].items()}' \
+    '{"ees-check-runner": {"model": "flash"}, "ees-code-reviewer": {"model": "pro"}, "ees-functional-reviewer": {"model": "pro"}, "ees-implementer": {"model": "pro"}, "ees-test-writer": {"model": "pro"}, "ees-ux-reviewer": {"model": "pro"}}' || return 1
+  json_is "$f" '"antigravity" in c["local"]' 'false' || return 1
+  json_is "$f" 'c["warnings"]' '[]' || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_antigravity_page() { # [G-antigravity] icon, no level slider, no Load models
+  local d tok
+  d="$(gui_new agy-page)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  api "$d" GET "/?token=$tok" - -
+  status_is "$d" 200 || return 1
+  python3 -I - "$d/r.body" <<'PY' || return 1
+import re, sys
+page = open(sys.argv[1], encoding="utf-8").read()
+lines = page.splitlines()
+if not any(re.match(r'\s*antigravity\s*:\s*"<', l) for l in lines):
+    sys.exit("the icons map of the page has no antigravity entry")
+level = [l for l in lines if l.lstrip().startswith("const levelKey")]
+if len(level) != 1:
+    sys.exit(f"expected one levelKey line, found {len(level)}")
+if "antigravity" in level[0]:
+    sys.exit(f"levelKey must not have an antigravity entry (no effort slider): {level[0].strip()}")
+rest = [l for l in lines if "antigravity" in l and not re.match(r'\s*antigravity\s*:\s*"<', l)]
+if not any('"claude"' in l or "'claude'" in l for l in rest):
+    sys.exit("no Load models exclusion for antigravity: no line names antigravity next to the claude exclusion of the Load models button")
+PY
+  gui_stop "$d" || true
+}
+
+# antigravity note/selected as /api/state reports them for the provider
+agy_is() { json_is "$1/r.body" "[(p['note'], p['selected']) for p in c['providers'] if p['id'] == 'antigravity']" "$2"; }
+agy_state() { api "$1" GET /api/state "$(<"$1/token")" -; status_is "$1" 200; }
+
+c_gui_antigravity_detection_steps() {
+  local d h
+  d="$(gui_new agy-detect)"
+  h="$d/home/.gemini"
+  gui_start "$d" scripts/setup || return 1
+  # nothing there
+  agy_state "$d" || return 1
+  agy_is "$d" '[["not found", false]]' || return 1
+  # the CLI's own directory alone: installed, not linked
+  mkdir -p "$h/antigravity-cli"
+  agy_state "$d" || return 1
+  agy_is "$d" '[["installed", false]]' || return 1
+  rm -rf "$h"
+  # agy on PATH: installed
+  printf '#!/bin/sh\nexit 0\n' >"$guibin/agy"; chmod +x "$guibin/agy"
+  agy_state "$d" || return 1
+  agy_is "$d" '[["installed", false]]' || return 1
+  rm -f "$guibin/agy"
+  # the user's own skills, foreign links and plugins are not pack links
+  mkdir -p "$h/config/skills/my-skill" "$h/config/agents" "$h/config/plugins/p" "$d/home/elsewhere"
+  ln -s "$d/home/elsewhere" "$h/config/skills/foreign"
+  printf 'real\n' >"$h/config/agents/ees-implementer.md"
+  agy_state "$d" || return 1
+  json_is "$d/r.body" "[p['note'] != 'linked' and not p['selected'] for p in c['providers'] if p['id'] == 'antigravity']" '[true]' || return 1
+  # a pack link in skills/ makes it linked and preselected (no stored providers)
+  ln -s "$d/tree/skills/ees-tdd" "$h/config/skills/ees-tdd"
+  agy_state "$d" || return 1
+  agy_is "$d" '[["linked", true]]' || return 1
+  # a pack link in agents/ alone does too
+  rm -f "$h/config/skills/ees-tdd" "$h/config/agents/ees-implementer.md"
+  agy_state "$d" || return 1
+  json_is "$d/r.body" "[p['note'] != 'linked' for p in c['providers'] if p['id'] == 'antigravity']" '[true]' || return 1
+  ln -s "$d/tree/agents/ees-implementer.md" "$h/config/agents/ees-implementer.md"
+  agy_state "$d" || return 1
+  agy_is "$d" '[["linked", true]]' || return 1
+  gui_stop "$d" || true
+}
+
+c_gui_antigravity_detection() { # [G-antigravity] linked / installed / not found, like the other providers
+  local rc=0
+  c_gui_antigravity_detection_steps || rc=$?
+  rm -f "$guibin/agy"
+  return "$rc"
+}
+
+c_gui_antigravity_save_writes_model_and_installs() { # [G-antigravity] deviation, install, reset, default, untick
+  local d s h
+  d="$(gui_new agy-save)"
+  s="$(settings_file "$d")"
+  h="$d/home/.gemini/config"
+  mkdir -p "$h/skills/my-skill" "$h/plugins/p"
+  printf 'mine\n' >"$h/skills/my-skill/SKILL.md"
+  printf '{}\n' >"$h/plugins/p/plugin.json"
+  gui_start "$d" scripts/setup || return 1
+
+  save "$d" '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"model":"flash"}}},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["providers"]' '["antigravity"]' || return 1
+  settings_is "$d" 'c["agents"]' '{"ees-implementer": {"antigravity": {"model": "flash"}}}' || return 1
+  [[ -L "$h/agents/ees-implementer.md" ]] || { echo "$h/agents/ees-implementer.md is not a link after the save"; return 1; }
+  has_line "$h/agents/ees-implementer.md" 'model: flash' || return 1
+  has_line "$h/agents/ees-code-reviewer.md" 'model: pro' || return 1
+  has_line "$h/agents/ees-check-runner.md" 'model: flash' || return 1
+  local f
+  for f in "$d"/tree/agents/*.md; do
+    [[ -L "$h/agents/$(basename "$f")" ]] || { echo "agent $(basename "$f") not linked into ~/.gemini/config/agents"; return 1; }
+  done
+  for f in ees-analyze ees-implement ees-tdd; do
+    [[ -L "$h/skills/$f" ]] || { echo "skill $f not linked into ~/.gemini/config/skills"; return 1; }
+  done
+  [[ ! -e "$d/home/.agents" ]] || { echo "~/.agents was created for antigravity, which does not read it"; return 1; }
+  [[ ! -e "$d/claude/agents" && ! -e "$d/codex/agents" ]] || { echo "other providers were linked"; return 1; }
+  api "$d" GET /api/state "$(<"$d/token")" -
+  json_is "$d/r.body" 'c["settings"]["agents"]' '{"ees-implementer": {"antigravity": {"model": "flash"}}}' || return 1
+  agy_is "$d" '[["linked", true]]' || return 1
+
+  # a value identical to the default is not stored; reset drops the key and the link follows the default
+  save "$d" '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"model":"pro"}},"ees-check-runner":{"antigravity":{"model":"flash"}}},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" '(c.get("agents") or {})' '{}' || return 1
+  has_line "$h/agents/ees-implementer.md" 'model: pro' || return 1
+  save "$d" '{"providers":["antigravity"],"agents":{"ees-code-reviewer":{"antigravity":{"model":"inherit"}}},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["agents"]' '{"ees-code-reviewer": {"antigravity": {"model": "inherit"}}}' || return 1
+  has_line "$h/agents/ees-code-reviewer.md" 'model: inherit' || return 1
+  save "$d" '{"providers":["antigravity"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" '(c.get("agents") or {}).get("ees-code-reviewer", {}).get("antigravity", {}).get("model", "ABSENT")' '"ABSENT"' || return 1
+  has_line "$h/agents/ees-code-reviewer.md" 'model: pro' || return 1
+
+  # unticking removes the pack links, never the user's own skills or the plugins
+  save "$d" '{"providers":["claude"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  settings_is "$d" 'c["providers"]' '["claude"]' || return 1
+  [[ -z "$(find "$h/agents" "$h/skills" -type l 2>/dev/null)" ]] || { echo "pack links left in ~/.gemini/config:"; find "$h/agents" "$h/skills" -type l; return 1; }
+  [[ -f "$h/skills/my-skill/SKILL.md" && -f "$h/plugins/p/plugin.json" ]] || { echo "the user's own skill or plugin was removed"; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_antigravity_rejects_non_tier_values() { # [G-antigravity] only the tiers, only model
+  local d before after body
+  d="$(gui_new agy-invalid)"
+  gui_start "$d" scripts/setup || return 1
+  save "$d" '{"providers":["claude"],"agents":{},"opencode":{}}'
+  saved_ok "$d" || return 1
+  before="$(snapshot "$d")"
+  for body in \
+    '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"model":"gemini-4-neon"}}},"opencode":{}}' \
+    '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"model":"gemini-3.8-flash-low"}}},"opencode":{}}' \
+    '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"effort":"high"}}},"opencode":{}}' \
+    '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"variant":"high"}}},"opencode":{}}' \
+    '{"providers":["antigravity"],"agents":{"ees-implementer":{"antigravity":{"tools":["read_file"]}}},"opencode":{}}'; do
+    save "$d" "$body"
+    status_is "$d" 400 invalid_settings || { echo "(request: $body)"; return 1; }
+    # refused for the value or key, not because antigravity itself is unknown
+    ! grep -Fq 'unknown provider' "$d/r.body" || { echo "refused as an unknown provider, expected a catalog/editable problem: $(head -c 300 "$d/r.body")"; return 1; }
+  done
+  after="$(snapshot "$d")"
+  [[ "$before" == "$after" ]] || { echo "settings or links changed by rejected requests:"; diff <(echo "$before") <(echo "$after") || true; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_antigravity_has_no_model_discovery_steps() {
+  local d tok
+  d="$(gui_new agy-models)"
+  gui_start "$d" scripts/setup || return 1
+  tok="$(<"$d/token")"
+  # even with an agy on PATH that would list models, there is nothing to load for antigravity
+  printf '#!/bin/sh\necho gemini-3.8-flash-high\n' >"$guibin/agy"; chmod +x "$guibin/agy"
+  printf '%s\n' '{"provider":"antigravity"}' >"$d/req.json"
+  api "$d" POST /api/models "$tok" "$(origin_of "$d")" "$d/req.json"
+  status_is "$d" 400 invalid_request || return 1
+  grep -Fq 'unknown provider' "$d/r.body" || { echo "expected the message 'unknown provider', got: $(head -c 300 "$d/r.body")"; return 1; }
+  [[ ! -e "$d/xdg/enterprise-engineering-skills/models.json" ]] || { echo "models.json was written for antigravity"; return 1; }
+  gui_stop "$d" || true
+}
+
+c_gui_antigravity_has_no_model_discovery() { # [G-antigravity] POST /api/models: 400 invalid_request, unknown provider
+  local rc=0
+  c_gui_antigravity_has_no_model_discovery_steps || rc=$?
+  rm -f "$guibin/agy"
+  return "$rc"
+}
+
 c_gui_save_streams_install_output() { # [G-stream]
   local d
   d="$(gui_new stream)"
@@ -1388,6 +1656,12 @@ area_gui() {
   check "[G-stream] POST /api/save with Accept: application/x-ndjson streams the install output and ends with the result; a refused save stays a JSON 400" c_gui_save_streams_install_output
   check "[G-models] POST /api/models stores the CLI's models in models.json and they can be saved without warnings; claude, unknown, missing CLI and foreign Origin are refused" c_gui_load_models
   check "[G-harden] GET /?token= carries a Content-Security-Policy header and Referrer-Policy: no-referrer" c_gui_page_security_headers
+  check "[G-antigravity] /api/state lists Antigravity last with the tiers inherit/flash/pro (no efforts/variants) and the pack defaults" c_gui_antigravity_state
+  check "[G-antigravity] the page has an antigravity icon, no level slider (levelKey) and no Load models for it" c_gui_antigravity_page
+  check "[G-antigravity] detection: pack links in ~/.gemini/config are linked and preselected, agy or ~/.gemini/antigravity-cli installed, own skills and foreign links ignored" c_gui_antigravity_detection
+  check "[G-antigravity] saving writes agents.<agent>.antigravity.model and installs into ~/.gemini/config; default and reset are not stored; untick keeps own skills and plugins" c_gui_antigravity_save_writes_model_and_installs
+  check "[G-antigravity] a model outside inherit/flash/pro, an effort, a variant or tools for antigravity is 400 invalid_settings, nothing written" c_gui_antigravity_rejects_non_tier_values
+  check "[G-antigravity] POST /api/models for antigravity is 400 invalid_request 'unknown provider' (no discoverer), even with agy on PATH" c_gui_antigravity_has_no_model_discovery
 }
 
 main() {

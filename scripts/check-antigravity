@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+# Verify the Antigravity CLI (`agy`) support of issue #14: scripts/build-agents generates one agent file per
+# agent with a flash/pro model tier and an explicit tools list, a default or settings value outside the catalog
+# is caught, and install.sh links skills and agents into ~/.gemini/config/, prunes them again and never
+# overwrites a real file. Prints one PASS/FAIL line per check and exits 1 when any check fails.
+# [harness] labels check the helpers of this script against providers that already exist, so a failing
+# Antigravity check means missing behaviour and not a broken script.
+#
+# Everything runs in a sandbox, so the real ~/.gemini, ~/.config and the checkout are never touched: a mktemp dir
+# is used as HOME and as XDG_CONFIG_HOME (the settings.json location), and every provider directory is
+# redirected with CLAUDE_CONFIG_DIR, CODEX_HOME and PI_CODING_AGENT_DIR. generated/ is gitignored local build
+# output, so agents are built in copies of the tree (without .git and generated/); the installer runs from a copy
+# with its own git repository, so its core.hooksPath write never lands in the checkout. The checks are static:
+# they read the generated files and the links and never start `agy`.
+set -euo pipefail
+shopt -s nullglob
+
+pack="$(git rev-parse --show-toplevel)"
+cd "$pack"
+fails=0
+
+check() { # check <description> <command...>
+  local desc="$1"; shift
+  local out
+  if out="$("$@" 2>&1)"; then
+    echo "PASS  $desc"
+  else
+    echo "FAIL  $desc"
+    fails=$((fails + 1))
+    if [[ -n "$out" ]]; then
+      awk 'NR <= 8 { print "      " $0 }' <<<"$out"
+    fi
+  fi
+}
+
+# ---------------------------------------------------------------- sandbox
+
+sb="$(mktemp -d)"
+trap 'rm -rf "$sb"' EXIT
+: >"$sb/gitconfig"
+
+# Pristine source snapshot, the base of every tree copy below.
+src="$sb/src"
+mkdir -p "$src"
+tar --exclude=./.git --exclude=./generated -cf - . | tar -xf - -C "$src"
+
+new_tree() { # new_tree <name> [git]: a copy of the snapshot, with its own git repository on request
+  local t="$sb/tree-$1"
+  cp -a "$src" "$t"
+  if [[ "${2:-}" == git ]]; then git init -q "$t" >/dev/null 2>&1; fi
+  echo "$t"
+}
+
+# Per-scenario environment: HOME and XDG_CONFIG_HOME (settings.json) inside the sandbox, other providers redirected.
+senv() { # senv <scenario-dir> <command...>
+  local d="$1"; shift
+  mkdir -p "$d/home"
+  env HOME="$d/home" XDG_CONFIG_HOME="$d/xdg" CLAUDE_CONFIG_DIR="$d/claude" CODEX_HOME="$d/codex" \
+    PI_CODING_AGENT_DIR="$d/pi/agent" GIT_CONFIG_GLOBAL="$sb/gitconfig" GIT_CONFIG_NOSYSTEM=1 "$@"
+}
+
+write_settings() { # write_settings <scenario-dir> <json>
+  mkdir -p "$1/xdg/enterprise-engineering-skills"
+  printf '%s\n' "$2" >"$1/xdg/enterprise-engineering-skills/settings.json"
+}
+
+# ---------------------------------------------------------------- helpers
+
+# frontmatter <file>: the lines between the first two `---` lines.
+frontmatter() { awk 'f == 0 && $0 == "---" { f = 1; next } f == 1 && $0 == "---" { exit } f == 1 { print }' "$1"; }
+# fm_value <file> <key>: the value of a top-level `key: value` frontmatter line.
+fm_value() { frontmatter "$1" | sed -n "s/^$2: *//p" | head -n 1; }
+# tools_of <file>: the YAML list items under `tools:`, sorted, space separated.
+tools_of() {
+  frontmatter "$1" | awk '/^tools:/ { t = 1; next } t == 1 && /^  - / { sub(/^  - /, ""); print; next } t == 1 { exit }' \
+    | sort | tr '\n' ' ' | sed 's/ $//'
+}
+# body_first_line <file>: the first non-empty line after the frontmatter.
+body_first_line() { awk 'n < 2 && $0 == "---" { n++; next } n == 2 && $0 != "" { print; exit }' "$1"; }
+
+expect_eq() { # expect_eq <actual> <expected> <what>
+  [[ "$1" == "$2" ]] || { echo "$3: expected '$2', got '$1'"; return 1; }
+}
+
+agents=(ees-check-runner ees-code-reviewer ees-functional-reviewer ees-implementer ees-test-writer ees-ux-reviewer)
+readonly_agents=(ees-check-runner ees-code-reviewer ees-functional-reviewer)
+
+is_readonly() { local a; for a in "${readonly_agents[@]}"; do [[ "$a" == "$1" ]] && return 0; done; return 1; }
+
+agf() { echo "$1/generated/antigravity/agents/$2.md"; } # agf <tree> <agent>
+
+# links_ok <skills-dir> <agents-dir> <provider>: every pack skill and every generated agent of <provider> is linked.
+links_ok() {
+  local skills="$1" agents_dir="$2" provider="$3" skill name agent n=0
+  for skill in "$tree_i"/skills/*/ "$tree_i"/skills/personal/*/; do
+    skill="${skill%/}"
+    [[ -f "$skill/SKILL.md" ]] || continue
+    name="$(basename "$skill")"
+    [[ -L "$skills/$name" && "$(readlink -f "$skills/$name")" == "$(readlink -f "$skill")" ]] \
+      || { echo "skill $name is not linked in $skills"; return 1; }
+    n=$((n + 1))
+  done
+  (( n > 0 )) || { echo "no skills found"; return 1; }
+  for agent in "${agents[@]}"; do
+    [[ -L "$agents_dir/$agent.md" && "$(readlink -f "$agents_dir/$agent.md")" == "$(readlink -f "$tree_i/generated/$provider/agents/$agent.md")" ]] \
+      || { echo "agent $agent is not linked in $agents_dir"; return 1; }
+  done
+}
+
+# no_pack_links <dir>: no symlink into the installer tree is left directly in <dir>.
+no_pack_links() {
+  local dir="$1" entry
+  for entry in "$dir"/*; do
+    if [[ -L "$entry" && "$(readlink "$entry")" == "$tree_i"/* ]]; then echo "pack link left: $entry"; return 1; fi
+  done
+  return 0
+}
+has_pack_links() { ! no_pack_links "$1" >/dev/null; }
+
+# ---------------------------------------------------------------- build (default settings)
+
+built="$(new_tree built)"
+d_build="$sb/s-build"
+check "build: build-agents succeeds on a tree without generated/" senv "$d_build" "$built/scripts/build-agents"
+check "build: build-agents --validate exits 0" senv "$d_build" "$built/scripts/build-agents" --validate
+
+# [harness] the helpers read the existing claude output and a fixture correctly.
+check "[harness] fm_value reads the claude model of ees-check-runner" \
+  expect_eq "$(fm_value "$built/generated/claude/agents/ees-check-runner.md" model)" haiku "claude model"
+cat >"$sb/fixture.md" <<'EOF'
+---
+# comment
+name: x
+model: pro
+tools:
+  - write_file
+  - read_file
+color: red
+---
+
+First body line.
+EOF
+check "[harness] fm_value reads a model from the fixture" expect_eq "$(fm_value "$sb/fixture.md" model)" pro "fixture model"
+check "[harness] tools_of parses a YAML tools list" expect_eq "$(tools_of "$sb/fixture.md")" "read_file write_file" "fixture tools"
+check "[harness] body_first_line skips the frontmatter" expect_eq "$(body_first_line "$sb/fixture.md")" "First body line." "fixture body"
+check "[harness] body_first_line reads the pi agent body" \
+  test -n "$(body_first_line "$built/generated/pi/agents/ees-test-writer.md")"
+
+# ---------------------------------------------------------------- built agents
+
+agent_files_ok() {
+  local a f
+  for a in "${agents[@]}"; do
+    f="$(agf "$built" "$a")"
+    [[ -f "$f" ]] || { echo "missing $f"; return 1; }
+    [[ "$(fm_value "$f" name)" == "$a" ]] || { echo "$a: name"; return 1; }
+    [[ -n "$(fm_value "$f" description)" ]] || { echo "$a: description"; return 1; }
+    [[ -n "$(fm_value "$f" model)" ]] || { echo "$a: model"; return 1; }
+    [[ -n "$(tools_of "$f")" ]] || { echo "$a: tools"; return 1; }
+    grep -qxF "# Generated by scripts/build-agents from agents/$a.md and agents.toml; do not edit." "$f" \
+      || { echo "$a: header comment"; return 1; }
+  done
+}
+check "built antigravity/agents: all six agents have name, description, model, tools and the header comment" agent_files_ok
+
+models_ok() {
+  local a f want
+  for a in "${agents[@]}"; do
+    want=pro
+    [[ "$a" == ees-check-runner ]] && want=flash
+    f="$(agf "$built" "$a")"
+    expect_eq "$(fm_value "$f" model)" "$want" "$a model" || return 1
+  done
+}
+check "agent models: ees-check-runner is flash, the other five are pro" models_ok
+
+tools_ok() {
+  local a f want
+  for a in "${agents[@]}"; do
+    if is_readonly "$a"; then want="read_file run_command"; else want="edit_file read_file run_command write_file"; fi
+    f="$(agf "$built" "$a")"
+    expect_eq "$(tools_of "$f")" "$want" "$a tools" || return 1
+  done
+}
+check "agent tools: readonly agents get read_file and run_command, the others also edit_file and write_file" tools_ok
+
+tools_format_ok() {
+  local a f
+  for a in "${agents[@]}"; do
+    f="$(agf "$built" "$a")"
+    frontmatter "$f" | grep -qx 'tools:' || { echo "$a: tools is not a YAML block list"; return 1; }
+    frontmatter "$f" | grep -qx '  - read_file' || { echo "$a: no '  - read_file' item"; return 1; }
+    frontmatter "$f" | grep -qx '  - run_command' || { echo "$a: no '  - run_command' item"; return 1; }
+  done
+}
+check "agent tools: written as YAML list items under tools:" tools_format_ok
+
+check "agent ees-test-writer: body starts with the ees-tdd read-first line" \
+  expect_eq "$(body_first_line "$(agf "$built" ees-test-writer)" 2>/dev/null || true)" 'Before you start, read the `ees-tdd` skill.' "first body line"
+
+# mainAgent, commandExecutionPolicy and a skills: list are not written (issue decision).
+no_extra_keys_ok() {
+  local a f
+  for a in "${agents[@]}"; do
+    f="$(agf "$built" "$a")"
+    [[ -f "$f" ]] || { echo "missing $f"; return 1; }
+    ! frontmatter "$f" | grep -qE '^(mainAgent|commandExecutionPolicy|skills):' || { echo "$a: unexpected frontmatter key"; return 1; }
+  done
+}
+check "agent frontmatter: no mainAgent, commandExecutionPolicy or skills key" no_extra_keys_ok
+
+# ---------------------------------------------------------------- default outside the catalog
+
+bad="$(new_tree bad)"
+python3 -I - "$bad/agents.toml" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+text = re.sub(r"(?m)^antigravity = .*\n", "", text)
+text = text.replace("[ees-code-reviewer]\n", '[ees-code-reviewer]\nantigravity = { model = "gemini-4-neon" }\n', 1)
+open(path, "w", encoding="utf-8").write(text)
+PY
+catalog_default_fails() {
+  local out rc=0
+  out="$(senv "$sb/s-bad" "$bad/scripts/build-agents" --validate 2>&1)" || rc=$?
+  (( rc != 0 )) || { echo "build-agents --validate exited 0"; return 1; }
+  if grep -qF 'gemini-4-neon' <<<"$out" && grep -qF 'not in config/models.toml' <<<"$out"; then return 0; fi
+  echo "message lacks the value or the catalog reason: $out"
+  return 1
+}
+check "validate: antigravity default gemini-4-neon in agents.toml fails with a not-in-catalog message" catalog_default_fails
+
+# ---------------------------------------------------------------- settings.json deviations
+
+flash_tree="$(new_tree flash)"
+d_flash="$sb/s-flash"
+write_settings "$d_flash" '{"agents": {"ees-implementer": {"antigravity": {"model": "flash"}}}}'
+flash_ok() {
+  senv "$d_flash" "$flash_tree/scripts/build-agents" >/dev/null 2>&1 || { echo "build failed"; return 1; }
+  local a want
+  for a in "${agents[@]}"; do
+    want=pro
+    [[ "$a" == ees-check-runner || "$a" == ees-implementer ]] && want=flash
+    expect_eq "$(fm_value "$(agf "$flash_tree" "$a")" model)" "$want" "$a model" || return 1
+  done
+}
+check "settings: agents.ees-implementer.antigravity.model = flash makes the implementer flash, the others keep defaults" flash_ok
+
+odd_tree="$(new_tree odd)"
+d_odd="$sb/s-odd"
+write_settings "$d_odd" '{"agents": {"ees-implementer": {"antigravity": {"model": "gemini-4-neon"}}}}'
+odd_ok() {
+  local out
+  out="$(senv "$d_odd" "$odd_tree/scripts/build-agents" 2>&1)" || { echo "build failed: $out"; return 1; }
+  if ! { grep -qE '^warn ' <<<"$out" && grep -qF 'gemini-4-neon' <<<"$out"; }; then
+    echo "no warn line naming the value: $out"
+    return 1
+  fi
+  expect_eq "$(fm_value "$(agf "$odd_tree" ees-implementer)" model)" gemini-4-neon "implementer model" || return 1
+  expect_eq "$(fm_value "$(agf "$odd_tree" ees-code-reviewer)" model)" pro "reviewer model"
+}
+check "settings: antigravity.model = gemini-4-neon warns and is used anyway" odd_ok
+
+# ---------------------------------------------------------------- install.sh
+
+# The installer runs from a tree with its own git repository; one tree serves every scenario, each with its own HOME.
+tree_i="$(new_tree install git)"
+tree_i="$(cd "$tree_i" && pwd -P)"
+install_in() { # install_in <scenario-dir> <args...>; stdin closed, output to <dir>/out
+  local d="$1"; shift
+  mkdir -p "$d"
+  senv "$d" "$tree_i/install.sh" "$@" </dev/null >"$d/out" 2>&1
+}
+
+# [harness] links_ok, no_pack_links and has_pack_links work against the existing claude provider.
+d_claude="$sb/s-claude"
+install_claude_only() { install_in "$d_claude" --providers claude --yes; }
+check "[harness] installer run for claude succeeds" install_claude_only
+check "[harness] links_ok accepts the claude install" links_ok "$d_claude/claude/skills" "$d_claude/claude/agents" claude
+check "[harness] has_pack_links sees the claude pack links" has_pack_links "$d_claude/claude/agents"
+not_linked() { ! links_ok "$d_claude/codex-none/skills" "$d_claude/codex-none/agents" claude >/dev/null; }
+check "[harness] links_ok fails on a directory without links" not_linked
+
+# Scenario: install for antigravity.
+d_ag="$sb/s-ag"
+ag_dir="$d_ag/home/.gemini/config"
+# The checks that assert something is absent or kept only count after the run that should have created it worked.
+ag_ran=0
+if install_in "$d_ag" --providers antigravity --yes; then ag_ran=1; fi
+ag_linked=0
+if links_ok "$ag_dir/skills" "$ag_dir/agents" antigravity >/dev/null 2>&1; then ag_linked=1; fi
+precondition() { # precondition <flag> <what> <command...>: fail unless <flag> is 1, else run the command
+  local flag="$1" what="$2"; shift 2
+  (( flag )) || { echo "precondition not met: $what"; return 1; }
+  "$@"
+}
+check "install.sh: --providers antigravity --yes succeeds" test "$ag_ran" -eq 1
+check "install.sh: links every skill into ~/.gemini/config/skills and every agent into ~/.gemini/config/agents" \
+  links_ok "$ag_dir/skills" "$ag_dir/agents" antigravity
+check "install.sh: antigravity alone does not create ~/.agents/skills" \
+  precondition "$ag_linked" "antigravity links exist" test ! -e "$d_ag/home/.agents/skills"
+check "install.sh: antigravity alone links nothing into the claude directory" \
+  precondition "$ag_linked" "antigravity links exist" test ! -e "$d_ag/claude/agents/ees-implementer.md"
+
+# Scenario: the provider is dropped again; the user's own files stay.
+mkdir -p "$ag_dir/skills/my-skill" "$ag_dir/plugins/some-plugin"
+echo "mine" >"$ag_dir/skills/my-skill/SKILL.md"
+echo "plugin" >"$ag_dir/plugins/some-plugin/plugin.json"
+claude_ran=0
+if install_in "$d_ag" --providers claude --yes; then claude_ran=1; fi
+check "install.sh: a following --providers claude --yes run succeeds" test "$claude_ran" -eq 1
+check "install.sh: removes the pack links from ~/.gemini/config/skills" \
+  precondition "$ag_linked" "antigravity links exist before the run" no_pack_links "$ag_dir/skills"
+check "install.sh: removes the pack links from ~/.gemini/config/agents" \
+  precondition "$ag_linked" "antigravity links exist before the run" no_pack_links "$ag_dir/agents"
+check "install.sh: keeps the real ~/.gemini/config/skills/my-skill directory" \
+  precondition "$ag_linked" "antigravity links exist before the run" test -f "$ag_dir/skills/my-skill/SKILL.md"
+check "install.sh: keeps the content of ~/.gemini/config/plugins/" \
+  precondition "$ag_linked" "antigravity links exist before the run" test -f "$ag_dir/plugins/some-plugin/plugin.json"
+check "install.sh: the claude run links the claude directory" links_ok "$d_ag/claude/skills" "$d_ag/claude/agents" claude
+
+# Scenario: a real agent file is not overwritten.
+d_real="$sb/s-real"
+real_agent="$d_real/home/.gemini/config/agents/ees-implementer.md"
+mkdir -p "$(dirname "$real_agent")"
+echo "my own agent" >"$real_agent"
+real_ran=0
+if install_in "$d_real" --providers antigravity --yes; then real_ran=1; fi
+check "install.sh: run with a real ees-implementer.md in ~/.gemini/config/agents succeeds" test "$real_ran" -eq 1
+check "install.sh: prints skip for the real agent file" grep -qE '^skip +.*/\.gemini/config/agents/ees-implementer\.md' "$d_real/out"
+real_untouched() { [[ ! -L "$real_agent" && "$(cat "$real_agent")" == "my own agent" ]]; }
+check "install.sh: leaves the real agent file untouched" precondition "$real_ran" "the install run succeeded" real_untouched
+others_linked() {
+  local a
+  for a in ees-check-runner ees-code-reviewer ees-functional-reviewer ees-test-writer ees-ux-reviewer; do
+    [[ -L "$d_real/home/.gemini/config/agents/$a.md" ]] || { echo "$a not linked"; return 1; }
+  done
+}
+check "install.sh: still links the other five agents next to the real file" others_linked
+
+if (( fails )); then
+  echo
+  echo "$fails check(s) failed"
+  exit 1
+fi
+echo
+echo "all checks passed"
